@@ -1,27 +1,19 @@
 {
-  "name": "server",
+  "name": "fantasy-analytics-server",
   "version": "1.0.0",
   "type": "module",
-  "main": "bin/src/server.js",
   "scripts": {
     "build": "tsc -p .",
-    "start": "node ./bin/src/server.js",
-    "dev": "npm run build && node ./bin/src/server.js",
-    "watch": "tsc -p . --watch",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node ./dist/server.js",
+    "dev": "tsc -p . && node ./dist/server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "@clerk/express": "^2.1.13",
-    "dotenv": "^16.4.7",
-    "express": "^5.1.0",
-    "node-fetch": "^3.3.2",
-    "typescript": "^5.8.2"
+    "@clerk/express": "^1.7.0",
+    "dotenv": "^16.4.0",
+    "express": "^5.0.0"
   },
   "devDependencies": {
-    "@types/express": "^5.0.1"
+    "@types/express": "^5.0.0",
+    "typescript": "^5.4.0"
   }
 }

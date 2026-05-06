@@ -1,24 +1,24 @@
-import React from 'react';
+import { lazy, type LazyExoticComponent } from 'react'
 
 export interface WidgetDefinition {
-  id: string;
-  name: string;
-  description: string;
-  component: React.LazyExoticComponent<any>;
-  defaultSize: { w: number; h: number };
-  tags: string[];
+  id: string
+  name: string
+  description: string
+  component: LazyExoticComponent<() => JSX.Element>
+  defaultSize: { w: number; h: number }
+  tags: string[]
 }
 
-const widgetRegistry: Record<string, WidgetDefinition> = {};
+const registry: Record<string, WidgetDefinition> = {}
 
-export function registerWidget(def: WidgetDefinition): void {
-  widgetRegistry[def.id] = def;
+export function registerWidget(def: WidgetDefinition) {
+  registry[def.id] = def
 }
 
 export function getWidget(id: string): WidgetDefinition | undefined {
-  return widgetRegistry[id];
+  return registry[id]
 }
 
 export function getAllWidgets(): WidgetDefinition[] {
-  return Object.values(widgetRegistry);
+  return Object.values(registry)
 }
