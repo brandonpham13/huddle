@@ -3,8 +3,7 @@ import axios from 'axios'
 import { useAuth } from '@clerk/clerk-react'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { setSyncedLeagueIds } from '../store/slices/authSlice'
-import type { League, Roster, TeamUser, Matchup, Player } from '../types/fantasy'
-import type { SleeperNFLState, SleeperTransaction, SleeperTradedPick, SleeperPlayoffMatchup, SleeperDraft, SleeperDraftPick } from '../types/sleeper'
+import type { League, Roster, TeamUser, Matchup, Player, NFLState, Transaction, TradedPick, PlayoffMatchup, Draft, DraftPick } from '../types/fantasy'
 
 const PROVIDER = 'sleeper'
 const base = (path: string) => `/api/provider/${PROVIDER}${path}`
@@ -129,12 +128,12 @@ export function useNFLPlayers() {
 // ---- NFL State (current week/season) ----
 export function useNFLState() {
   return useQuery({
-    queryKey: ['nfl-state'],
+    queryKey: ['provider-state', PROVIDER],
     queryFn: async () => {
-      const res = await axios.get<{ state: SleeperNFLState }>('/api/sleeper/state/nfl')
+      const res = await axios.get<{ state: NFLState }>(base('/state'))
       return res.data.state
     },
-    staleTime: 60 * 60 * 1000, // 1hr — matches server cache
+    staleTime: 60 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
   })
 }
@@ -142,10 +141,10 @@ export function useNFLState() {
 // ---- Transactions ----
 export function useLeagueTransactions(leagueId: string | null, week: number | null) {
   return useQuery({
-    queryKey: ['sleeper-transactions', leagueId, week],
+    queryKey: ['provider-transactions', PROVIDER, leagueId, week],
     queryFn: async () => {
-      const res = await axios.get<{ transactions: SleeperTransaction[] }>(
-        `/api/sleeper/league/${leagueId}/transactions/${week}`
+      const res = await axios.get<{ transactions: Transaction[] }>(
+        base(`/league/${leagueId}/transactions/${week}`)
       )
       return res.data.transactions
     },
@@ -157,10 +156,10 @@ export function useLeagueTransactions(leagueId: string | null, week: number | nu
 // ---- Traded Picks ----
 export function useTradedPicks(leagueId: string | null) {
   return useQuery({
-    queryKey: ['sleeper-traded-picks', leagueId],
+    queryKey: ['provider-traded-picks', PROVIDER, leagueId],
     queryFn: async () => {
-      const res = await axios.get<{ picks: SleeperTradedPick[] }>(
-        `/api/sleeper/league/${leagueId}/traded_picks`
+      const res = await axios.get<{ picks: TradedPick[] }>(
+        base(`/league/${leagueId}/traded_picks`)
       )
       return res.data.picks
     },
@@ -172,10 +171,10 @@ export function useTradedPicks(leagueId: string | null) {
 // ---- Winners Bracket ----
 export function useWinnersBracket(leagueId: string | null) {
   return useQuery({
-    queryKey: ['sleeper-winners-bracket', leagueId],
+    queryKey: ['provider-winners-bracket', PROVIDER, leagueId],
     queryFn: async () => {
-      const res = await axios.get<{ bracket: SleeperPlayoffMatchup[] }>(
-        `/api/sleeper/league/${leagueId}/winners_bracket`
+      const res = await axios.get<{ bracket: PlayoffMatchup[] }>(
+        base(`/league/${leagueId}/winners_bracket`)
       )
       return res.data.bracket
     },
@@ -187,10 +186,10 @@ export function useWinnersBracket(leagueId: string | null) {
 // ---- Losers Bracket ----
 export function useLosersBracket(leagueId: string | null) {
   return useQuery({
-    queryKey: ['sleeper-losers-bracket', leagueId],
+    queryKey: ['provider-losers-bracket', PROVIDER, leagueId],
     queryFn: async () => {
-      const res = await axios.get<{ bracket: SleeperPlayoffMatchup[] }>(
-        `/api/sleeper/league/${leagueId}/losers_bracket`
+      const res = await axios.get<{ bracket: PlayoffMatchup[] }>(
+        base(`/league/${leagueId}/losers_bracket`)
       )
       return res.data.bracket
     },
@@ -202,25 +201,25 @@ export function useLosersBracket(leagueId: string | null) {
 // ---- Draft ----
 export function useDraft(draftId: string | null) {
   return useQuery({
-    queryKey: ['sleeper-draft', draftId],
+    queryKey: ['provider-draft', PROVIDER, draftId],
     queryFn: async () => {
-      const res = await axios.get<{ draft: SleeperDraft }>(
-        `/api/sleeper/draft/${draftId}`
+      const res = await axios.get<{ draft: Draft }>(
+        base(`/draft/${draftId}`)
       )
       return res.data.draft
     },
     enabled: !!draftId,
-    staleTime: 60 * 60 * 1000, // drafts don't change often
+    staleTime: 60 * 60 * 1000,
   })
 }
 
 // ---- Draft Picks ----
 export function useDraftPicks(draftId: string | null) {
   return useQuery({
-    queryKey: ['sleeper-draft-picks', draftId],
+    queryKey: ['provider-draft-picks', PROVIDER, draftId],
     queryFn: async () => {
-      const res = await axios.get<{ picks: SleeperDraftPick[] }>(
-        `/api/sleeper/draft/${draftId}/picks`
+      const res = await axios.get<{ picks: DraftPick[] }>(
+        base(`/draft/${draftId}/picks`)
       )
       return res.data.picks
     },
