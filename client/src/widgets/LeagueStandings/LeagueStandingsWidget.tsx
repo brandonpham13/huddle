@@ -1,6 +1,6 @@
 import { useAppSelector } from '../../store/hooks'
 import { useLeague, useLeagueRosters, useLeagueUsers } from '../../hooks/useSleeper'
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card'
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Link } from 'react-router-dom'
 
 export default function LeagueStandingsWidget() {

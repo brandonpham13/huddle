@@ -6,9 +6,9 @@ import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { addWidget, removeWidget } from '../store/slices/widgetSlice'
 import { setSelectedLeague } from '../store/slices/authSlice'
 import { getAllWidgets } from '../widgets/registry'
-import { useSleeperLeagues } from '../hooks/useSleeper'
-import { Button } from '../components/ui/Button'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
+import { useSleeperLeagues, useLeague, useLeagueHistory } from '../hooks/useSleeper'
+import { Button } from '../components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 
 // Register widgets
 import '../widgets/LeagueStandings'
@@ -19,13 +19,15 @@ export function DashboardPage() {
   const syncedLeagueIds = useAppSelector(state => state.auth.user?.syncedLeagueIds ?? [])
   const selectedLeagueId = useAppSelector(state => state.auth.selectedLeagueId)
   const [showModal, setShowModal] = useState(false)
+  const [rootLeagueId, setRootLeagueId] = useState<string | null>(selectedLeagueId)
   const { signOut } = useSignOut()
   const { open: openAccountModal } = useAccountModal()
   const allWidgets = getAllWidgets()
 
   const { data: allLeagues } = useSleeperLeagues()
   const syncedLeagues = allLeagues?.filter(l => syncedLeagueIds.includes(l.league_id)) ?? []
-  const selectedLeague = syncedLeagues.find(l => l.league_id === selectedLeagueId)
+  const { data: selectedLeague } = useLeague(selectedLeagueId)
+  const { data: leagueHistory } = useLeagueHistory(rootLeagueId)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -40,7 +42,7 @@ export function DashboardPage() {
               {syncedLeagues.map(league => (
                 <button
                   key={league.league_id}
-                  onClick={() => dispatch(setSelectedLeague(league.league_id))}
+                  onClick={() => { setRootLeagueId(league.league_id); dispatch(setSelectedLeague(league.league_id)) }}
                   className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
                     selectedLeagueId === league.league_id
                       ? 'bg-white shadow text-gray-900'
@@ -80,7 +82,21 @@ export function DashboardPage() {
               />
             )}
             <span className="text-sm font-medium text-gray-700">{selectedLeague.name}</span>
-            <span className="text-xs text-gray-400">· {selectedLeague.total_rosters} teams · {selectedLeague.season}</span>
+            <span className="text-xs text-gray-400">· {selectedLeague.total_rosters} teams</span>
+            {leagueHistory && leagueHistory.length > 1 && (
+              <select
+                value={selectedLeague.season}
+                onChange={e => {
+                  const entry = leagueHistory.find(h => h.season === e.target.value)
+                  if (entry) dispatch(setSelectedLeague(entry.leagueId))
+                }}
+                className="ml-1 text-xs border rounded-md px-2 py-0.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {leagueHistory.map(h => (
+                  <option key={h.leagueId} value={h.season}>{h.season}</option>
+                ))}
+              </select>
+            )}
           </div>
         )}
 

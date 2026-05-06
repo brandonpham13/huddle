@@ -5,7 +5,7 @@ import { Plug, X } from 'lucide-react'
 import axios from 'axios'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { setSleeperUsername, setSleeperUserId } from '../store/slices/authSlice'
-import { Button } from './ui/Button'
+import { Button } from './ui/button'
 
 interface AccountModalContextValue {
   isOpen: boolean

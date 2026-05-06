@@ -4,8 +4,8 @@ import { useAuth } from '@clerk/clerk-react'
 import axios from 'axios'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { setSleeperUsername, setSleeperUserId } from '../store/slices/authSlice'
-import { Button } from '../components/ui/Button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card'
+import { Button } from '../components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
 
 export function SettingsPage() {
   const { getToken } = useAuth()

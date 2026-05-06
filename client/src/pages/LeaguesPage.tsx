@@ -4,8 +4,8 @@ import { useAccountModal } from '../components/AccountModal'
 import { useAppSelector, useAppDispatch } from '../store/hooks'
 import { setSelectedLeague } from '../store/slices/authSlice'
 import { useSleeperLeagues, useSyncLeagues } from '../hooks/useSleeper'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card'
-import { Button } from '../components/ui/Button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
+import { Button } from '../components/ui/button'
 
 function leagueStatusBadge(status: string) {
   const map: Record<string, string> = {
