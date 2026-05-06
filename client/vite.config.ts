@@ -8,6 +8,9 @@ export default defineConfig({
     tailwindcss(),
   ],
   envDir: '../',
+  build: {
+    outDir: 'bin',
+  },
   server: {
     port: 3000,
     proxy: {

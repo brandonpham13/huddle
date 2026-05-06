@@ -40,6 +40,30 @@ export function useSleeperLeagues() {
   })
 }
 
+export interface LeagueStanding {
+  roster_id: number
+  owner_id: string | null
+  team_name: string
+  avatar: string | null
+  wins: number
+  losses: number
+  ties: number
+  points_for: number
+}
+
+export function useLeagueStandings(leagueId: string | null) {
+  return useQuery({
+    queryKey: ['sleeper-standings', leagueId],
+    queryFn: async () => {
+      const res = await fetch(`/api/sleeper/league/${encodeURIComponent(leagueId!)}/standings`)
+      if (!res.ok) throw new Error('Failed to fetch standings')
+      const { standings } = await res.json() as { standings: LeagueStanding[] }
+      return standings
+    },
+    enabled: !!leagueId,
+  })
+}
+
 export function useSyncLeagues() {
   const { getToken } = useAuth()
   const dispatch = useAppDispatch()

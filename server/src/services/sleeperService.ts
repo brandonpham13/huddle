@@ -32,3 +32,38 @@ export async function getSleeperLeagues(userId: string, year: string): Promise<S
   const data = await res.json() as SleeperLeague[]
   return data ?? []
 }
+
+export interface SleeperRoster {
+  roster_id: number
+  owner_id: string | null
+  settings?: {
+    wins?: number
+    losses?: number
+    ties?: number
+    fpts?: number
+    fpts_decimal?: number
+    fpts_against?: number
+    fpts_against_decimal?: number
+  }
+}
+
+export interface SleeperLeagueUser {
+  user_id: string
+  display_name: string
+  avatar?: string | null
+  metadata?: { team_name?: string }
+}
+
+export async function getLeagueRosters(leagueId: string): Promise<SleeperRoster[]> {
+  const res = await fetch(`${SLEEPER_BASE}/league/${encodeURIComponent(leagueId)}/rosters`)
+  if (res.status === 404) return []
+  if (!res.ok) throw new Error(`Sleeper API error: ${res.status}`)
+  return (await res.json() as SleeperRoster[]) ?? []
+}
+
+export async function getLeagueUsers(leagueId: string): Promise<SleeperLeagueUser[]> {
+  const res = await fetch(`${SLEEPER_BASE}/league/${encodeURIComponent(leagueId)}/users`)
+  if (res.status === 404) return []
+  if (!res.ok) throw new Error(`Sleeper API error: ${res.status}`)
+  return (await res.json() as SleeperLeagueUser[]) ?? []
+}
