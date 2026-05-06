@@ -1,26 +1,36 @@
-import React from 'react';
-import { Provider } from 'react-redux';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { store } from '../store';
-import { ClerkProvider } from './ClerkProvider';
+import { type ReactNode } from 'react'
+import { Provider } from 'react-redux'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { ClerkProvider } from '@clerk/clerk-react'
+import { store } from '../store'
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 5 * 60 * 1000,
       retry: 2,
     },
   },
-});
+})
+
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string
 
 interface AppProvidersProps {
-  children: React.ReactNode;
+  children: ReactNode
 }
 
 export function AppProviders({ children }: AppProvidersProps) {
+  if (!CLERK_PUBLISHABLE_KEY) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-red-500">Missing VITE_CLERK_PUBLISHABLE_KEY env var</p>
+      </div>
+    )
+  }
+
   return (
-    <ClerkProvider>
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
       <Provider store={store}>
         <QueryClientProvider client={queryClient}>
           {children}
@@ -28,5 +38,5 @@ export function AppProviders({ children }: AppProvidersProps) {
         </QueryClientProvider>
       </Provider>
     </ClerkProvider>
-  );
+  )
 }

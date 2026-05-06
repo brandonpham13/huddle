@@ -1,52 +1,45 @@
-import React, { useEffect } from 'react';
-import { useUser } from '@clerk/clerk-react';
-import { useNavigate } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
-import { setUser, clearUser, setSleeperUsername } from '../../store/slices/authSlice';
+import { type ReactNode, useEffect } from 'react'
+import { useUser, useAuth, RedirectToSignIn } from '@clerk/clerk-react'
+import { useAppDispatch } from '../../store/hooks'
+import { setUser, clearUser, setSleeperUsername } from '../../store/slices/authSlice'
 
 interface AuthGuardProps {
-  children: React.ReactNode;
+  children: ReactNode
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
-  const { isLoaded, isSignedIn, user } = useUser();
-  const navigate = useNavigate();
-  const dispatch = useDispatch();
+  const { isLoaded, isSignedIn, user } = useUser()
+  const { isLoaded: authLoaded } = useAuth()
+  const dispatch = useAppDispatch()
 
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || !authLoaded) return
 
-    if (!isSignedIn) {
-      dispatch(clearUser());
-      navigate('/sign-in');
-      return;
+    if (isSignedIn && user) {
+      const sleeperUsername = (user.unsafeMetadata?.sleeperUsername as string) ?? null
+      dispatch(setUser({
+        id: user.id,
+        username: user.username,
+        email: user.primaryEmailAddress?.emailAddress ?? '',
+        sleeperUsername,
+      }))
+      dispatch(setSleeperUsername(sleeperUsername))
+    } else {
+      dispatch(clearUser())
     }
-
-    if (user) {
-      dispatch(
-        setUser({
-          id: user.id,
-          username: user.username ?? user.id,
-          email: user.primaryEmailAddress?.emailAddress ?? '',
-          sleeperUsername: null,
-        })
-      );
-      const sleeperUsername = user.unsafeMetadata?.['sleeperUsername'] as string | undefined;
-      if (sleeperUsername) {
-        dispatch(setSleeperUsername(sleeperUsername));
-      }
-    }
-  }, [isLoaded, isSignedIn, user, dispatch, navigate]);
+  }, [isLoaded, authLoaded, isSignedIn, user, dispatch])
 
   if (!isLoaded) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
       </div>
-    );
+    )
   }
 
-  if (!isSignedIn) return null;
+  if (!isSignedIn) {
+    return <RedirectToSignIn />
+  }
 
-  return <>{children}</>;
+  return <>{children}</>
 }
