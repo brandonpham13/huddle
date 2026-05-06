@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p .",
-    "start": "node ./bin/server.js",
-    "dev": "tsc -p . && node ./bin/server.js"
+    "start": "node --env-file=../.env ./bin/server.js",
+    "dev": "tsc -p . && node --env-file=../.env ./bin/server.js"
   },
   "dependencies": {
     "@clerk/express": "^1.7.0",

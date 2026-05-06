@@ -17,11 +17,15 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
     if (isSignedIn && user) {
       const sleeperUsername = (user.unsafeMetadata?.sleeperUsername as string) ?? null
+      const sleeperUserId = (user.unsafeMetadata?.sleeperUserId as string) ?? null
+      const syncedLeagueIds = (user.unsafeMetadata?.syncedLeagueIds as string[]) ?? []
       dispatch(setUser({
         id: user.id,
         username: user.username,
         email: user.primaryEmailAddress?.emailAddress ?? '',
         sleeperUsername,
+        sleeperUserId,
+        syncedLeagueIds,
       }))
       dispatch(setSleeperUsername(sleeperUsername))
     } else {

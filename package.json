@@ -1,6 +1,12 @@
 {
+  "scripts": {
+    "dev": "concurrently --names server,client --prefix-colors blue,green \"npm run dev --prefix server\" \"npm run dev --prefix client\""
+  },
   "dependencies": {
     "esrun": "^3.2.26",
     "typescript": "^5.9.2"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }
