@@ -27,9 +27,10 @@ export function initUserRoutes(app: Express) {
 
     const username = isUnlink ? null : sleeperUsername!.trim()
 
+    let sleeperUser: Awaited<ReturnType<typeof getSleeperUser>> = null
     if (username) {
       try {
-        const sleeperUser = await getSleeperUser(username)
+        sleeperUser = await getSleeperUser(username)
         if (!sleeperUser) { res.status(404).json({ error: 'Sleeper user not found' }); return }
       } catch {
         res.status(502).json({ error: 'Failed to verify Sleeper user' })
@@ -42,13 +43,40 @@ export function initUserRoutes(app: Express) {
 
     try {
       await clerkClient.users.updateUserMetadata(userId, {
-        unsafeMetadata: { sleeperUsername: username },
+        unsafeMetadata: {
+          sleeperUsername: username,
+          sleeperUserId: username ? sleeperUser!.user_id : null,
+        },
       })
     } catch {
       res.status(503).json({ error: 'Failed to update user metadata' })
       return
     }
 
-    res.json({ sleeperUsername: username })
+    res.json({ sleeperUsername: username, sleeperUserId: username ? sleeperUser!.user_id : null })
+  })
+
+  // PATCH /api/user/synced-leagues
+  app.patch('/api/user/synced-leagues', requireAuth, async (req: Request, res: Response) => {
+    const { syncedLeagueIds } = req.body as { syncedLeagueIds?: unknown }
+
+    if (!Array.isArray(syncedLeagueIds) || !syncedLeagueIds.every(id => typeof id === 'string')) {
+      res.status(400).json({ error: 'syncedLeagueIds must be an array of strings' })
+      return
+    }
+
+    const { userId } = getAuth(req)
+    if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return }
+
+    try {
+      await clerkClient.users.updateUserMetadata(userId, {
+        unsafeMetadata: { syncedLeagueIds },
+      })
+    } catch {
+      res.status(503).json({ error: 'Failed to update user metadata' })
+      return
+    }
+
+    res.json({ syncedLeagueIds })
   })
 }

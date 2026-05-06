@@ -1,4 +1,3 @@
-import 'dotenv/config'
 import express from 'express'
 import { clerkMiddleware } from '@clerk/express'
 import { initSleeperRoutes } from './routes/sleeperRoutes.js'
