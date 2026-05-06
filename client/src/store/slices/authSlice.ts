@@ -55,6 +55,9 @@ const authSlice = createSlice({
     setLoading(state, action: PayloadAction<boolean>) {
       state.loading = action.payload
     },
+    setSelectedYear(state, action: PayloadAction<string>) {
+      state.selectedYear = action.payload
+    },
   },
 })
 
@@ -66,5 +69,6 @@ export const {
   setSyncedLeagueIds,
   setSelectedLeague,
   setLoading,
+  setSelectedYear,
 } = authSlice.actions
 export default authSlice.reducer

@@ -33,10 +33,9 @@ function toLeague(s: SleeperLeague): League {
     totalRosters: s.total_rosters,
     sport: s.sport,
     avatar: s.avatar ?? null,
-    previousLeagueRef:
-      (s.settings as { previous_league_id?: string } | undefined)?.previous_league_id
-        ? { provider: 'sleeper', leagueId: (s.settings as { previous_league_id: string }).previous_league_id }
-        : null,
+    previousLeagueRef: s.previous_league_id && s.previous_league_id !== '0'
+      ? { provider: 'sleeper', leagueId: s.previous_league_id }
+      : null,
   }
 }
 

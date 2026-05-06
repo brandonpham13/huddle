@@ -83,7 +83,7 @@ export function DashboardPage() {
             )}
             <span className="text-sm font-medium text-gray-700">{selectedLeague.name}</span>
             <span className="text-xs text-gray-400">· {selectedLeague.total_rosters} teams</span>
-            {leagueHistory && leagueHistory.length > 1 && (
+            {leagueHistory && leagueHistory.length > 0 && (
               <select
                 value={selectedLeague.season}
                 onChange={e => {
