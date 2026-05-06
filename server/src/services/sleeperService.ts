@@ -15,6 +15,7 @@ export interface SleeperLeague {
   total_rosters: number
   sport: string
   avatar?: string | null
+  previous_league_id?: string | null
   scoring_settings?: Record<string, number>
   roster_positions?: string[]
   settings?: Record<string, unknown>

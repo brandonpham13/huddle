@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "dev": "concurrently --names server,client --prefix-colors blue,green \"npm run dev --prefix server\" \"npm run dev --prefix client\""
+    "dev": "concurrently --names server,client --prefix-colors blue,green \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "install:all": "concurrently --names server,client --prefix-colors blue,green \"npm install --prefix server\" \"npm install --prefix client\""
   },
   "dependencies": {
     "esrun": "^3.2.26",

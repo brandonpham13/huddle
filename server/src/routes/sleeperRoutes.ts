@@ -54,6 +54,30 @@ export function initSleeperRoutes(app: Express) {
     }
   })
 
+  // GET /api/sleeper/league/:leagueId/history
+  // Walks the previous_league_id chain to build a season history list, newest first.
+  router.get('/sleeper/league/:leagueId/history', async (req, res) => {
+    try {
+      const history: Array<{ leagueId: string; season: string }> = []
+      let currentId: string | null = req.params.leagueId
+      let iterations = 0
+      const MAX_DEPTH = 15
+      while (currentId && iterations < MAX_DEPTH) {
+        const league = await getLeague(currentId)
+        history.push({ leagueId: league.league_id, season: league.season })
+        const prevId = league.previous_league_id && league.previous_league_id !== '0'
+          ? league.previous_league_id
+          : null
+        currentId = prevId
+        iterations++
+      }
+      res.json({ history })
+    } catch (err) {
+      const status = (err as { status?: number }).status === 404 ? 404 : 502
+      res.status(status).json({ error: err instanceof Error ? err.message : 'Unknown' })
+    }
+  })
+
   // GET /api/sleeper/league/:leagueId/rosters
   router.get('/sleeper/league/:leagueId/rosters', async (req, res) => {
     try {
