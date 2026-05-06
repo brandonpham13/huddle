@@ -12,21 +12,20 @@ interface League {
   total_rosters: number
 }
 
-async function fetchLeagues(username: string): Promise<League[]> {
-  const year = new Date().getFullYear().toString()
-  // First get user id
+async function fetchLeagues(username: string, year: string): Promise<League[]> {
   const userRes = await axios.get<{ user: { user_id: string } }>(`/api/sleeper/user/${username}`)
   const userId = userRes.data.user.user_id
-  const leaguesRes = await axios.get<{ user: League[] }>(`/api/sleeper/user/${userId}/leagues/${year}`)
-  return leaguesRes.data.user ?? []
+  const leaguesRes = await axios.get<{ leagues: League[] }>(`/api/sleeper/user/${userId}/leagues/${year}`)
+  return leaguesRes.data.leagues ?? []
 }
 
 export default function LeagueStandingsWidget() {
   const sleeperUsername = useAppSelector(state => state.auth.user?.sleeperUsername)
+  const year = new Date().getFullYear().toString()
 
   const { data: leagues, isLoading, isError } = useQuery({
-    queryKey: ['sleeper-leagues', sleeperUsername],
-    queryFn: () => fetchLeagues(sleeperUsername!),
+    queryKey: ['sleeper-leagues', sleeperUsername, year],
+    queryFn: () => fetchLeagues(sleeperUsername!, year),
     enabled: !!sleeperUsername,
   })
 

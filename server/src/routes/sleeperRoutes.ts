@@ -27,7 +27,7 @@ export function initSleeperRoutes(app: Express) {
     }
     try {
       const leagues = await getSleeperLeagues(userId, year)
-      res.json({ user: leagues })
+      res.json({ leagues })
     } catch (err) {
       res.status(502).json({ error: 'Sleeper API error', message: err instanceof Error ? err.message : 'Unknown' })
     }
