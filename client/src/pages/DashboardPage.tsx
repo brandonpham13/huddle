@@ -4,9 +4,9 @@ import { useSignOut } from '../hooks/useSignOut'
 import { useAccountModal } from '../components/AccountModal'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { addWidget, removeWidget } from '../store/slices/widgetSlice'
-import { setSelectedLeague } from '../store/slices/authSlice'
+import { setSelectedLeague, setSelectedYear } from '../store/slices/authSlice'
 import { getAllWidgets } from '../widgets/registry'
-import { useSleeperLeagues, useLeague, useLeagueHistory } from '../hooks/useSleeper'
+import { useAllSleeperLeagues, useLeague, useLeagueHistory } from '../hooks/useSleeper'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 
@@ -24,7 +24,7 @@ export function DashboardPage() {
   const { open: openAccountModal } = useAccountModal()
   const allWidgets = getAllWidgets()
 
-  const { data: allLeagues } = useSleeperLeagues()
+  const { data: allLeagues } = useAllSleeperLeagues()
   const syncedLeagues = allLeagues?.filter(l => syncedLeagueIds.includes(l.ref.leagueId)) ?? []
   const { data: selectedLeague } = useLeague(selectedLeagueId)
   const { data: leagueHistory } = useLeagueHistory(rootLeagueId)
@@ -42,7 +42,7 @@ export function DashboardPage() {
               {syncedLeagues.map(league => (
                 <button
                   key={league.ref.leagueId}
-                  onClick={() => { setRootLeagueId(league.ref.leagueId); dispatch(setSelectedLeague(league.ref.leagueId)) }}
+                  onClick={() => { setRootLeagueId(league.ref.leagueId); dispatch(setSelectedLeague(league.ref.leagueId)); dispatch(setSelectedYear(league.season)) }}
                   className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
                     selectedLeagueId === league.ref.leagueId
                       ? 'bg-white shadow text-gray-900'
