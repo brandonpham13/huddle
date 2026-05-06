@@ -56,8 +56,7 @@ export function initUserRoutes(app: Express) {
     res.json({ sleeperUsername: username, sleeperUserId: username ? sleeperUser!.user_id : null })
   })
 
-  // PATCH /api/user/synced-leagues — update which leagues sync to dashboard
-  app.patch('/api/user/synced-leagues', requireAuth, async (req: Request, res: Response) => {
+// PATCH /api/user/synced-leagues  app.patch('/api/user/synced-leagues', requireAuth, async (req: Request, res: Response) => {
     const { syncedLeagueIds } = req.body as { syncedLeagueIds?: unknown }
 
     if (!Array.isArray(syncedLeagueIds) || !syncedLeagueIds.every(id => typeof id === 'string')) {

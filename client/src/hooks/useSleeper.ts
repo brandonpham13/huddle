@@ -1,89 +1,117 @@
-import { useUser, useAuth } from '@clerk/clerk-react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import axios from 'axios'
+import { useAuth } from '@clerk/clerk-react'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { setSyncedLeagueIds } from '../store/slices/authSlice'
+import type { SleeperLeague, SleeperRoster, SleeperLeagueUser, SleeperMatchup, SleeperPlayer } from '../types/sleeper'
 
-export interface SleeperLeague {
-  league_id: string
-  name: string
-  season: string
-  status: string
-  total_rosters: number
-  sport: string
-  avatar: string | null
-}
-
-const CURRENT_YEAR = String(new Date().getFullYear() - 1)
-
-async function fetchLeaguesForUser(username: string, year: string): Promise<SleeperLeague[]> {
-  // Resolve username → userId
-  const userRes = await fetch(`/api/sleeper/user/${encodeURIComponent(username)}`)
-  if (!userRes.ok) return []
-  const { user } = await userRes.json() as { user: { user_id: string } }
-
-  // Fetch leagues
-  const leaguesRes = await fetch(`/api/sleeper/user/${encodeURIComponent(user.user_id)}/leagues/${encodeURIComponent(year)}`)
-  if (!leaguesRes.ok) return []
-  const { leagues } = await leaguesRes.json() as { leagues: SleeperLeague[] }
-  return leagues ?? []
-}
+// ---- Leagues ----
 
 export function useSleeperLeagues() {
-  const { user } = useUser()
-  const sleeperUsername = user?.unsafeMetadata?.sleeperUsername as string | null | undefined
+  const sleeperUserId = useAppSelector(state => state.auth.user?.sleeperUserId)
   const year = useAppSelector(state => state.auth.selectedYear)
 
   return useQuery({
-    queryKey: ['sleeper-leagues', sleeperUsername, year],
-    queryFn: () => fetchLeaguesForUser(sleeperUsername!, year),
-    enabled: !!sleeperUsername,
+    queryKey: ['sleeper-leagues', sleeperUserId, year],
+    queryFn: async () => {
+      const res = await axios.get<{ leagues: SleeperLeague[] }>(`/api/sleeper/user/${sleeperUserId}/leagues/${year}`)
+      return res.data.leagues
+    },
+    enabled: !!sleeperUserId,
+    staleTime: 5 * 60 * 1000,
   })
 }
 
-export interface LeagueStanding {
-  roster_id: number
-  owner_id: string | null
-  team_name: string
-  avatar: string | null
-  wins: number
-  losses: number
-  ties: number
-  points_for: number
-}
+// ---- League detail ----
 
-export function useLeagueStandings(leagueId: string | null) {
+export function useLeague(leagueId: string | null) {
   return useQuery({
-    queryKey: ['sleeper-standings', leagueId],
+    queryKey: ['sleeper-league', leagueId],
     queryFn: async () => {
-      const res = await fetch(`/api/sleeper/league/${encodeURIComponent(leagueId!)}/standings`)
-      if (!res.ok) throw new Error('Failed to fetch standings')
-      const { standings } = await res.json() as { standings: LeagueStanding[] }
-      return standings
+      const res = await axios.get<{ league: SleeperLeague }>(`/api/sleeper/league/${leagueId}`)
+      return res.data.league
     },
     enabled: !!leagueId,
+    staleTime: 5 * 60 * 1000,
   })
 }
+
+// ---- Rosters ----
+
+export function useLeagueRosters(leagueId: string | null) {
+  return useQuery({
+    queryKey: ['sleeper-rosters', leagueId],
+    queryFn: async () => {
+      const res = await axios.get<{ rosters: SleeperRoster[] }>(`/api/sleeper/league/${leagueId}/rosters`)
+      return res.data.rosters
+    },
+    enabled: !!leagueId,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+// ---- League users ----
+
+export function useLeagueUsers(leagueId: string | null) {
+  return useQuery({
+    queryKey: ['sleeper-league-users', leagueId],
+    queryFn: async () => {
+      const res = await axios.get<{ users: SleeperLeagueUser[] }>(`/api/sleeper/league/${leagueId}/users`)
+      return res.data.users
+    },
+    enabled: !!leagueId,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+// ---- Matchups ----
+
+export function useLeagueMatchups(leagueId: string | null, week: number) {
+  return useQuery({
+    queryKey: ['sleeper-matchups', leagueId, week],
+    queryFn: async () => {
+      const res = await axios.get<{ matchups: SleeperMatchup[] }>(`/api/sleeper/league/${leagueId}/matchups/${week}`)
+      return res.data.matchups
+    },
+    enabled: !!leagueId && week >= 1,
+    staleTime: 2 * 60 * 1000, // 2min — matchups change during game day
+  })
+}
+
+// ---- Players ----
+
+export function useNFLPlayers() {
+  return useQuery({
+    queryKey: ['nfl-players'],
+    queryFn: async () => {
+      const res = await axios.get<{ players: Record<string, SleeperPlayer> }>('/api/sleeper/players')
+      return res.data.players
+    },
+    staleTime: 24 * 60 * 60 * 1000, // 24hr — matches server cache
+    gcTime: 24 * 60 * 60 * 1000,
+  })
+}
+
+// ---- Sync leagues mutation ----
 
 export function useSyncLeagues() {
   const { getToken } = useAuth()
   const dispatch = useAppDispatch()
+  const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (leagueIds: string[]) => {
+    mutationFn: async (syncedLeagueIds: string[]) => {
       const token = await getToken()
-      const res = await fetch('/api/user/synced-leagues', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ syncedLeagueIds: leagueIds }),
-      })
-      if (!res.ok) throw new Error('Failed to sync leagues')
-      return res.json() as Promise<{ syncedLeagueIds: string[] }>
+      const res = await axios.patch<{ syncedLeagueIds: string[] }>(
+        '/api/user/synced-leagues',
+        { syncedLeagueIds },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      return res.data.syncedLeagueIds
     },
-    onSuccess: (data) => {
-      dispatch(setSyncedLeagueIds(data.syncedLeagueIds))
+    onSuccess: (syncedLeagueIds) => {
+      dispatch(setSyncedLeagueIds(syncedLeagueIds))
+      queryClient.invalidateQueries({ queryKey: ['sleeper-leagues'] })
     },
   })
 }

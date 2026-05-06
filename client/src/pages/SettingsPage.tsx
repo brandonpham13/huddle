@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '@clerk/clerk-react'
 import axios from 'axios'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
-import { setSleeperUsername } from '../store/slices/authSlice'
+import { setSleeperUsername, setSleeperUserId } from '../store/slices/authSlice'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card'
 
@@ -17,12 +17,12 @@ export function SettingsPage() {
 
   const patchSleeperUsername = async (value: string | null) => {
     const token = await getToken()
-    const res = await axios.patch(
+    const res = await axios.patch<{ sleeperUsername: string | null; sleeperUserId: string | null }>(
       '/api/user/sleeper-username',
       { sleeperUsername: value },
       { headers: { Authorization: `Bearer ${token}` } }
     )
-    return res.data.sleeperUsername as string | null
+    return res.data
   }
 
   const handleLink = async () => {
@@ -30,8 +30,9 @@ export function SettingsPage() {
     setStatus('loading')
     setErrorMsg('')
     try {
-      const linked = await patchSleeperUsername(input.trim())
-      dispatch(setSleeperUsername(linked))
+      const data = await patchSleeperUsername(input.trim())
+      dispatch(setSleeperUsername(data.sleeperUsername))
+      dispatch(setSleeperUserId(data.sleeperUserId))
       setInput('')
       setStatus('success')
     } catch (err: unknown) {
@@ -50,6 +51,7 @@ export function SettingsPage() {
     try {
       await patchSleeperUsername(null)
       dispatch(setSleeperUsername(null))
+      dispatch(setSleeperUserId(null))
       setStatus('idle')
     } catch (err: unknown) {
       setStatus('error')

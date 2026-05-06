@@ -22,7 +22,7 @@ const initialState: AuthState = {
   isAuthenticated: false,
   loading: true,
   selectedLeagueId: null,
-  selectedYear: String(new Date().getFullYear() - 1),
+  selectedYear: new Date().getFullYear().toString(),
 }
 
 const authSlice = createSlice({
@@ -38,23 +38,18 @@ const authSlice = createSlice({
       state.user = null
       state.isAuthenticated = false
       state.loading = false
+      state.selectedLeagueId = null
     },
     setSleeperUsername(state, action: PayloadAction<string | null>) {
-      if (state.user) {
-        state.user.sleeperUsername = action.payload
-      }
+      if (state.user) state.user.sleeperUsername = action.payload
     },
     setSleeperUserId(state, action: PayloadAction<string | null>) {
-      if (state.user) {
-        state.user.sleeperUserId = action.payload
-      }
+      if (state.user) state.user.sleeperUserId = action.payload
     },
     setSyncedLeagueIds(state, action: PayloadAction<string[]>) {
-      if (state.user) {
-        state.user.syncedLeagueIds = action.payload
-      }
+      if (state.user) state.user.syncedLeagueIds = action.payload
     },
-    setSelectedLeague(state, action: PayloadAction<string>) {
+    setSelectedLeague(state, action: PayloadAction<string | null>) {
       state.selectedLeagueId = action.payload
     },
     setLoading(state, action: PayloadAction<boolean>) {
@@ -63,5 +58,13 @@ const authSlice = createSlice({
   },
 })
 
-export const { setUser, clearUser, setSleeperUsername, setSleeperUserId, setSyncedLeagueIds, setSelectedLeague, setLoading } = authSlice.actions
+export const {
+  setUser,
+  clearUser,
+  setSleeperUsername,
+  setSleeperUserId,
+  setSyncedLeagueIds,
+  setSelectedLeague,
+  setLoading,
+} = authSlice.actions
 export default authSlice.reducer
