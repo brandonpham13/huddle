@@ -4,6 +4,7 @@ interface User {
   id: string;
   username: string;
   email: string;
+  sleeperUsername: string | null;
 }
 
 interface AuthState {
@@ -27,6 +28,11 @@ const authSlice = createSlice({
       state.isAuthenticated = true;
       state.loading = false;
     },
+    setSleeperUsername(state, action: PayloadAction<string | null>) {
+      if (state.user) {
+        state.user.sleeperUsername = action.payload;
+      }
+    },
     clearUser(state) {
       state.user = null;
       state.isAuthenticated = false;
@@ -38,5 +44,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { setUser, clearUser, setLoading } = authSlice.actions;
+export const { setUser, clearUser, setLoading, setSleeperUsername } = authSlice.actions;
 export default authSlice.reducer;

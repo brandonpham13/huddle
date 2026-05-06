@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import { setUser, clearUser } from '../../store/slices/authSlice';
+import { setUser, clearUser, setSleeperUsername } from '../../store/slices/authSlice';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -28,8 +28,13 @@ export function AuthGuard({ children }: AuthGuardProps) {
           id: user.id,
           username: user.username ?? user.id,
           email: user.primaryEmailAddress?.emailAddress ?? '',
+          sleeperUsername: null,
         })
       );
+      const sleeperUsername = user.unsafeMetadata?.['sleeperUsername'] as string | undefined;
+      if (sleeperUsername) {
+        dispatch(setSleeperUsername(sleeperUsername));
+      }
     }
   }, [isLoaded, isSignedIn, user, dispatch, navigate]);
 
