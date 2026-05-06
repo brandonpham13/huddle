@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAccountModal } from '../components/AccountModal'
 import { useAppSelector, useAppDispatch } from '../store/hooks'
 import { setSelectedLeague } from '../store/slices/authSlice'
 import { useSleeperLeagues, useSyncLeagues } from '../hooks/useSleeper'
@@ -18,6 +19,7 @@ function leagueStatusBadge(status: string) {
 
 export function LeaguesPage() {
   const dispatch = useAppDispatch()
+  const { open: openAccountModal } = useAccountModal()
   const sleeperUsername = useAppSelector(state => state.auth.user?.sleeperUsername)
   const syncedLeagueIds = useAppSelector(state => state.auth.user?.syncedLeagueIds ?? [])
   const year = useAppSelector(state => state.auth.selectedYear)
@@ -57,9 +59,7 @@ export function LeaguesPage() {
           <Card>
             <CardContent className="py-8 text-center">
               <p className="text-gray-500 mb-4">Link your Sleeper account to see your leagues.</p>
-              <Link to="/settings">
-                <Button>Go to Settings</Button>
-              </Link>
+              <Button onClick={openAccountModal}>Go to Settings</Button>
             </CardContent>
           </Card>
         ) : (

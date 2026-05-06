@@ -15,7 +15,10 @@ export function initSleeperRoutes(app: Express) {
   // GET /api/sleeper/user/:username
   router.get('/sleeper/user/:username', async (req, res) => {
     const { username } = req.params
-    if (!username?.trim()) { res.status(400).json({ error: 'username is required' }); return }
+    if (!username?.trim()) {
+      res.status(400).json({ error: 'username is required' })
+      return
+    }
     try {
       const user = await getSleeperUser(username)
       if (!user) { res.status(404).json({ error: 'User not found' }); return }
@@ -28,7 +31,10 @@ export function initSleeperRoutes(app: Express) {
   // GET /api/sleeper/user/:userId/leagues/:year
   router.get('/sleeper/user/:userId/leagues/:year', async (req, res) => {
     const { userId, year } = req.params
-    if (!userId?.trim()) { res.status(400).json({ error: 'userId is required' }); return }
+    if (!userId?.trim()) {
+      res.status(400).json({ error: 'userId is required' })
+      return
+    }
     try {
       const leagues = await getSleeperLeagues(userId, year)
       res.json({ leagues })
@@ -72,7 +78,8 @@ export function initSleeperRoutes(app: Express) {
   router.get('/sleeper/league/:leagueId/matchups/:week', async (req, res) => {
     const week = parseInt(req.params.week, 10)
     if (isNaN(week) || week < 1 || week > 18) {
-      res.status(400).json({ error: 'week must be between 1 and 18' }); return
+      res.status(400).json({ error: 'week must be between 1 and 18' })
+      return
     }
     try {
       const matchups = await getLeagueMatchups(req.params.leagueId, week)

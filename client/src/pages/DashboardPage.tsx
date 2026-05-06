@@ -1,6 +1,7 @@
 import { useState, Suspense } from 'react'
 import { Link } from 'react-router-dom'
 import { useSignOut } from '../hooks/useSignOut'
+import { useAccountModal } from '../components/AccountModal'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { addWidget, removeWidget } from '../store/slices/widgetSlice'
 import { setSelectedLeague } from '../store/slices/authSlice'
@@ -19,6 +20,7 @@ export function DashboardPage() {
   const selectedLeagueId = useAppSelector(state => state.auth.selectedLeagueId)
   const [showModal, setShowModal] = useState(false)
   const { signOut } = useSignOut()
+  const { open: openAccountModal } = useAccountModal()
   const allWidgets = getAllWidgets()
 
   const { data: allLeagues } = useSleeperLeagues()
@@ -60,7 +62,7 @@ export function DashboardPage() {
 
         <div className="flex items-center gap-4">
           <Link to="/leagues" className="text-sm text-gray-600 hover:text-gray-900">Leagues</Link>
-          <Link to="/settings" className="text-sm text-gray-600 hover:text-gray-900">Settings</Link>
+          <button onClick={openAccountModal} className="text-sm text-gray-600 hover:text-gray-900">Account</button>
           <Button variant="outline" size="sm" onClick={signOut}>Sign out</Button>
         </div>
       </nav>
