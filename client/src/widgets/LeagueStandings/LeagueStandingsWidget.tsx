@@ -35,16 +35,15 @@ export default function LeagueStandingsWidget() {
   }
 
   // Build standings: join rosters with user display names, sort by wins then fpts
-  const userMap = new Map(users?.map(u => [u.user_id, u]) ?? [])
+  const userMap = new Map(users?.map(u => [u.userId, u]) ?? [])
 
   const standings = (rosters ?? [])
     .map(roster => {
-      const user = roster.owner_id ? userMap.get(roster.owner_id) : null
-      const teamName = user?.metadata?.team_name ?? user?.display_name ?? `Team ${roster.roster_id}`
+      const user = roster.ownerId ? userMap.get(roster.ownerId) : null
+      const teamName = user?.teamName ?? user?.displayName ?? `Team ${roster.rosterId}`
       const avatar = user?.avatar ?? null
-      const { wins = 0, losses = 0, ties = 0, fpts = 0, fpts_decimal = 0 } = roster.settings
-      const totalFpts = fpts + fpts_decimal / 100
-      return { roster_id: roster.roster_id, teamName, avatar, wins, losses, ties, totalFpts }
+      const { wins = 0, losses = 0, ties = 0 } = roster.record ?? {}
+      return { rosterId: roster.rosterId, teamName, avatar, wins, losses, ties, totalFpts: roster.pointsFor }
     })
     .sort((a, b) => b.wins - a.wins || b.totalFpts - a.totalFpts)
 
@@ -64,7 +63,7 @@ export default function LeagueStandingsWidget() {
             </div>
           </div>
           {standings.map((team, i) => (
-            <div key={team.roster_id} className="flex items-center justify-between py-1.5 gap-3">
+            <div key={team.rosterId} className="flex items-center justify-between py-1.5 gap-3">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <span className="text-xs text-gray-400 w-4 shrink-0">{i + 1}</span>
                 {team.avatar ? (
@@ -83,7 +82,7 @@ export default function LeagueStandingsWidget() {
                   {team.wins}-{team.losses}{team.ties > 0 ? `-${team.ties}` : ''}
                 </span>
                 <span className="text-xs text-gray-600 w-14 text-right tabular-nums">
-                  {team.totalFpts.toFixed(2)}
+                  {(team.totalFpts ?? 0).toFixed(2)}
                 </span>
               </div>
             </div>

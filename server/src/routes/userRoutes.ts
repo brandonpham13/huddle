@@ -1,7 +1,7 @@
 import { type Express, type Request, type Response } from 'express'
 import { getAuth, createClerkClient } from '@clerk/express'
 import { requireAuth } from '../middleware/requireAuth.js'
-import { getSleeperUser } from '../services/sleeperService.js'
+import { getProvider } from '../providers/registry.js'
 
 const clerkSecretKey = process.env['CLERK_SECRET_KEY']
 if (!clerkSecretKey) {
@@ -27,11 +27,14 @@ export function initUserRoutes(app: Express) {
 
     const username = isUnlink ? null : sleeperUsername!.trim()
 
-    let sleeperUser: Awaited<ReturnType<typeof getSleeperUser>> = null
+    let sleeperUserId: string | null = null
     if (username) {
+      const sleeperProvider = getProvider('sleeper')
+      if (!sleeperProvider) { res.status(503).json({ error: 'Sleeper provider unavailable' }); return }
       try {
-        sleeperUser = await getSleeperUser(username)
-        if (!sleeperUser) { res.status(404).json({ error: 'Sleeper user not found' }); return }
+        const account = await sleeperProvider.getAccount(username)
+        if (!account) { res.status(404).json({ error: 'Sleeper user not found' }); return }
+        sleeperUserId = account.userId
       } catch {
         res.status(502).json({ error: 'Failed to verify Sleeper user' })
         return
@@ -45,7 +48,7 @@ export function initUserRoutes(app: Express) {
       await clerkClient.users.updateUserMetadata(userId, {
         unsafeMetadata: {
           sleeperUsername: username,
-          sleeperUserId: username ? sleeperUser!.user_id : null,
+          sleeperUserId,
         },
       })
     } catch {
@@ -53,7 +56,7 @@ export function initUserRoutes(app: Express) {
       return
     }
 
-    res.json({ sleeperUsername: username, sleeperUserId: username ? sleeperUser!.user_id : null })
+    res.json({ sleeperUsername: username, sleeperUserId })
   })
 
   // PATCH /api/user/synced-leagues — update which leagues sync to dashboard

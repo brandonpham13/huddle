@@ -17,8 +17,11 @@ export interface FantasyProvider {
   /** Look up an account by the user's handle on this platform. */
   getAccount(username: string): Promise<ConnectedAccount | null>
 
-  /** Every league the account has participated in, across all seasons. */
-  getUserLeagues(userId: string): Promise<League[]>
+  /** Leagues the account participated in for a specific season. */
+  getUserLeagues(userId: string, year: string): Promise<League[]>
+
+  /** Every league the account has ever been in, across all seasons. */
+  getAllUserLeagues(userId: string): Promise<League[]>
 
   /** Walks the prior-season chain for one league, most recent first. */
   getLeagueHistory(leagueId: string): Promise<League[]>

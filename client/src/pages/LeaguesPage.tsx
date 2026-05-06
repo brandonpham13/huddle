@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAccountModal } from '../components/AccountModal'
 import { useAppSelector, useAppDispatch } from '../store/hooks'
 import { setSelectedLeague } from '../store/slices/authSlice'
-import { useSleeperLeagues, useSyncLeagues } from '../hooks/useSleeper'
+import { useAllSleeperLeagues, useSyncLeagues } from '../hooks/useSleeper'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 
@@ -22,12 +22,21 @@ export function LeaguesPage() {
   const { open: openAccountModal } = useAccountModal()
   const sleeperUsername = useAppSelector(state => state.auth.user?.sleeperUsername)
   const syncedLeagueIds = useAppSelector(state => state.auth.user?.syncedLeagueIds ?? [])
-  const year = useAppSelector(state => state.auth.selectedYear)
 
-  const { data: leagues, isLoading, isError } = useSleeperLeagues()
+  const { data: leagues, isLoading, isError } = useAllSleeperLeagues()
   const syncMutation = useSyncLeagues()
 
   const [pendingIds, setPendingIds] = useState<string[]>(syncedLeagueIds)
+
+  // Group leagues by season, sorted newest first
+  const leaguesBySeason = leagues
+    ? Object.entries(
+        leagues.reduce<Record<string, typeof leagues>>((acc, l) => {
+          ;(acc[l.season] ??= []).push(l)
+          return acc
+        }, {})
+      ).sort(([a], [b]) => Number(b) - Number(a))
+    : []
 
   const toggleLeague = (leagueId: string) => {
     setPendingIds(prev =>
@@ -66,7 +75,7 @@ export function LeaguesPage() {
           <>
             <Card>
               <CardHeader>
-                <CardTitle>{year} Leagues</CardTitle>
+                <CardTitle>All Leagues</CardTitle>
                 <CardDescription>
                   Select leagues to sync to your dashboard. Synced leagues appear in your league switcher.
                 </CardDescription>
@@ -83,55 +92,62 @@ export function LeaguesPage() {
                 )}
 
                 {leagues && leagues.length === 0 && (
-                  <p className="text-sm text-gray-500">No leagues found for {sleeperUsername} in {year}.</p>
+                  <p className="text-sm text-gray-500">No leagues found for {sleeperUsername}.</p>
                 )}
 
-                {leagues && leagues.length > 0 && (
-                  <div className="space-y-2">
-                    {leagues.map(league => {
-                      const isSynced = pendingIds.includes(league.league_id)
-                      return (
-                        <div
-                          key={league.league_id}
-                          className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition-colors ${
-                            isSynced ? 'bg-blue-50 border-blue-200' : 'bg-white hover:bg-gray-50'
-                          }`}
-                          onClick={() => toggleLeague(league.league_id)}
-                        >
-                          <div className="flex items-center gap-3">
-                            {league.avatar ? (
-                              <img
-                                src={`https://sleepercdn.com/avatars/thumbs/${league.avatar}`}
-                                alt={league.name}
-                                className="w-10 h-10 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold">
-                                {league.name.charAt(0)}
+                {leaguesBySeason.length > 0 && (
+                  <div className="space-y-6">
+                    {leaguesBySeason.map(([season, seasonLeagues]) => (
+                      <div key={season}>
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{season}</p>
+                        <div className="space-y-2">
+                          {seasonLeagues.map(league => {
+                            const isSynced = pendingIds.includes(league.ref.leagueId)
+                            return (
+                              <div
+                                key={league.ref.leagueId}
+                                className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition-colors ${
+                                  isSynced ? 'bg-blue-50 border-blue-200' : 'bg-white hover:bg-gray-50'
+                                }`}
+                                onClick={() => toggleLeague(league.ref.leagueId)}
+                              >
+                                <div className="flex items-center gap-3">
+                                  {league.avatar ? (
+                                    <img
+                                      src={`https://sleepercdn.com/avatars/thumbs/${league.avatar}`}
+                                      alt={league.name}
+                                      className="w-10 h-10 rounded-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold">
+                                      {league.name.charAt(0)}
+                                    </div>
+                                  )}
+                                  <div>
+                                    <p className="font-medium text-sm">{league.name}</p>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${leagueStatusBadge(league.status)}`}>
+                                        {league.status.replace('_', ' ')}
+                                      </span>
+                                      <span className="text-xs text-gray-400">{league.totalRosters} teams</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                                  isSynced ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
+                                }`}>
+                                  {isSynced && (
+                                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  )}
+                                </div>
                               </div>
-                            )}
-                            <div>
-                              <p className="font-medium text-sm">{league.name}</p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${leagueStatusBadge(league.status)}`}>
-                                  {league.status.replace('_', ' ')}
-                                </span>
-                                <span className="text-xs text-gray-400">{league.total_rosters} teams</span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                            isSynced ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
-                          }`}>
-                            {isSynced && (
-                              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
-                          </div>
+                            )
+                          })}
                         </div>
-                      )
-                    })}
+                      </div>
+                    ))}
                   </div>
                 )}
 

@@ -25,7 +25,7 @@ export function DashboardPage() {
   const allWidgets = getAllWidgets()
 
   const { data: allLeagues } = useSleeperLeagues()
-  const syncedLeagues = allLeagues?.filter(l => syncedLeagueIds.includes(l.league_id)) ?? []
+  const syncedLeagues = allLeagues?.filter(l => syncedLeagueIds.includes(l.ref.leagueId)) ?? []
   const { data: selectedLeague } = useLeague(selectedLeagueId)
   const { data: leagueHistory } = useLeagueHistory(rootLeagueId)
 
@@ -41,10 +41,10 @@ export function DashboardPage() {
             <div className="flex items-center gap-1 border rounded-lg p-1 bg-gray-50">
               {syncedLeagues.map(league => (
                 <button
-                  key={league.league_id}
-                  onClick={() => { setRootLeagueId(league.league_id); dispatch(setSelectedLeague(league.league_id)) }}
+                  key={league.ref.leagueId}
+                  onClick={() => { setRootLeagueId(league.ref.leagueId); dispatch(setSelectedLeague(league.ref.leagueId)) }}
                   className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
-                    selectedLeagueId === league.league_id
+                    selectedLeagueId === league.ref.leagueId
                       ? 'bg-white shadow text-gray-900'
                       : 'text-gray-500 hover:text-gray-900'
                   }`}
@@ -82,7 +82,7 @@ export function DashboardPage() {
               />
             )}
             <span className="text-sm font-medium text-gray-700">{selectedLeague.name}</span>
-            <span className="text-xs text-gray-400">· {selectedLeague.total_rosters} teams</span>
+            <span className="text-xs text-gray-400">· {selectedLeague.totalRosters} teams</span>
             {leagueHistory && leagueHistory.length > 0 && (
               <select
                 value={selectedLeague.season}

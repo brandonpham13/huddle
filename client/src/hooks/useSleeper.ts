@@ -3,9 +3,12 @@ import axios from 'axios'
 import { useAuth } from '@clerk/clerk-react'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { setSyncedLeagueIds } from '../store/slices/authSlice'
-import type { SleeperLeague, SleeperRoster, SleeperLeagueUser, SleeperMatchup, SleeperPlayer } from '../types/sleeper'
+import type { League, Roster, TeamUser, Matchup, Player } from '../types/fantasy'
 
-// ---- Leagues ----
+const PROVIDER = 'sleeper'
+const base = (path: string) => `/api/provider/${PROVIDER}${path}`
+
+// ---- Leagues (current year) ----
 
 export function useSleeperLeagues() {
   const sleeperUserId = useAppSelector(state => state.auth.user?.sleeperUserId)
@@ -14,11 +17,27 @@ export function useSleeperLeagues() {
   return useQuery({
     queryKey: ['sleeper-leagues', sleeperUserId, year],
     queryFn: async () => {
-      const res = await axios.get<{ leagues: SleeperLeague[] }>(`/api/sleeper/user/${sleeperUserId}/leagues/${year}`)
+      const res = await axios.get<{ leagues: League[] }>(base(`/user/${sleeperUserId}/leagues/${year}`))
       return res.data.leagues
     },
     enabled: !!sleeperUserId,
     staleTime: 5 * 60 * 1000,
+  })
+}
+
+// ---- All leagues across all seasons ----
+
+export function useAllSleeperLeagues() {
+  const sleeperUserId = useAppSelector(state => state.auth.user?.sleeperUserId)
+
+  return useQuery({
+    queryKey: ['sleeper-leagues-all', sleeperUserId],
+    queryFn: async () => {
+      const res = await axios.get<{ leagues: League[] }>(base(`/user/${sleeperUserId}/leagues`))
+      return res.data.leagues
+    },
+    enabled: !!sleeperUserId,
+    staleTime: 10 * 60 * 1000,
   })
 }
 
@@ -28,7 +47,7 @@ export function useLeague(leagueId: string | null) {
   return useQuery({
     queryKey: ['sleeper-league', leagueId],
     queryFn: async () => {
-      const res = await axios.get<{ league: SleeperLeague }>(`/api/sleeper/league/${leagueId}`)
+      const res = await axios.get<{ league: League }>(base(`/league/${leagueId}`))
       return res.data.league
     },
     enabled: !!leagueId,
@@ -42,7 +61,7 @@ export function useLeagueHistory(leagueId: string | null) {
   return useQuery({
     queryKey: ['sleeper-league-history', leagueId],
     queryFn: async () => {
-      const res = await axios.get<{ history: Array<{ leagueId: string; season: string }> }>(`/api/sleeper/league/${leagueId}/history`)
+      const res = await axios.get<{ history: Array<{ leagueId: string; season: string }> }>(base(`/league/${leagueId}/history`))
       return res.data.history
     },
     enabled: !!leagueId,
@@ -56,7 +75,7 @@ export function useLeagueRosters(leagueId: string | null) {
   return useQuery({
     queryKey: ['sleeper-rosters', leagueId],
     queryFn: async () => {
-      const res = await axios.get<{ rosters: SleeperRoster[] }>(`/api/sleeper/league/${leagueId}/rosters`)
+      const res = await axios.get<{ rosters: Roster[] }>(base(`/league/${leagueId}/rosters`))
       return res.data.rosters
     },
     enabled: !!leagueId,
@@ -70,7 +89,7 @@ export function useLeagueUsers(leagueId: string | null) {
   return useQuery({
     queryKey: ['sleeper-league-users', leagueId],
     queryFn: async () => {
-      const res = await axios.get<{ users: SleeperLeagueUser[] }>(`/api/sleeper/league/${leagueId}/users`)
+      const res = await axios.get<{ users: TeamUser[] }>(base(`/league/${leagueId}/users`))
       return res.data.users
     },
     enabled: !!leagueId,
@@ -84,11 +103,11 @@ export function useLeagueMatchups(leagueId: string | null, week: number) {
   return useQuery({
     queryKey: ['sleeper-matchups', leagueId, week],
     queryFn: async () => {
-      const res = await axios.get<{ matchups: SleeperMatchup[] }>(`/api/sleeper/league/${leagueId}/matchups/${week}`)
+      const res = await axios.get<{ matchups: Matchup[] }>(base(`/league/${leagueId}/matchups/${week}`))
       return res.data.matchups
     },
     enabled: !!leagueId && week >= 1,
-    staleTime: 2 * 60 * 1000, // 2min — matchups change during game day
+    staleTime: 2 * 60 * 1000,
   })
 }
 
@@ -98,10 +117,10 @@ export function useNFLPlayers() {
   return useQuery({
     queryKey: ['nfl-players'],
     queryFn: async () => {
-      const res = await axios.get<{ players: Record<string, SleeperPlayer> }>('/api/sleeper/players')
+      const res = await axios.get<{ players: Record<string, Player> }>(base('/players'))
       return res.data.players
     },
-    staleTime: 24 * 60 * 60 * 1000, // 24hr — matches server cache
+    staleTime: 24 * 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
   })
 }
