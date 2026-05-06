@@ -2,6 +2,7 @@ import { getAuth } from '@clerk/express';
 import { createClerkClient } from '@clerk/express';
 import type { Express, Request, Response } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
+import { getSleeperUser } from '../services/sleeperService.js';
 
 const clerkClient = createClerkClient({ secretKey: process.env['CLERK_SECRET_KEY'] });
 
@@ -23,18 +24,13 @@ export function initUserSettingsRoutes(app: Express): void {
 
     // Verify Sleeper user exists
     try {
-      const sleeperRes = await fetch(`https://api.sleeper.app/v1/user/${username}`);
-      if (!sleeperRes.ok || sleeperRes.status === 404) {
-        res.status(404).json({ error: 'Sleeper user not found' });
-        return;
-      }
-      const data = await sleeperRes.json() as { user_id?: string } | null;
-      if (!data || !data.user_id) {
+      const sleeperUser = await getSleeperUser(username);
+      if (!sleeperUser || !sleeperUser.user_id) {
         res.status(404).json({ error: 'Sleeper user not found' });
         return;
       }
     } catch {
-      res.status(404).json({ error: 'Sleeper user not found' });
+      res.status(502).json({ error: 'Failed to verify Sleeper user' });
       return;
     }
 
