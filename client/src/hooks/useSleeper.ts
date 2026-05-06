@@ -4,6 +4,7 @@ import { useAuth } from '@clerk/clerk-react'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { setSyncedLeagueIds } from '../store/slices/authSlice'
 import type { League, Roster, TeamUser, Matchup, Player } from '../types/fantasy'
+import type { SleeperNFLState, SleeperTransaction, SleeperTradedPick, SleeperPlayoffMatchup, SleeperDraft, SleeperDraftPick } from '../types/sleeper'
 
 const PROVIDER = 'sleeper'
 const base = (path: string) => `/api/provider/${PROVIDER}${path}`
@@ -125,7 +126,108 @@ export function useNFLPlayers() {
   })
 }
 
-// ---- Sync leagues mutation ----
+// ---- NFL State (current week/season) ----
+export function useNFLState() {
+  return useQuery({
+    queryKey: ['nfl-state'],
+    queryFn: async () => {
+      const res = await axios.get<{ state: SleeperNFLState }>('/api/sleeper/state/nfl')
+      return res.data.state
+    },
+    staleTime: 60 * 60 * 1000, // 1hr — matches server cache
+    gcTime: 60 * 60 * 1000,
+  })
+}
+
+// ---- Transactions ----
+export function useLeagueTransactions(leagueId: string | null, week: number | null) {
+  return useQuery({
+    queryKey: ['sleeper-transactions', leagueId, week],
+    queryFn: async () => {
+      const res = await axios.get<{ transactions: SleeperTransaction[] }>(
+        `/api/sleeper/league/${leagueId}/transactions/${week}`
+      )
+      return res.data.transactions
+    },
+    enabled: !!leagueId && !!week && week >= 1,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+// ---- Traded Picks ----
+export function useTradedPicks(leagueId: string | null) {
+  return useQuery({
+    queryKey: ['sleeper-traded-picks', leagueId],
+    queryFn: async () => {
+      const res = await axios.get<{ picks: SleeperTradedPick[] }>(
+        `/api/sleeper/league/${leagueId}/traded_picks`
+      )
+      return res.data.picks
+    },
+    enabled: !!leagueId,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+// ---- Winners Bracket ----
+export function useWinnersBracket(leagueId: string | null) {
+  return useQuery({
+    queryKey: ['sleeper-winners-bracket', leagueId],
+    queryFn: async () => {
+      const res = await axios.get<{ bracket: SleeperPlayoffMatchup[] }>(
+        `/api/sleeper/league/${leagueId}/winners_bracket`
+      )
+      return res.data.bracket
+    },
+    enabled: !!leagueId,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+// ---- Losers Bracket ----
+export function useLosersBracket(leagueId: string | null) {
+  return useQuery({
+    queryKey: ['sleeper-losers-bracket', leagueId],
+    queryFn: async () => {
+      const res = await axios.get<{ bracket: SleeperPlayoffMatchup[] }>(
+        `/api/sleeper/league/${leagueId}/losers_bracket`
+      )
+      return res.data.bracket
+    },
+    enabled: !!leagueId,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+// ---- Draft ----
+export function useDraft(draftId: string | null) {
+  return useQuery({
+    queryKey: ['sleeper-draft', draftId],
+    queryFn: async () => {
+      const res = await axios.get<{ draft: SleeperDraft }>(
+        `/api/sleeper/draft/${draftId}`
+      )
+      return res.data.draft
+    },
+    enabled: !!draftId,
+    staleTime: 60 * 60 * 1000, // drafts don't change often
+  })
+}
+
+// ---- Draft Picks ----
+export function useDraftPicks(draftId: string | null) {
+  return useQuery({
+    queryKey: ['sleeper-draft-picks', draftId],
+    queryFn: async () => {
+      const res = await axios.get<{ picks: SleeperDraftPick[] }>(
+        `/api/sleeper/draft/${draftId}/picks`
+      )
+      return res.data.picks
+    },
+    enabled: !!draftId,
+    staleTime: 60 * 60 * 1000,
+  })
+}
 
 export function useSyncLeagues() {
   const { getToken } = useAuth()
