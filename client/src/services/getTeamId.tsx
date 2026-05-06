@@ -6,7 +6,7 @@ const getTeamId = async (abbreviation: string): Promise<string | null> => {
   try {
     const response = await axios.get(API_URL, {
       headers: {
-        'x-rapidapi-key': process.env.REACT_APP_RAPIDAPI_KEY || '',
+        'x-rapidapi-key': import.meta.env.VITE_RAPIDAPI_KEY || '',
         'x-rapidapi-host': 'nfl-api-data.p.rapidapi.com',
       },
     });

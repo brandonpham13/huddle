@@ -26,7 +26,7 @@ const StatChart = ({ teamAbbreviation }: { teamAbbreviation: string }) => {
       const response = await axios.get(API_URL, {
         params: { id: teamId },
         headers: {
-          'x-rapidapi-key': process.env.REACT_APP_RAPIDAPI_KEY,
+          'x-rapidapi-key': import.meta.env.VITE_RAPIDAPI_KEY,
           'x-rapidapi-host': 'nfl-api-data.p.rapidapi.com',
         },
       });
@@ -48,7 +48,7 @@ const StatChart = ({ teamAbbreviation }: { teamAbbreviation: string }) => {
       const response = await axios.get(API_URL, {
         params: { id: gameId },
         headers: {
-          'x-rapidapi-key': process.env.REACT_APP_RAPIDAPI_KEY || '',
+          'x-rapidapi-key': import.meta.env.VITE_RAPIDAPI_KEY || '',
           'x-rapidapi-host': 'nfl-api-data.p.rapidapi.com',
         },
       });
@@ -179,5 +179,3 @@ const StatChart = ({ teamAbbreviation }: { teamAbbreviation: string }) => {
 };
 
 export default StatChart;
-
-
