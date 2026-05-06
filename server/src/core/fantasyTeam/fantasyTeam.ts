@@ -10,7 +10,7 @@ export class FantasyTeam {
     private avatarId: string;
 
     // TODO: narrow object type
-    private leagueSettings: Record<any, any>;
+    private leagueSettings: Record<string, unknown>;
 
     // TODO: confirm object type
     private scoringSettings: Record<string, number>;
@@ -31,7 +31,7 @@ export class FantasyTeam {
         leagueId: string,
         draftId: string,
         avatarId: string,
-        leagueSettings: Record<any, any>,
+        leagueSettings: Record<string, unknown>,
         scoringSettings: Record<string, number>,
         rosterPositions: string[],
         teamStats: Record<string, number>,
@@ -54,5 +54,45 @@ export class FantasyTeam {
 
     public getOwnerId(): string {
         return this.ownerId;
+    }
+
+    public getLeagueId(): string {
+        return this.leagueId;
+    }
+
+    public getDraftId(): string {
+        return this.draftId;
+    }
+
+    public getAvatarId(): string {
+        return this.avatarId;
+    }
+
+    public getLeagueSettings(): Record<string, unknown> {
+        return this.leagueSettings;
+    }
+
+    public getScoringSettings(): Record<string, number> {
+        return this.scoringSettings;
+    }
+
+    public getRosterPositions(): string[] {
+        return this.rosterPositions;
+    }
+
+    public getTeamStats(): Record<string, number> {
+        return this.teamStats;
+    }
+
+    public getSeasonYear(): string {
+        return this.seasonYear;
+    }
+
+    public getPlayers(): string[] {
+        return this.players;
+    }
+
+    public getRosterId(): number {
+        return this.rosterId;
     }
 }

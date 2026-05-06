@@ -1,34 +1,36 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import HomePage from './pages/home';
 import TeamIdPage from './pages/teamIdRetrieval';
-import StatChart from './components/teamchart';
+import { SignInPage } from './components/auth/SignInPage';
+import { SignUpPage } from './components/auth/SignUpPage';
+import { AuthGuard } from './components/auth/AuthGuard';
 
 function App() {
-    const [teamId, setTeamId] = useState('');
-
-    return (
-      <Router>
-        <div className="App">
-          {/* NAV BAR */}
-          <nav>
-            <ul>
-              <li>
-                <Link to="/">Home</Link>
-              </li>
-              <li>
-                <Link to="/team-id">Team ID Retrieval</Link>
-              </li>
-            </ul>
-          </nav>
-          <Routes>
-            {/* Define routes for different pages */}
-            <Route path="/team-id" element={<TeamIdPage />} />
-            <Route path="/" element={<HomePage />} />
-          </Routes>
-        </div>
-      </Router>
-    );
-  }
+  return (
+    <Router>
+      <Routes>
+        <Route path="/sign-in/*" element={<SignInPage />} />
+        <Route path="/sign-up/*" element={<SignUpPage />} />
+        <Route
+          path="/"
+          element={
+            <AuthGuard>
+              <HomePage />
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/team-id"
+          element={
+            <AuthGuard>
+              <TeamIdPage />
+            </AuthGuard>
+          }
+        />
+      </Routes>
+    </Router>
+  );
+}
 
 export default App;

@@ -2,21 +2,21 @@ import express, { type Express } from 'express';
 import fetch from 'node-fetch';
 
 // Minimal shape of Sleeper user response (partial)
-interface SleeperUser {
+export interface SleeperUser {
     'user_id': string;
     'username': string;
     'display_name'?: string;
     'avatar'?: string | null;
 }
 
-interface SleeperLeague {
+export interface SleeperLeague {
     'total_rosters': number;
     'status': string;
     'sport': string;
-    'settings': Record<string, any>;
+    'settings': Record<string, unknown>;
     'season_type': string;
     'season': string;
-    'scoring_settings': Record<string, any>;
+    'scoring_settings': Record<string, unknown>;
     'roster_positions': string[];
     'previous_league_id'?: string;
     'name': string;
@@ -43,9 +43,7 @@ export function initSleeperRoutes(app: Express) {
 
         // Check if username is empty
         if (!username || !username.trim()) {
-            // TODO: Check the behavior when this error is triggered vs. using res.statusCode = 400
             res.status(400).json({ error: 'username parameter is required' });
-            // next('username parameter is required');
             return;
         }
 
@@ -55,7 +53,6 @@ export function initSleeperRoutes(app: Express) {
 
             if (response.status === 404) {
                 res.status(404).json({ error: 'User not found' });
-
                 return;
             }
 
@@ -75,14 +72,12 @@ export function initSleeperRoutes(app: Express) {
                 return;
             }
 
-            // res.send(data);
             res.json({
                 user: data
             });
             return;
 
         } catch (err) {
-            // Narrow unknown error
             const message = err instanceof Error ? err.message : 'Unknown error';
             res.status(500).json({ error: 'Internal server error', message });
             return;
@@ -104,7 +99,6 @@ export function initSleeperRoutes(app: Express) {
 
             if (response.status === 404) {
                 res.status(404).json({ error: 'Leagues not found' });
-
                 return;
             }
 
@@ -124,18 +118,15 @@ export function initSleeperRoutes(app: Express) {
                 return;
             }
 
-            // res.send(data);
             res.json({
                 user: data
             });
             return;
 
         } catch (err) {
-            // Narrow unknown error
             const message = err instanceof Error ? err.message : 'Unknown error';
             res.status(500).json({ error: 'Internal server error', message });
             return;
-
         }
     });
 
