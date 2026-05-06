@@ -1,8 +1,1 @@
-/** @type {import('tailwindcss').Config} */
-module.exports = {
-  content: ['./src/**/*.{js,jsx,ts,tsx}'],
-  theme: {
-    extend: {},
-  },
-  plugins: [],
-};
+// This file is no longer used. Tailwind v4 doesn't require a config file when using @tailwindcss/vite. Safe to delete.
