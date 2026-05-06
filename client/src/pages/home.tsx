@@ -10,6 +10,10 @@ const HomePage = () => {
 
     return (
         <div>
+        <nav className="flex gap-4 p-2 border-b mb-4">
+          <Link to="/" className="font-semibold text-blue-600 hover:underline">Home</Link>
+          <Link to="/settings" className="font-semibold text-blue-600 hover:underline">Settings</Link>
+        </nav>
         <h1>Welcome to the Home Page!</h1>
         <div>
             <label>Select Team: </label>

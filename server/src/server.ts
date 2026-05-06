@@ -1,6 +1,7 @@
 import express from 'express';
 import { clerkMiddleware } from '@clerk/express';
 import { initSleeperRoutes } from './routes/sleeper_data.js';
+import { initUserSettingsRoutes } from './routes/user_settings.js';
 
 const app = express();
 const PORT = process.env["PORT"] ? Number(process.env["PORT"]) : 4000;
@@ -13,6 +14,7 @@ app.use(clerkMiddleware());
 
 // Initialize routes
 initSleeperRoutes(app);
+initUserSettingsRoutes(app);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', service: 'fantasy-analytics-server' });

@@ -1,8 +1,11 @@
 import React, { lazy } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card';
 import { registerWidget } from '../registry';
 import { meta } from './meta';
+import type { RootState } from '../../store';
 
 interface SleeperLeague {
   league_id: string;
@@ -12,7 +15,6 @@ interface SleeperLeague {
   status: string;
 }
 
-const PLACEHOLDER_USERNAME = 'placeholder_user';
 const CURRENT_YEAR = new Date().getFullYear().toString();
 
 async function fetchLeagues(username: string, year: string): Promise<SleeperLeague[]> {
@@ -22,10 +24,31 @@ async function fetchLeagues(username: string, year: string): Promise<SleeperLeag
 }
 
 function LeagueStandingsWidget() {
+  const sleeperUsername = useSelector((state: RootState) => state.auth.user?.sleeperUsername ?? null);
+
   const { data: leagues, isLoading, isError, error } = useQuery<SleeperLeague[]>({
-    queryKey: ['leagues', PLACEHOLDER_USERNAME, CURRENT_YEAR],
-    queryFn: () => fetchLeagues(PLACEHOLDER_USERNAME, CURRENT_YEAR),
+    queryKey: ['leagues', sleeperUsername, CURRENT_YEAR],
+    queryFn: () => fetchLeagues(sleeperUsername!, CURRENT_YEAR),
+    enabled: !!sleeperUsername,
   });
+
+  if (!sleeperUsername) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>League Standings</CardTitle>
+        </CardHeader>
+        <CardContent className="p-4">
+          <p className="text-sm text-gray-500">
+            <Link to="/settings" className="text-blue-600 hover:underline">
+              Link your Sleeper account in Settings
+            </Link>{' '}
+            to see your leagues.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (isLoading) {
     return (
