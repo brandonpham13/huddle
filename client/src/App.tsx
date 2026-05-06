@@ -1,7 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import HomePage from './pages/home';
-import TeamIdPage from './pages/teamIdRetrieval';
 import SettingsPage from './pages/settings';
 import { SignInPage } from './components/auth/SignInPage';
 import { SignUpPage } from './components/auth/SignUpPage';
@@ -18,14 +17,6 @@ function App() {
           element={
             <AuthGuard>
               <HomePage />
-            </AuthGuard>
-          }
-        />
-        <Route
-          path="/team-id"
-          element={
-            <AuthGuard>
-              <TeamIdPage />
             </AuthGuard>
           }
         />
