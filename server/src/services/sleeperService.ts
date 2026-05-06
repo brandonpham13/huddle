@@ -28,17 +28,17 @@ export interface SleeperRoster {
   players: string[] | null
   starters: string[] | null
   reserve: string[] | null
-  settings: {
-    wins: number
-    losses: number
-    ties: number
-    fpts: number
-    fpts_decimal: number
-    fpts_against: number
-    fpts_against_decimal: number
-    waiver_position: number
-    waiver_budget_used: number
-    total_moves: number
+  settings?: {
+    wins?: number
+    losses?: number
+    ties?: number
+    fpts?: number
+    fpts_decimal?: number
+    fpts_against?: number
+    fpts_against_decimal?: number
+    waiver_position?: number
+    waiver_budget_used?: number
+    total_moves?: number
   }
 }
 

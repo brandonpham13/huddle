@@ -28,6 +28,31 @@ export function initSleeperRoutes(app: Express) {
     }
   })
 
+  // GET /api/sleeper/user/:userId/leagues/all
+  // Fetches every league the user has ever been in, across all seasons, in parallel.
+  // Must be registered BEFORE /:year to prevent "all" matching the year param.
+  router.get('/sleeper/user/:userId/leagues/all', async (req, res) => {
+    const { userId } = req.params
+    if (!userId?.trim()) {
+      res.status(400).json({ error: 'userId is required' })
+      return
+    }
+    try {
+      const currentYear = new Date().getFullYear()
+      const START_YEAR = 2017
+      const years = Array.from({ length: currentYear - START_YEAR + 1 }, (_, i) => (START_YEAR + i).toString())
+      const results = await Promise.allSettled(years.map(y => getSleeperLeagues(userId, y)))
+      const seen = new Set<string>()
+      const leagues = results
+        .flatMap(r => (r.status === 'fulfilled' ? r.value : []))
+        .filter(l => { if (seen.has(l.league_id)) return false; seen.add(l.league_id); return true })
+        .sort((a, b) => Number(b.season) - Number(a.season) || a.name.localeCompare(a.name))
+      res.json({ leagues })
+    } catch (err) {
+      res.status(502).json({ error: 'Sleeper API error', message: err instanceof Error ? err.message : 'Unknown' })
+    }
+  })
+
   // GET /api/sleeper/user/:userId/leagues/:year
   router.get('/sleeper/user/:userId/leagues/:year', async (req, res) => {
     const { userId, year } = req.params

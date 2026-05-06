@@ -47,9 +47,13 @@ function toRoster(s: SleeperRoster): Roster {
     players: s.players ?? [],
     starters: s.starters ?? [],
     reserve: s.reserve ?? [],
-    record: { wins: s.settings.wins, losses: s.settings.losses, ties: s.settings.ties },
-    pointsFor: s.settings.fpts + s.settings.fpts_decimal / 100,
-    pointsAgainst: s.settings.fpts_against + s.settings.fpts_against_decimal / 100,
+    record: {
+      wins: s.settings?.wins ?? 0,
+      losses: s.settings?.losses ?? 0,
+      ties: s.settings?.ties ?? 0,
+    },
+    pointsFor: (s.settings?.fpts ?? 0) + (s.settings?.fpts_decimal ?? 0) / 100,
+    pointsAgainst: (s.settings?.fpts_against ?? 0) + (s.settings?.fpts_against_decimal ?? 0) / 100,
   }
 }
 
@@ -96,20 +100,35 @@ export const sleeperProvider: FantasyProvider = {
     return { provider: 'sleeper', username: user.username, userId: user.user_id }
   },
 
-  async getUserLeagues(userId: string): Promise<League[]> {
-    const year = new Date().getFullYear().toString()
+  async getUserLeagues(userId: string, year: string): Promise<League[]> {
     const leagues = await getSleeperLeagues(userId, year)
     return leagues.map(toLeague)
+  },
+
+  async getAllUserLeagues(userId: string): Promise<League[]> {
+    const currentYear = new Date().getFullYear()
+    const START_YEAR = 2017 // Sleeper launched in 2017
+    const years = Array.from({ length: currentYear - START_YEAR + 1 }, (_, i) => (START_YEAR + i).toString())
+    const results = await Promise.allSettled(years.map(y => getSleeperLeagues(userId, y)))
+    const seen = new Set<string>()
+    return results
+      .flatMap(r => (r.status === 'fulfilled' ? r.value : []))
+      .filter(l => { if (seen.has(l.league_id)) return false; seen.add(l.league_id); return true })
+      .sort((a, b) => Number(b.season) - Number(a.season) || a.name.localeCompare(b.name))
+      .map(toLeague)
   },
 
   async getLeagueHistory(leagueId: string): Promise<League[]> {
     const history: League[] = []
     let currentId: string | null = leagueId
-    while (currentId) {
+    const MAX_DEPTH = 15
+    let iterations = 0
+    while (currentId && iterations < MAX_DEPTH) {
       const s = await getLeague(currentId)
       const league = toLeague(s)
       history.push(league)
       currentId = league.previousLeagueRef?.leagueId ?? null
+      iterations++
     }
     return history
   },
