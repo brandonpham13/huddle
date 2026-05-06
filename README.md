@@ -10,6 +10,13 @@ Fantasy sports analytics dashboard. Built with Vite + React + TypeScript, Expres
 # Root (concurrently)
 npm install
 
+# Install client and server dependencies together
+npm run install:all
+```
+
+Or install them separately:
+
+```bash
 # Client
 npm install --prefix client
 
