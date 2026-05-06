@@ -1,51 +1,32 @@
-import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import axios from 'axios'
 import { useAppSelector } from '../../store/hooks'
+import { useLeague, useLeagueRosters, useLeagueUsers } from '../../hooks/useSleeper'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card'
-
-interface League {
-  league_id: string
-  name: string
-  season: string
-  status: string
-  total_rosters: number
-}
-
-async function fetchLeagues(username: string, year: string): Promise<League[]> {
-  const userRes = await axios.get<{ user: { user_id: string } }>(`/api/sleeper/user/${username}`)
-  const userId = userRes.data.user.user_id
-  const leaguesRes = await axios.get<{ leagues: League[] }>(`/api/sleeper/user/${userId}/leagues/${year}`)
-  return leaguesRes.data.leagues ?? []
-}
+import { Link } from 'react-router-dom'
 
 export default function LeagueStandingsWidget() {
-  const sleeperUsername = useAppSelector(state => state.auth.user?.sleeperUsername)
-  const year = new Date().getFullYear().toString()
+  const selectedLeagueId = useAppSelector(state => state.auth.selectedLeagueId)
 
-  const { data: leagues, isLoading, isError } = useQuery({
-    queryKey: ['sleeper-leagues', sleeperUsername, year],
-    queryFn: () => fetchLeagues(sleeperUsername!, year),
-    enabled: !!sleeperUsername,
-  })
+  const { data: league } = useLeague(selectedLeagueId)
+  const { data: rosters, isLoading: rostersLoading } = useLeagueRosters(selectedLeagueId)
+  const { data: users, isLoading: usersLoading } = useLeagueUsers(selectedLeagueId)
 
-  if (!sleeperUsername) {
+  if (!selectedLeagueId) {
     return (
       <Card>
-        <CardHeader><CardTitle>League Standings</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Standings</CardTitle></CardHeader>
         <CardContent>
           <p className="text-sm text-gray-500">
-            <Link to="/settings" className="text-blue-600 hover:underline">Link your Sleeper account</Link> to see your leagues.
+            <Link to="/leagues" className="text-blue-600 hover:underline">Select a league</Link> to view standings.
           </p>
         </CardContent>
       </Card>
     )
   }
 
-  if (isLoading) {
+  if (rostersLoading || usersLoading) {
     return (
       <Card>
-        <CardHeader><CardTitle>League Standings</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Standings</CardTitle></CardHeader>
         <CardContent className="flex justify-center py-8">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900" />
         </CardContent>
@@ -53,36 +34,51 @@ export default function LeagueStandingsWidget() {
     )
   }
 
-  if (isError) {
-    return (
-      <Card>
-        <CardHeader><CardTitle>League Standings</CardTitle></CardHeader>
-        <CardContent>
-          <p className="text-sm text-red-500">Failed to load leagues.</p>
-        </CardContent>
-      </Card>
-    )
-  }
+  // Build standings: join rosters with user display names, sort by wins then fpts
+  const userMap = new Map(users?.map(u => [u.user_id, u]) ?? [])
+
+  const standings = (rosters ?? [])
+    .map(roster => {
+      const user = roster.owner_id ? userMap.get(roster.owner_id) : null
+      const teamName = user?.metadata?.team_name ?? user?.display_name ?? `Team ${roster.roster_id}`
+      const { wins = 0, losses = 0, ties = 0, fpts = 0, fpts_decimal = 0 } = roster.settings
+      const totalFpts = fpts + fpts_decimal / 100
+      return { roster_id: roster.roster_id, teamName, wins, losses, ties, totalFpts }
+    })
+    .sort((a, b) => b.wins - a.wins || b.totalFpts - a.totalFpts)
 
   return (
     <Card>
-      <CardHeader><CardTitle>League Standings</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle>{league?.name ?? 'Standings'}</CardTitle>
+      </CardHeader>
       <CardContent>
-        {leagues && leagues.length > 0 ? (
-          <div className="space-y-2">
-            {leagues.map(league => (
-              <div key={league.league_id} className="flex items-center justify-between py-2 border-b last:border-0">
-                <div>
-                  <p className="text-sm font-medium">{league.name}</p>
-                  <p className="text-xs text-gray-500">{league.total_rosters} teams · {league.status}</p>
-                </div>
-                <span className="text-xs text-gray-400">{league.season}</span>
-              </div>
-            ))}
+        <div className="space-y-1">
+          {/* Header */}
+          <div className="flex items-center justify-between text-xs text-gray-400 pb-1 border-b">
+            <span>Team</span>
+            <div className="flex gap-4">
+              <span className="w-12 text-right">W-L-T</span>
+              <span className="w-14 text-right">PF</span>
+            </div>
           </div>
-        ) : (
-          <p className="text-sm text-gray-500">No leagues found for {sleeperUsername}.</p>
-        )}
+          {standings.map((team, i) => (
+            <div key={team.roster_id} className="flex items-center justify-between py-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 w-4">{i + 1}</span>
+                <span className="text-sm font-medium truncate max-w-[140px]">{team.teamName}</span>
+              </div>
+              <div className="flex gap-4">
+                <span className="text-xs text-gray-600 w-12 text-right">
+                  {team.wins}-{team.losses}{team.ties > 0 ? `-${team.ties}` : ''}
+                </span>
+                <span className="text-xs text-gray-600 w-14 text-right">
+                  {team.totalFpts.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   )
