@@ -1,12 +1,16 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthGuard } from "./components/auth/AuthGuard";
 import { RootRoute } from "./components/RootRoute";
+import { AppShell } from "./components/AppShell";
 import { AccountModalProvider } from "./components/AccountModal";
 import { SignInPage } from "./pages/SignInPage";
 import { SignUpPage } from "./pages/SignUpPage";
 import { LeaguesPage } from "./pages/LeaguesPage";
 import { WidgetsPage } from "./pages/WidgetsPage";
 import { GroupDetailPage } from "./pages/GroupDetailPage";
+import { LeaguePage } from "./pages/LeaguePage";
+import { SchedulePage } from "./pages/SchedulePage";
+import { DraftPage } from "./pages/DraftPage";
 
 export default function App() {
   return (
@@ -18,30 +22,22 @@ export default function App() {
           <Route path="/" element={<RootRoute />} />
           <Route path="/account" element={<Navigate to="/" replace />} />
           <Route path="/settings" element={<Navigate to="/" replace />} />
+
+          {/* Auth-protected routes inside AppShell */}
           <Route
-            path="/leagues"
             element={
               <AuthGuard>
-                <LeaguesPage />
+                <AppShell />
               </AuthGuard>
             }
-          />
-          <Route
-            path="/widgets"
-            element={
-              <AuthGuard>
-                <WidgetsPage />
-              </AuthGuard>
-            }
-          />
-          <Route
-            path="/groups/:id"
-            element={
-              <AuthGuard>
-                <GroupDetailPage />
-              </AuthGuard>
-            }
-          />
+          >
+            <Route path="/league" element={<LeaguePage />} />
+            <Route path="/schedule" element={<SchedulePage />} />
+            <Route path="/draft" element={<DraftPage />} />
+            <Route path="/leagues" element={<LeaguesPage />} />
+            <Route path="/widgets" element={<WidgetsPage />} />
+            <Route path="/groups/:id" element={<GroupDetailPage />} />
+          </Route>
         </Routes>
       </AccountModalProvider>
     </BrowserRouter>
