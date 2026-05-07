@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useAppSelector } from '../../store/hooks'
 import {
   useLeague,
@@ -10,6 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Link } from 'react-router-dom'
 
 const PAST_SEASON_DEFAULT_WEEK = 17
+const MAX_WEEK = 18
+const MIN_WEEK = 1
 
 interface ScoreboardSide {
   rosterId: number
@@ -30,11 +33,21 @@ export default function RecentScoreboardWidget() {
   const { data: league } = useLeague(selectedLeagueId)
   const { data: nflState } = useNFLState()
 
-  const week = (() => {
+  const isCurrentSeason = !!(league && nflState && league.season === nflState.season)
+  const defaultWeek = (() => {
     if (!league || !nflState) return 0
-    if (league.season === nflState.season) return Math.max(1, nflState.display_week)
+    if (isCurrentSeason) return Math.max(MIN_WEEK, nflState.display_week)
     return PAST_SEASON_DEFAULT_WEEK
   })()
+  const maxWeek = isCurrentSeason ? Math.max(MIN_WEEK, nflState!.display_week) : MAX_WEEK
+
+  const [week, setWeek] = useState(0)
+
+  // Initialize / reset week when the resolved default changes (league or season switch)
+  useEffect(() => {
+    if (defaultWeek > 0) setWeek(defaultWeek)
+    // We deliberately re-sync only when the default itself changes — not on every user nav
+  }, [defaultWeek, selectedLeagueId])
 
   const { data: matchups, isLoading: matchupsLoading } = useLeagueMatchups(selectedLeagueId, week)
   const { data: rosters } = useLeagueRosters(selectedLeagueId)
@@ -102,10 +115,20 @@ export default function RecentScoreboardWidget() {
       return p
     })
 
+  const header = (
+    <WeekNavHeader
+      week={week}
+      minWeek={MIN_WEEK}
+      maxWeek={maxWeek}
+      onPrev={() => setWeek(w => Math.max(MIN_WEEK, w - 1))}
+      onNext={() => setWeek(w => Math.min(maxWeek, w + 1))}
+    />
+  )
+
   if (pairs.length === 0) {
     return (
       <Card>
-        <CardHeader><CardTitle>Week {week} Scoreboard</CardTitle></CardHeader>
+        <CardHeader>{header}</CardHeader>
         <CardContent>
           <p className="text-sm text-gray-500">No matchups available for week {week} yet.</p>
         </CardContent>
@@ -115,9 +138,7 @@ export default function RecentScoreboardWidget() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Week {week} Scoreboard</CardTitle>
-      </CardHeader>
+      <CardHeader>{header}</CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {pairs.map(pair => (
@@ -126,6 +147,48 @@ export default function RecentScoreboardWidget() {
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+function WeekNavHeader({
+  week,
+  minWeek,
+  maxWeek,
+  onPrev,
+  onNext,
+}: {
+  week: number
+  minWeek: number
+  maxWeek: number
+  onPrev: () => void
+  onNext: () => void
+}) {
+  const canPrev = week > minWeek
+  const canNext = week < maxWeek
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <CardTitle>Week {week} Scoreboard</CardTitle>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={onPrev}
+          disabled={!canPrev}
+          aria-label="Previous week"
+          className="w-7 h-7 rounded-md border text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
+        >
+          ‹
+        </button>
+        <button
+          type="button"
+          onClick={onNext}
+          disabled={!canNext}
+          aria-label="Next week"
+          className="w-7 h-7 rounded-md border text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
+        >
+          ›
+        </button>
+      </div>
+    </div>
   )
 }
 
