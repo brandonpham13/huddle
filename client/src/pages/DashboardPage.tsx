@@ -5,7 +5,7 @@ import { useAccountModal } from '../components/AccountModal'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { addWidget, removeWidget } from '../store/slices/widgetSlice'
 import { setSelectedLeague, setSelectedYear } from '../store/slices/authSlice'
-import { getAllWidgets } from '../widgets/registry'
+import { getAllWidgets, getPinnedWidgets, getOptionalWidgets } from '../widgets/registry'
 import { useAllSleeperLeagues, useLeague, useLeagueHistory } from '../hooks/useSleeper'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
@@ -23,6 +23,8 @@ export function DashboardPage() {
   const { signOut } = useSignOut()
   const { open: openAccountModal } = useAccountModal()
   const allWidgets = getAllWidgets()
+  const pinnedWidgets = getPinnedWidgets()
+  const optionalWidgets = getOptionalWidgets()
 
   const { data: allLeagues } = useAllSleeperLeagues()
   const syncedLeagues = allLeagues?.filter(l => syncedLeagueIds.includes(l.ref.leagueId)) ?? []
@@ -115,6 +117,25 @@ export function DashboardPage() {
 
         {selectedLeagueId && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Pinned widgets — always shown, no remove button */}
+            {pinnedWidgets.map(def => {
+              const WidgetComponent = def.component
+              return (
+                <div key={def.id}>
+                  <Suspense fallback={
+                    <Card>
+                      <CardContent className="p-8 flex justify-center">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900" />
+                      </CardContent>
+                    </Card>
+                  }>
+                    <WidgetComponent />
+                  </Suspense>
+                </div>
+              )
+            })}
+
+            {/* Optional widgets — user-added, removable */}
             {activeWidgets.map(widgetId => {
               const def = allWidgets.find(w => w.id === widgetId)
               if (!def) return null
@@ -140,9 +161,9 @@ export function DashboardPage() {
               )
             })}
 
-            {activeWidgets.length === 0 && (
-              <div className="col-span-3 text-center text-gray-400 py-20">
-                No widgets yet — click <strong>+ Add Widget</strong> to get started.
+            {activeWidgets.length === 0 && optionalWidgets.length > 0 && (
+              <div className="col-span-3 text-center text-gray-400 py-10">
+                Click <strong>+ Add Widget</strong> to add more to your dashboard.
               </div>
             )}
           </div>
@@ -155,7 +176,7 @@ export function DashboardPage() {
           <Card className="w-full max-w-md mx-4">
             <CardHeader><CardTitle>Add Widget</CardTitle></CardHeader>
             <CardContent className="space-y-2">
-              {allWidgets.map(widget => (
+              {optionalWidgets.map(widget => (
                 <button
                   key={widget.id}
                   onClick={() => { dispatch(addWidget({ id: widget.id })); setShowModal(false) }}
