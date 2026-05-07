@@ -2,6 +2,7 @@ import express from 'express'
 import { clerkMiddleware } from '@clerk/express'
 import { initProviderRoutes } from './routes/providerRoutes.js'
 import { initUserRoutes } from './routes/userRoutes.js'
+import { initGroupRoutes } from './routes/groupRoutes.js'
 
 export const app = express()
 
@@ -10,6 +11,7 @@ app.use(clerkMiddleware())
 
 initProviderRoutes(app)
 initUserRoutes(app)
+initGroupRoutes(app)
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' })

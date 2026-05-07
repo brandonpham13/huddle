@@ -5,15 +5,24 @@
   "scripts": {
     "build": "tsc -p .",
     "start": "node --env-file=../.env ./bin/server.js",
-    "dev": "tsc -p . && node --env-file=../.env ./bin/server.js"
+    "dev": "tsc -p . && node --env-file=../.env ./bin/server.js",
+    "db:generate": "dotenv -e ../.env -- drizzle-kit generate",
+    "db:push": "dotenv -e ../.env -- drizzle-kit push",
+    "db:studio": "dotenv -e ../.env -- drizzle-kit studio"
   },
   "dependencies": {
     "@clerk/express": "^1.7.0",
+    "@neondatabase/serverless": "^1.1.0",
+    "bcryptjs": "^3.0.3",
+    "drizzle-orm": "^0.45.2",
     "express": "^5.0.0"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.0",
     "@types/node": "^25.6.0",
+    "dotenv-cli": "^11.0.0",
+    "drizzle-kit": "^0.31.10",
     "typescript": "^5.4.0"
   }
 }
