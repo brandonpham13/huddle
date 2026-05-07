@@ -4,8 +4,9 @@ import { registerWidget } from '../registry'
 registerWidget({
   id: 'league-standings',
   name: 'League Standings',
-  description: 'Your Sleeper leagues for the current season',
+  description: 'Current standings for your league',
   component: lazy(() => import('./LeagueStandingsWidget')),
-  defaultSize: { w: 4, h: 3 },
+  defaultSize: { w: 4, h: 1 },
   tags: ['sleeper', 'leagues'],
+  showOnDashboard: true,
 })

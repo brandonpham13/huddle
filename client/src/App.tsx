@@ -5,6 +5,7 @@ import { SignInPage } from './pages/SignInPage'
 import { SignUpPage } from './pages/SignUpPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LeaguesPage } from './pages/LeaguesPage'
+import { WidgetsPage } from './pages/WidgetsPage'
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/account" element={<Navigate to="/" replace />} />
           <Route path="/settings" element={<Navigate to="/" replace />} />
           <Route path="/leagues" element={<AuthGuard><LeaguesPage /></AuthGuard>} />
+          <Route path="/widgets" element={<AuthGuard><WidgetsPage /></AuthGuard>} />
         </Routes>
       </AccountModalProvider>
     </BrowserRouter>

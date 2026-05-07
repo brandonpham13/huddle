@@ -1,33 +1,30 @@
-import { useState, Suspense } from 'react'
+import { Suspense } from 'react'
 import { Link } from 'react-router-dom'
 import { useSignOut } from '../hooks/useSignOut'
 import { useAccountModal } from '../components/AccountModal'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
-import { addWidget, removeWidget } from '../store/slices/widgetSlice'
 import { setSelectedLeague, setSelectedYear } from '../store/slices/authSlice'
-import { getAllWidgets } from '../widgets/registry'
+import { getDashboardWidgets, colSpanClass, rowSpanClass } from '../widgets/registry'
 import { useAllSleeperLeagues, useLeague, useLeagueHistory } from '../hooks/useSleeper'
 import { Button } from '../components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { Card, CardContent } from '../components/ui/card'
 
 // Register widgets
 import '../widgets/LeagueStandings'
 
 export function DashboardPage() {
   const dispatch = useAppDispatch()
-  const activeWidgets = useAppSelector(state => state.widget.activeWidgets)
   const syncedLeagueIds = useAppSelector(state => state.auth.user?.syncedLeagueIds ?? [])
   const selectedLeagueId = useAppSelector(state => state.auth.selectedLeagueId)
-  const [showModal, setShowModal] = useState(false)
-  const [rootLeagueId, setRootLeagueId] = useState<string | null>(selectedLeagueId)
   const { signOut } = useSignOut()
   const { open: openAccountModal } = useAccountModal()
-  const allWidgets = getAllWidgets()
+
+  const dashboardWidgets = getDashboardWidgets()
 
   const { data: allLeagues } = useAllSleeperLeagues()
   const syncedLeagues = allLeagues?.filter(l => syncedLeagueIds.includes(l.ref.leagueId)) ?? []
   const { data: selectedLeague } = useLeague(selectedLeagueId)
-  const { data: leagueHistory } = useLeagueHistory(rootLeagueId)
+  const { data: leagueHistory } = useLeagueHistory(selectedLeagueId)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -42,7 +39,10 @@ export function DashboardPage() {
               {syncedLeagues.map(league => (
                 <button
                   key={league.ref.leagueId}
-                  onClick={() => { setRootLeagueId(league.ref.leagueId); dispatch(setSelectedLeague(league.ref.leagueId)); dispatch(setSelectedYear(league.season)) }}
+                  onClick={() => {
+                    dispatch(setSelectedLeague(league.ref.leagueId))
+                    dispatch(setSelectedYear(league.season))
+                  }}
                   className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
                     selectedLeagueId === league.ref.leagueId
                       ? 'bg-white shadow text-gray-900'
@@ -63,6 +63,7 @@ export function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-4">
+          <Link to="/widgets" className="text-sm text-gray-600 hover:text-gray-900">Widgets</Link>
           <Link to="/leagues" className="text-sm text-gray-600 hover:text-gray-900">Leagues</Link>
           <button onClick={openAccountModal} className="text-sm text-gray-600 hover:text-gray-900">Account</button>
           <Button variant="outline" size="sm" onClick={signOut}>Sign out</Button>
@@ -100,33 +101,27 @@ export function DashboardPage() {
           </div>
         )}
 
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold">Dashboard</h2>
-          {selectedLeagueId && (
-            <Button onClick={() => setShowModal(true)}>+ Add Widget</Button>
-          )}
-        </div>
-
         {!selectedLeagueId && syncedLeagues.length > 0 && (
           <div className="text-center text-gray-400 py-20">
             Select a league above to view your dashboard.
           </div>
         )}
 
+        {!selectedLeagueId && syncedLeagues.length === 0 && (
+          <div className="text-center text-gray-400 py-20">
+            <Link to="/leagues" className="text-blue-600 hover:underline">Sync a league</Link> to get started.
+          </div>
+        )}
+
         {selectedLeagueId && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {activeWidgets.map(widgetId => {
-              const def = allWidgets.find(w => w.id === widgetId)
-              if (!def) return null
+          <div className="grid grid-cols-12 gap-4 auto-rows-auto">
+            {dashboardWidgets.map(def => {
               const WidgetComponent = def.component
               return (
-                <div key={widgetId} className="relative">
-                  <button
-                    onClick={() => dispatch(removeWidget(widgetId))}
-                    className="absolute top-3 right-3 z-10 w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-xs text-gray-500"
-                  >
-                    ✕
-                  </button>
+                <div
+                  key={def.id}
+                  className={`${colSpanClass(def.defaultSize.w)} ${rowSpanClass(def.defaultSize.h)}`}
+                >
                   <Suspense fallback={
                     <Card>
                       <CardContent className="p-8 flex justify-center">
@@ -139,38 +134,9 @@ export function DashboardPage() {
                 </div>
               )
             })}
-
-            {activeWidgets.length === 0 && (
-              <div className="col-span-3 text-center text-gray-400 py-20">
-                No widgets yet — click <strong>+ Add Widget</strong> to get started.
-              </div>
-            )}
           </div>
         )}
       </main>
-
-      {/* Add Widget Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md mx-4">
-            <CardHeader><CardTitle>Add Widget</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              {allWidgets.map(widget => (
-                <button
-                  key={widget.id}
-                  onClick={() => { dispatch(addWidget({ id: widget.id })); setShowModal(false) }}
-                  disabled={activeWidgets.includes(widget.id)}
-                  className="w-full text-left p-3 rounded-lg border hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <div className="font-medium text-sm">{widget.name}</div>
-                  <div className="text-xs text-gray-500">{widget.description}</div>
-                </button>
-              ))}
-              <Button variant="outline" className="w-full mt-2" onClick={() => setShowModal(false)}>Cancel</Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   )
 }
