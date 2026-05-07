@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { Link, Outlet } from "react-router-dom";
 import { useSignOut } from "../hooks/useSignOut";
 import { useAccountModal } from "./AccountModal";
@@ -28,6 +28,29 @@ export function AppShell({ children }: AppShellProps) {
   const syncedLeagues =
     allLeagues?.filter((l) => syncedLeagueIds.includes(l.ref.leagueId)) ?? [];
 
+  // One entry per league family (deduplicated by name, keeping most recent season
+  // since Sleeper returns newest first). The in-page season selector handles year nav.
+  const uniqueLeagues = syncedLeagues.filter(
+    (l, i, arr) => arr.findIndex((x) => x.name === l.name) === i,
+  );
+
+  // Auto-select the first league once leagues load and nothing is selected yet
+  useEffect(() => {
+    if (!selectedLeagueId && uniqueLeagues.length > 0) {
+      const first = uniqueLeagues[0]!;
+      dispatch(setSelectedLeague(first.ref.leagueId));
+      dispatch(setSelectedYear(first.season));
+    }
+  }, [uniqueLeagues, selectedLeagueId, dispatch]);
+
+  const handleLeagueChange = (leagueId: string) => {
+    const league = uniqueLeagues.find((l) => l.ref.leagueId === leagueId);
+    if (league) {
+      dispatch(setSelectedLeague(league.ref.leagueId));
+      dispatch(setSelectedYear(league.season));
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Top nav */}
@@ -37,29 +60,24 @@ export function AppShell({ children }: AppShellProps) {
             Huddle
           </Link>
 
-          {/* League switcher */}
-          {syncedLeagues.length > 0 && (
-            <div className="flex items-center gap-1 border rounded-lg p-1 bg-gray-50">
-              {syncedLeagues.map((league) => (
-                <button
-                  key={league.ref.leagueId}
-                  onClick={() => {
-                    dispatch(setSelectedLeague(league.ref.leagueId));
-                    dispatch(setSelectedYear(league.season));
-                  }}
-                  className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
-                    selectedLeagueId === league.ref.leagueId
-                      ? "bg-white shadow text-gray-900"
-                      : "text-gray-500 hover:text-gray-900"
-                  }`}
-                >
-                  {league.name}
-                </button>
-              ))}
-            </div>
+          {/* League dropdown */}
+          {uniqueLeagues.length > 0 && (
+            <select
+              value={selectedLeagueId ?? ""}
+              onChange={(e) => handleLeagueChange(e.target.value)}
+              className="text-sm border rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300"
+            >
+              <optgroup label="Sleeper">
+                {uniqueLeagues.map((league) => (
+                  <option key={league.ref.leagueId} value={league.ref.leagueId}>
+                    {league.name}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
           )}
 
-          {syncedLeagues.length === 0 && (
+          {uniqueLeagues.length === 0 && (
             <Link
               to="/leagues"
               className="text-sm text-blue-600 hover:underline"
