@@ -1,4 +1,4 @@
-# Fantasy Analytics
+# Huddle
 
 Fantasy sports analytics dashboard. Built with Vite + React + TypeScript, Express, Clerk auth, Redux Toolkit, TanStack Query, and Tailwind v4.
 
