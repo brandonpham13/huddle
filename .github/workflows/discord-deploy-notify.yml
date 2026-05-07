@@ -1,0 +1,34 @@
+name: Notify Discord on Vercel Deploy
+
+on:
+  deployment_status:
+
+jobs:
+  notify:
+    if: github.event.deployment_status.state == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post to Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          BRANCH="${{ github.event.deployment.ref }}"
+          URL="${{ github.event.deployment_status.target_url }}"
+          SHA="${{ github.event.deployment.sha }}"
+          SHORT_SHA="${SHA:0:7}"
+          ACTOR="${{ github.event.deployment.creator.login }}"
+
+          curl -s -H "Content-Type: application/json" \
+            -d "{
+              \"embeds\": [{
+                \"title\": \"🚀 Deployed: \`${BRANCH}\`\",
+                \"url\": \"${URL}\",
+                \"color\": 5763719,
+                \"fields\": [
+                  { \"name\": \"Preview\", \"value\": \"[Open deployment](${URL})\", \"inline\": true },
+                  { \"name\": \"Branch\", \"value\": \"\`${BRANCH}\`\", \"inline\": true },
+                  { \"name\": \"Commit\", \"value\": \"\`${SHORT_SHA}\`\", \"inline\": true }
+                ]
+              }]
+            }" \
+            "$DISCORD_WEBHOOK"
