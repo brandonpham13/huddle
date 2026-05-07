@@ -1,18 +1,82 @@
+import { useMemo } from "react";
 import { useAppSelector } from "../../store/hooks";
-import { usePowerRankings } from "../../hooks/usePowerRankings";
+import {
+  usePowerRankings,
+  type PowerRankingRow,
+} from "../../hooks/usePowerRankings";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "../../components/ui/card";
+import {
+  SortableTable,
+  type TableColumn,
+} from "../../components/SortableTable";
 import { Link } from "react-router-dom";
+
+function TeamCell({ row }: { row: PowerRankingRow }) {
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      {row.avatar ? (
+        <img
+          src={`https://sleepercdn.com/avatars/thumbs/${row.avatar}`}
+          alt={row.teamName}
+          className="w-6 h-6 rounded-full object-cover shrink-0"
+        />
+      ) : (
+        <div className="w-6 h-6 rounded-full bg-gray-200 shrink-0" />
+      )}
+      <span className="font-medium truncate">{row.teamName}</span>
+    </div>
+  );
+}
 
 export default function PowerRankingsWidget() {
   const selectedLeagueId = useAppSelector(
     (state) => state.auth.selectedLeagueId,
   );
   const { data, isLoading, isError } = usePowerRankings(selectedLeagueId);
+
+  const columns = useMemo<TableColumn<PowerRankingRow>[]>(() => {
+    const base: TableColumn<PowerRankingRow>[] = [
+      {
+        id: "rank",
+        label: "#",
+        align: "left",
+        render: (_row, i) => (
+          <span className="text-xs text-gray-400">{i + 1}</span>
+        ),
+      },
+      {
+        id: "team",
+        label: "Team",
+        align: "left",
+        render: (row) => <TeamCell row={row} />,
+      },
+    ];
+
+    const algoCols: TableColumn<PowerRankingRow>[] = (data?.columns ?? []).map(
+      (col) => ({
+        id: col.id,
+        label: col.label,
+        title: col.description,
+        align: "right" as const,
+        sortValue: (row: PowerRankingRow) => row.scores[col.id] ?? null,
+        render: (row: PowerRankingRow) => {
+          const score = row.scores[col.id];
+          return score !== null && score !== undefined ? (
+            <span className="text-xs text-gray-600">{score.toFixed(3)}</span>
+          ) : (
+            <span className="text-gray-300 text-xs">—</span>
+          );
+        },
+      }),
+    );
+
+    return [...base, ...algoCols];
+  }, [data?.columns]);
 
   if (!selectedLeagueId) {
     return (
@@ -58,81 +122,20 @@ export default function PowerRankingsWidget() {
     );
   }
 
-  const { columns, rows } = data;
-
   return (
     <Card>
       <CardHeader>
         <CardTitle>Power Rankings</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-xs text-gray-400">
-                <th className="text-left font-normal pb-2 w-6">#</th>
-                <th className="text-left font-normal pb-2">Team</th>
-                {columns.map((col) => (
-                  <th
-                    key={col.id}
-                    className="text-right font-normal pb-2 pl-4"
-                    title={col.description}
-                  >
-                    {col.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, i) => (
-                <tr key={row.rosterId} className="border-b last:border-b-0">
-                  <td className="py-2 text-xs text-gray-400 w-6">{i + 1}</td>
-                  <td className="py-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {row.avatar ? (
-                        <img
-                          src={`https://sleepercdn.com/avatars/thumbs/${row.avatar}`}
-                          alt={row.teamName}
-                          className="w-6 h-6 rounded-full object-cover shrink-0"
-                        />
-                      ) : (
-                        <div className="w-6 h-6 rounded-full bg-gray-200 shrink-0" />
-                      )}
-                      <span className="font-medium truncate">
-                        {row.teamName}
-                      </span>
-                    </div>
-                  </td>
-                  {columns.map((col) => {
-                    const score = row.scores[col.id];
-                    return (
-                      <td
-                        key={col.id}
-                        className="py-2 pl-4 text-right tabular-nums text-gray-600"
-                      >
-                        {score !== null && score !== undefined ? (
-                          score.toFixed(3)
-                        ) : (
-                          <span className="text-gray-300">—</span>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-              {rows.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={2 + columns.length}
-                    className="py-8 text-center text-gray-400 text-sm"
-                  >
-                    No data yet — check back after week 1.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <SortableTable
+          columns={columns}
+          rows={data.rows}
+          getKey={(r) => r.rosterId}
+          defaultSortId={data.columns[0]?.id}
+          defaultSortDir="desc"
+          emptyMessage="No data yet — check back after week 1."
+        />
       </CardContent>
     </Card>
   );
