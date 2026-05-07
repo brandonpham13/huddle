@@ -8,4 +8,5 @@ registerWidget({
   component: lazy(() => import('./LeagueStandingsWidget')),
   defaultSize: { w: 4, h: 3 },
   tags: ['sleeper', 'leagues'],
+  pinned: true,
 })
