@@ -1,12 +1,14 @@
-import { Suspense } from "react";
+import { Suspense, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { useAppSelector } from "../store/hooks";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { setSelectedLeague, setSelectedYear } from "../store/slices/authSlice";
 import {
   getDashboardWidgets,
   colSpanClass,
   rowSpanClass,
 } from "../widgets/registry";
 import { useAllSleeperLeagues, useLeague } from "../hooks/useSleeper";
+import { getFamilySeasons } from "../utils/leagueFamily";
 import { Card, CardContent } from "../components/ui/card";
 
 // Register widgets
@@ -14,6 +16,7 @@ import "../widgets/LeagueStandings";
 import "../widgets/RecentScoreboard";
 
 export function DashboardPage() {
+  const dispatch = useAppDispatch();
   const syncedLeagueIds = useAppSelector(
     (state) => state.auth.user?.syncedLeagueIds ?? [],
   );
@@ -27,6 +30,14 @@ export function DashboardPage() {
   const syncedLeagues =
     allLeagues?.filter((l) => syncedLeagueIds.includes(l.ref.leagueId)) ?? [];
   const { data: selectedLeague } = useLeague(selectedLeagueId);
+
+  const familySeasons = useMemo(
+    () =>
+      selectedLeagueId && allLeagues
+        ? getFamilySeasons(selectedLeagueId, allLeagues)
+        : [],
+    [selectedLeagueId, allLeagues],
+  );
 
   return (
     <div className="p-6">
@@ -44,8 +55,29 @@ export function DashboardPage() {
             {selectedLeague.name}
           </span>
           <span className="text-xs text-gray-400">
-            · {selectedLeague.totalRosters} teams · {selectedLeague.season}
+            · {selectedLeague.totalRosters} teams
           </span>
+          {familySeasons.length > 1 && (
+            <select
+              value={selectedLeague.season}
+              onChange={(e) => {
+                const entry = familySeasons.find(
+                  (l) => l.season === e.target.value,
+                );
+                if (entry) {
+                  dispatch(setSelectedLeague(entry.ref.leagueId));
+                  dispatch(setSelectedYear(entry.season));
+                }
+              }}
+              className="ml-1 text-xs border rounded-md px-2 py-0.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {familySeasons.map((l) => (
+                <option key={l.ref.leagueId} value={l.season}>
+                  {l.season}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       )}
 

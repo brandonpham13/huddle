@@ -28,17 +28,23 @@ export function AppShell({ children }: AppShellProps) {
   const syncedLeagues =
     allLeagues?.filter((l) => syncedLeagueIds.includes(l.ref.leagueId)) ?? [];
 
+  // One entry per league family (deduplicated by name, keeping most recent season
+  // since Sleeper returns newest first). The in-page season selector handles year nav.
+  const uniqueLeagues = syncedLeagues.filter(
+    (l, i, arr) => arr.findIndex((x) => x.name === l.name) === i,
+  );
+
   // Auto-select the first league once leagues load and nothing is selected yet
   useEffect(() => {
-    if (!selectedLeagueId && syncedLeagues.length > 0) {
-      const first = syncedLeagues[0]!;
+    if (!selectedLeagueId && uniqueLeagues.length > 0) {
+      const first = uniqueLeagues[0]!;
       dispatch(setSelectedLeague(first.ref.leagueId));
       dispatch(setSelectedYear(first.season));
     }
-  }, [syncedLeagues, selectedLeagueId, dispatch]);
+  }, [uniqueLeagues, selectedLeagueId, dispatch]);
 
   const handleLeagueChange = (leagueId: string) => {
-    const league = syncedLeagues.find((l) => l.ref.leagueId === leagueId);
+    const league = uniqueLeagues.find((l) => l.ref.leagueId === leagueId);
     if (league) {
       dispatch(setSelectedLeague(league.ref.leagueId));
       dispatch(setSelectedYear(league.season));
@@ -55,21 +61,23 @@ export function AppShell({ children }: AppShellProps) {
           </Link>
 
           {/* League dropdown */}
-          {syncedLeagues.length > 0 && (
+          {uniqueLeagues.length > 0 && (
             <select
               value={selectedLeagueId ?? ""}
               onChange={(e) => handleLeagueChange(e.target.value)}
               className="text-sm border rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300"
             >
-              {syncedLeagues.map((league) => (
-                <option key={league.ref.leagueId} value={league.ref.leagueId}>
-                  {league.name} ({league.season})
-                </option>
-              ))}
+              <optgroup label="Sleeper">
+                {uniqueLeagues.map((league) => (
+                  <option key={league.ref.leagueId} value={league.ref.leagueId}>
+                    {league.name}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           )}
 
-          {syncedLeagues.length === 0 && (
+          {uniqueLeagues.length === 0 && (
             <Link
               to="/leagues"
               className="text-sm text-blue-600 hover:underline"
