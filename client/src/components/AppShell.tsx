@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { Link, Outlet } from "react-router-dom";
 import { useSignOut } from "../hooks/useSignOut";
 import { useAccountModal } from "./AccountModal";
@@ -28,6 +28,23 @@ export function AppShell({ children }: AppShellProps) {
   const syncedLeagues =
     allLeagues?.filter((l) => syncedLeagueIds.includes(l.ref.leagueId)) ?? [];
 
+  // Auto-select the first league once leagues load and nothing is selected yet
+  useEffect(() => {
+    if (!selectedLeagueId && syncedLeagues.length > 0) {
+      const first = syncedLeagues[0]!;
+      dispatch(setSelectedLeague(first.ref.leagueId));
+      dispatch(setSelectedYear(first.season));
+    }
+  }, [syncedLeagues, selectedLeagueId, dispatch]);
+
+  const handleLeagueChange = (leagueId: string) => {
+    const league = syncedLeagues.find((l) => l.ref.leagueId === leagueId);
+    if (league) {
+      dispatch(setSelectedLeague(league.ref.leagueId));
+      dispatch(setSelectedYear(league.season));
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Top nav */}
@@ -37,26 +54,19 @@ export function AppShell({ children }: AppShellProps) {
             Huddle
           </Link>
 
-          {/* League switcher */}
+          {/* League dropdown */}
           {syncedLeagues.length > 0 && (
-            <div className="flex items-center gap-1 border rounded-lg p-1 bg-gray-50">
+            <select
+              value={selectedLeagueId ?? ""}
+              onChange={(e) => handleLeagueChange(e.target.value)}
+              className="text-sm border rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300"
+            >
               {syncedLeagues.map((league) => (
-                <button
-                  key={league.ref.leagueId}
-                  onClick={() => {
-                    dispatch(setSelectedLeague(league.ref.leagueId));
-                    dispatch(setSelectedYear(league.season));
-                  }}
-                  className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
-                    selectedLeagueId === league.ref.leagueId
-                      ? "bg-white shadow text-gray-900"
-                      : "text-gray-500 hover:text-gray-900"
-                  }`}
-                >
-                  {league.name}
-                </button>
+                <option key={league.ref.leagueId} value={league.ref.leagueId}>
+                  {league.name} ({league.season})
+                </option>
               ))}
-            </div>
+            </select>
           )}
 
           {syncedLeagues.length === 0 && (
