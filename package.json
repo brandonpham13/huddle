@@ -4,7 +4,9 @@
     "install:all": "concurrently --names server,client --prefix-colors blue,green \"npm install --prefix server\" \"npm install --prefix client\""
   },
   "dependencies": {
+    "@clerk/express": "^1.7.0",
     "esrun": "^3.2.26",
+    "express": "^5.0.0",
     "typescript": "^5.9.2"
   },
   "devDependencies": {
