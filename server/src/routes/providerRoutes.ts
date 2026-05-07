@@ -120,6 +120,74 @@ export function initProviderRoutes(app: Express) {
     }
   })
 
+  // GET /api/provider/:providerId/league/:leagueId/transactions/:week
+  router.get('/:providerId/league/:leagueId/transactions/:week', async (req: Request, res: Response) => {
+    const provider = resolveProvider(req.params.providerId, res)
+    if (!provider) return
+    if (!provider.getTransactions) {
+      res.status(404).json({ error: `${req.params.providerId} does not support transactions` })
+      return
+    }
+    const week = parseInt(req.params.week, 10)
+    if (isNaN(week) || week < 1 || week > 18) {
+      res.status(400).json({ error: 'week must be between 1 and 18' }); return
+    }
+    try {
+      const transactions = await provider.getTransactions(req.params.leagueId, week)
+      res.json({ transactions })
+    } catch (err) {
+      res.status(httpStatus(err)).json({ error: err instanceof Error ? err.message : 'Unknown' })
+    }
+  })
+
+  // GET /api/provider/:providerId/league/:leagueId/traded_picks
+  router.get('/:providerId/league/:leagueId/traded_picks', async (req: Request, res: Response) => {
+    const provider = resolveProvider(req.params.providerId, res)
+    if (!provider) return
+    if (!provider.getTradedPicks) {
+      res.status(404).json({ error: `${req.params.providerId} does not support traded picks` })
+      return
+    }
+    try {
+      const picks = await provider.getTradedPicks(req.params.leagueId)
+      res.json({ picks })
+    } catch (err) {
+      res.status(httpStatus(err)).json({ error: err instanceof Error ? err.message : 'Unknown' })
+    }
+  })
+
+  // GET /api/provider/:providerId/league/:leagueId/winners_bracket
+  router.get('/:providerId/league/:leagueId/winners_bracket', async (req: Request, res: Response) => {
+    const provider = resolveProvider(req.params.providerId, res)
+    if (!provider) return
+    if (!provider.getWinnersBracket) {
+      res.status(404).json({ error: `${req.params.providerId} does not support playoff brackets` })
+      return
+    }
+    try {
+      const bracket = await provider.getWinnersBracket(req.params.leagueId)
+      res.json({ bracket })
+    } catch (err) {
+      res.status(httpStatus(err)).json({ error: err instanceof Error ? err.message : 'Unknown' })
+    }
+  })
+
+  // GET /api/provider/:providerId/league/:leagueId/losers_bracket
+  router.get('/:providerId/league/:leagueId/losers_bracket', async (req: Request, res: Response) => {
+    const provider = resolveProvider(req.params.providerId, res)
+    if (!provider) return
+    if (!provider.getLosersBracket) {
+      res.status(404).json({ error: `${req.params.providerId} does not support consolation brackets` })
+      return
+    }
+    try {
+      const bracket = await provider.getLosersBracket(req.params.leagueId)
+      res.json({ bracket })
+    } catch (err) {
+      res.status(httpStatus(err)).json({ error: err instanceof Error ? err.message : 'Unknown' })
+    }
+  })
+
   // GET /api/provider/:providerId/league/:leagueId
   router.get('/:providerId/league/:leagueId', async (req: Request, res: Response) => {
     const provider = resolveProvider(req.params.providerId, res)
@@ -143,6 +211,54 @@ export function initProviderRoutes(app: Express) {
     try {
       const players = await provider.getPlayers()
       res.json({ players })
+    } catch (err) {
+      res.status(httpStatus(err)).json({ error: err instanceof Error ? err.message : 'Unknown' })
+    }
+  })
+
+  // GET /api/provider/:providerId/state
+  router.get('/:providerId/state', async (req: Request, res: Response) => {
+    const provider = resolveProvider(req.params.providerId, res)
+    if (!provider) return
+    if (!provider.getNFLState) {
+      res.status(404).json({ error: `${req.params.providerId} does not expose NFL state` })
+      return
+    }
+    try {
+      const state = await provider.getNFLState()
+      res.json({ state })
+    } catch (err) {
+      res.status(httpStatus(err)).json({ error: err instanceof Error ? err.message : 'Unknown' })
+    }
+  })
+
+  // GET /api/provider/:providerId/draft/:draftId/picks
+  router.get('/:providerId/draft/:draftId/picks', async (req: Request, res: Response) => {
+    const provider = resolveProvider(req.params.providerId, res)
+    if (!provider) return
+    if (!provider.getDraftPicks) {
+      res.status(404).json({ error: `${req.params.providerId} does not support draft picks` })
+      return
+    }
+    try {
+      const picks = await provider.getDraftPicks(req.params.draftId)
+      res.json({ picks })
+    } catch (err) {
+      res.status(httpStatus(err)).json({ error: err instanceof Error ? err.message : 'Unknown' })
+    }
+  })
+
+  // GET /api/provider/:providerId/draft/:draftId
+  router.get('/:providerId/draft/:draftId', async (req: Request, res: Response) => {
+    const provider = resolveProvider(req.params.providerId, res)
+    if (!provider) return
+    if (!provider.getDraft) {
+      res.status(404).json({ error: `${req.params.providerId} does not support draft data` })
+      return
+    }
+    try {
+      const draft = await provider.getDraft(req.params.draftId)
+      res.json({ draft })
     } catch (err) {
       res.status(httpStatus(err)).json({ error: err instanceof Error ? err.message : 'Unknown' })
     }

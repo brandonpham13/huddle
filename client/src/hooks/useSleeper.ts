@@ -3,7 +3,7 @@ import axios from 'axios'
 import { useAuth } from '@clerk/clerk-react'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { setSyncedLeagueIds } from '../store/slices/authSlice'
-import type { League, Roster, TeamUser, Matchup, Player } from '../types/fantasy'
+import type { League, Roster, TeamUser, Matchup, Player, NFLState, Transaction, TradedPick, PlayoffMatchup, Draft, DraftPick } from '../types/fantasy'
 
 const PROVIDER = 'sleeper'
 const base = (path: string) => `/api/provider/${PROVIDER}${path}`
@@ -125,7 +125,108 @@ export function useNFLPlayers() {
   })
 }
 
-// ---- Sync leagues mutation ----
+// ---- NFL State (current week/season) ----
+export function useNFLState() {
+  return useQuery({
+    queryKey: ['provider-state', PROVIDER],
+    queryFn: async () => {
+      const res = await axios.get<{ state: NFLState }>(base('/state'))
+      return res.data.state
+    },
+    staleTime: 60 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  })
+}
+
+// ---- Transactions ----
+export function useLeagueTransactions(leagueId: string | null, week: number | null) {
+  return useQuery({
+    queryKey: ['provider-transactions', PROVIDER, leagueId, week],
+    queryFn: async () => {
+      const res = await axios.get<{ transactions: Transaction[] }>(
+        base(`/league/${leagueId}/transactions/${week}`)
+      )
+      return res.data.transactions
+    },
+    enabled: !!leagueId && !!week && week >= 1,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+// ---- Traded Picks ----
+export function useTradedPicks(leagueId: string | null) {
+  return useQuery({
+    queryKey: ['provider-traded-picks', PROVIDER, leagueId],
+    queryFn: async () => {
+      const res = await axios.get<{ picks: TradedPick[] }>(
+        base(`/league/${leagueId}/traded_picks`)
+      )
+      return res.data.picks
+    },
+    enabled: !!leagueId,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+// ---- Winners Bracket ----
+export function useWinnersBracket(leagueId: string | null) {
+  return useQuery({
+    queryKey: ['provider-winners-bracket', PROVIDER, leagueId],
+    queryFn: async () => {
+      const res = await axios.get<{ bracket: PlayoffMatchup[] }>(
+        base(`/league/${leagueId}/winners_bracket`)
+      )
+      return res.data.bracket
+    },
+    enabled: !!leagueId,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+// ---- Losers Bracket ----
+export function useLosersBracket(leagueId: string | null) {
+  return useQuery({
+    queryKey: ['provider-losers-bracket', PROVIDER, leagueId],
+    queryFn: async () => {
+      const res = await axios.get<{ bracket: PlayoffMatchup[] }>(
+        base(`/league/${leagueId}/losers_bracket`)
+      )
+      return res.data.bracket
+    },
+    enabled: !!leagueId,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+// ---- Draft ----
+export function useDraft(draftId: string | null) {
+  return useQuery({
+    queryKey: ['provider-draft', PROVIDER, draftId],
+    queryFn: async () => {
+      const res = await axios.get<{ draft: Draft }>(
+        base(`/draft/${draftId}`)
+      )
+      return res.data.draft
+    },
+    enabled: !!draftId,
+    staleTime: 60 * 60 * 1000,
+  })
+}
+
+// ---- Draft Picks ----
+export function useDraftPicks(draftId: string | null) {
+  return useQuery({
+    queryKey: ['provider-draft-picks', PROVIDER, draftId],
+    queryFn: async () => {
+      const res = await axios.get<{ picks: DraftPick[] }>(
+        base(`/draft/${draftId}/picks`)
+      )
+      return res.data.picks
+    },
+    enabled: !!draftId,
+    staleTime: 60 * 60 * 1000,
+  })
+}
 
 export function useSyncLeagues() {
   const { getToken } = useAuth()

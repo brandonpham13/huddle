@@ -7,6 +7,13 @@ import {
   getLeagueUsers,
   getLeagueMatchups,
   getNFLPlayers,
+  getNFLState,
+  getLeagueTransactions,
+  getTradedPicks,
+  getWinnersBracket,
+  getLosersBracket,
+  getDraft,
+  getDraftPicks,
 } from '../services/sleeperService.js'
 
 export function initSleeperRoutes(app: Express) {
@@ -143,6 +150,81 @@ export function initSleeperRoutes(app: Express) {
     try {
       const players = await getNFLPlayers()
       res.json({ players })
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : 'Unknown' })
+    }
+  })
+
+  // GET /api/sleeper/state/nfl
+  router.get('/sleeper/state/nfl', async (_req, res) => {
+    try {
+      const state = await getNFLState()
+      res.json({ state })
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : 'Unknown' })
+    }
+  })
+
+  // GET /api/sleeper/league/:leagueId/transactions/:week
+  router.get('/sleeper/league/:leagueId/transactions/:week', async (req, res) => {
+    const week = parseInt(req.params.week, 10)
+    if (isNaN(week) || week < 1 || week > 18) {
+      res.status(400).json({ error: 'week must be between 1 and 18' }); return
+    }
+    try {
+      const transactions = await getLeagueTransactions(req.params.leagueId, week)
+      res.json({ transactions })
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : 'Unknown' })
+    }
+  })
+
+  // GET /api/sleeper/league/:leagueId/traded_picks
+  router.get('/sleeper/league/:leagueId/traded_picks', async (req, res) => {
+    try {
+      const picks = await getTradedPicks(req.params.leagueId)
+      res.json({ picks })
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : 'Unknown' })
+    }
+  })
+
+  // GET /api/sleeper/league/:leagueId/winners_bracket
+  router.get('/sleeper/league/:leagueId/winners_bracket', async (req, res) => {
+    try {
+      const bracket = await getWinnersBracket(req.params.leagueId)
+      res.json({ bracket })
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : 'Unknown' })
+    }
+  })
+
+  // GET /api/sleeper/league/:leagueId/losers_bracket
+  router.get('/sleeper/league/:leagueId/losers_bracket', async (req, res) => {
+    try {
+      const bracket = await getLosersBracket(req.params.leagueId)
+      res.json({ bracket })
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : 'Unknown' })
+    }
+  })
+
+  // GET /api/sleeper/draft/:draftId
+  router.get('/sleeper/draft/:draftId', async (req, res) => {
+    try {
+      const draft = await getDraft(req.params.draftId)
+      res.json({ draft })
+    } catch (err) {
+      const status = (err as { status?: number }).status === 404 ? 404 : 502
+      res.status(status).json({ error: err instanceof Error ? err.message : 'Unknown' })
+    }
+  })
+
+  // GET /api/sleeper/draft/:draftId/picks
+  router.get('/sleeper/draft/:draftId/picks', async (req, res) => {
+    try {
+      const picks = await getDraftPicks(req.params.draftId)
+      res.json({ picks })
     } catch (err) {
       res.status(502).json({ error: err instanceof Error ? err.message : 'Unknown' })
     }

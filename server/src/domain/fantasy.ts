@@ -68,3 +68,108 @@ export interface Player {
   status: string
   injuryStatus: string | null
 }
+
+export interface NFLState {
+  week: number
+  season: string
+  season_type: 'pre' | 'regular' | 'post'
+  league_create_season: string
+  display_week: number
+  season_start_date: string
+}
+
+export type TransactionType = 'waiver' | 'free_agent' | 'trade'
+export type TransactionStatus = 'complete' | 'failed' | 'pending'
+
+export interface Transaction {
+  transaction_id: string
+  type: TransactionType
+  status: TransactionStatus
+  roster_ids: number[]
+  adds: Record<string, number> | null   // player_id -> roster_id
+  drops: Record<string, number> | null  // player_id -> roster_id
+  draft_picks: TradedPick[]
+  waiver_budget: Array<{ sender: number; receiver: number; amount: number }>
+  created: number   // unix ms
+  status_updated: number
+  leg: number       // week
+  consenter_ids: number[]
+}
+
+export interface TradedPick {
+  season: string
+  round: number
+  roster_id: number        // original owner
+  previous_owner_id: number
+  owner_id: number         // current owner
+}
+
+export interface PlayoffMatchup {
+  round: number
+  matchup_id: number
+  team1_roster_id: number | null
+  team2_roster_id: number | null
+  winner_roster_id: number | null
+  loser_roster_id: number | null
+  /** seeding place (only on consolation/3rd-place matchups) */
+  place: number | null
+  /** source of team slot when not seeded directly */
+  team1_from: { winner_of?: number; loser_of?: number } | null
+  team2_from: { winner_of?: number; loser_of?: number } | null
+}
+
+export interface Draft {
+  draft_id: string
+  league_id: string
+  season: string
+  status: 'pre_draft' | 'drafting' | 'complete' | 'paused'
+  type: 'snake' | 'auction' | 'linear'
+  sport: string
+  settings: {
+    teams: number
+    rounds: number
+    pick_timer: number
+    cpu_autopick: boolean
+    reversal_round: number
+    player_type: number
+    budget: number
+    nominate_count: number
+    reserve_rounds: number
+    slots_wr: number
+    slots_rb: number
+    slots_qb: number
+    slots_te: number
+    slots_flex: number
+    slots_def: number
+    slots_k: number
+    slots_bn: number
+  }
+  slot_to_roster_id: Record<string, number>
+  draft_order: Record<string, number> | null
+  created: number
+  updated: number
+  start_time: number
+  last_picked: number
+}
+
+export interface DraftPick {
+  round: number
+  roster_id: number
+  player_id: string
+  picked_by: string   // user_id
+  pick_no: number
+  metadata: {
+    team: string
+    status: string
+    sport: string
+    position: string
+    player_id: string
+    number: string
+    news_updated: string
+    last_name: string
+    injury_status: string
+    first_name: string
+  }
+  is_keeper: boolean | null
+  draft_id: string
+}

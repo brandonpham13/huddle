@@ -73,3 +73,77 @@ export interface SleeperPlayer {
   injury_status?: string | null
   avatar?: string | null
 }
+
+export interface SleeperNFLState {
+  week: number
+  season: string
+  season_type: 'pre' | 'regular' | 'post'
+  league_create_season: string
+  display_week: number
+  season_start_date: string
+}
+
+export type TransactionType = 'waiver' | 'free_agent' | 'trade'
+export type TransactionStatus = 'complete' | 'failed' | 'pending'
+
+export interface SleeperTransaction {
+  transaction_id: string
+  type: TransactionType
+  status: TransactionStatus
+  roster_ids: number[]
+  adds: Record<string, number> | null
+  drops: Record<string, number> | null
+  draft_picks: SleeperTradedPick[]
+  waiver_budget: Array<{ sender: number; receiver: number; amount: number }>
+  created: number
+  status_updated: number
+  leg: number
+  consenter_ids: number[]
+}
+
+export interface SleeperTradedPick {
+  season: string
+  round: number
+  roster_id: number
+  previous_owner_id: number
+  owner_id: number
+}
+
+export interface SleeperPlayoffMatchup {
+  r: number
+  m: number
+  t1: number | null
+  t2: number | null
+  w: number | null
+  l: number | null
+  p?: number
+  t1_from?: { w?: number; l?: number }
+  t2_from?: { w?: number; l?: number }
+}
+
+export interface SleeperDraft {
+  draft_id: string
+  league_id: string
+  season: string
+  status: 'pre_draft' | 'drafting' | 'complete' | 'paused'
+  type: 'snake' | 'auction' | 'linear'
+  sport: string
+  settings: Record<string, unknown>
+  slot_to_roster_id: Record<string, number>
+  draft_order: Record<string, number> | null
+  created: number
+  updated: number
+  start_time: number
+  last_picked: number
+}
+
+export interface SleeperDraftPick {
+  round: number
+  roster_id: number
+  player_id: string
+  picked_by: string
+  pick_no: number
+  metadata: Record<string, string>
+  is_keeper: boolean | null
+  draft_id: string
+}
