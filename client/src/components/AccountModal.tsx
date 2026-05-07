@@ -13,8 +13,6 @@ import axios from "axios";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import {
-  setSleeperUsername,
-  setSleeperUserId,
   setSyncedLeagueIds,
   setSelectedLeague,
 } from "../store/slices/authSlice";
@@ -133,10 +131,8 @@ function IntegrationsPage() {
     setStatus("loading");
     setErrorMsg("");
     try {
-      const data = await patchSleeperUsername(input.trim());
-      dispatch(setSleeperUsername(data.sleeperUsername));
-      dispatch(setSleeperUserId(data.sleeperUserId));
-      // Reload Clerk user so unsafeMetadata is fresh and AuthGuard re-dispatch is accurate
+      await patchSleeperUsername(input.trim());
+      // Reload Clerk user — AuthGuard's useEffect will re-hydrate Redux with fresh metadata
       await user?.reload();
       setInput("");
       setStatus("success");
@@ -155,12 +151,11 @@ function IntegrationsPage() {
     setErrorMsg("");
     try {
       await patchSleeperUsername(null);
-      dispatch(setSleeperUsername(null));
-      dispatch(setSleeperUserId(null));
+      // Immediately clear UI state — don't wait for the Clerk reload
       dispatch(setSyncedLeagueIds([]));
       dispatch(setSelectedLeague(null));
       queryClient.removeQueries({ queryKey: ["sleeper-leagues-all"] });
-      // Reload Clerk user so unsafeMetadata reflects the cleared state
+      // Sync Clerk cache so AuthGuard re-hydrates with cleared metadata
       await user?.reload();
       setStatus("idle");
     } catch (err: unknown) {
