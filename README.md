@@ -38,6 +38,21 @@ Required variables:
 VITE_CLERK_PUBLISHABLE_KEY=pk_...   # used by the client
 CLERK_PUBLISHABLE_KEY=pk_...        # same value, used by the server
 CLERK_SECRET_KEY=sk_...             # server only
+DATABASE_URL=postgres://...         # Neon Postgres connection string (server only)
+```
+
+### 2a. Database (Neon Postgres)
+
+The server uses Neon Postgres via Drizzle ORM. After setting `DATABASE_URL` in `.env`, push the schema:
+
+```bash
+npm run db:push --prefix server
+```
+
+To open the Drizzle Studio UI:
+
+```bash
+npm run db:studio --prefix server
 ```
 
 ### 3. Run
