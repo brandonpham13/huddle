@@ -12,6 +12,7 @@ import { Card, CardContent } from '../components/ui/card'
 
 // Register widgets
 import '../widgets/LeagueStandings'
+import '../widgets/RecentScoreboard'
 
 export function DashboardPage() {
   const dispatch = useAppDispatch()
