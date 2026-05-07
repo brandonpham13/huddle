@@ -6,6 +6,7 @@ import { Card, CardContent } from '../components/ui/card'
 
 // Register all widgets so secondary ones are available
 import '../widgets/LeagueStandings'
+import '../widgets/RecentScoreboard'
 
 export function WidgetsPage() {
   const selectedLeagueId = useAppSelector(state => state.auth.selectedLeagueId)
