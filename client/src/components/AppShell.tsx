@@ -89,12 +89,6 @@ export function AppShell({ children }: AppShellProps) {
 
         <div className="flex items-center gap-4">
           <Link
-            to="/widgets"
-            className="text-sm text-gray-600 hover:text-gray-900"
-          >
-            Widgets
-          </Link>
-          <Link
             to="/leagues"
             className="text-sm text-gray-600 hover:text-gray-900"
           >
