@@ -55,20 +55,6 @@ export function useLeague(leagueId: string | null) {
   })
 }
 
-// ---- League history (season chain) ----
-
-export function useLeagueHistory(leagueId: string | null) {
-  return useQuery({
-    queryKey: ['sleeper-league-history', leagueId],
-    queryFn: async () => {
-      const res = await axios.get<{ history: Array<{ leagueId: string; season: string }> }>(base(`/league/${leagueId}/history`))
-      return res.data.history
-    },
-    enabled: !!leagueId,
-    staleTime: 60 * 60 * 1000,
-  })
-}
-
 // ---- Rosters ----
 
 export function useLeagueRosters(leagueId: string | null) {

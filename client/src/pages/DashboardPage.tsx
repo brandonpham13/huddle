@@ -1,11 +1,12 @@
-import { Suspense } from 'react'
+import { Suspense, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useSignOut } from '../hooks/useSignOut'
 import { useAccountModal } from '../components/AccountModal'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { setSelectedLeague, setSelectedYear } from '../store/slices/authSlice'
 import { getDashboardWidgets, colSpanClass, rowSpanClass } from '../widgets/registry'
-import { useAllSleeperLeagues, useLeague, useLeagueHistory } from '../hooks/useSleeper'
+import { useAllSleeperLeagues, useLeague } from '../hooks/useSleeper'
+import { getFamilySeasons } from '../utils/leagueFamily'
 import { Button } from '../components/ui/button'
 import { Card, CardContent } from '../components/ui/card'
 
@@ -24,7 +25,14 @@ export function DashboardPage() {
   const { data: allLeagues } = useAllSleeperLeagues()
   const syncedLeagues = allLeagues?.filter(l => syncedLeagueIds.includes(l.ref.leagueId)) ?? []
   const { data: selectedLeague } = useLeague(selectedLeagueId)
-  const { data: leagueHistory } = useLeagueHistory(selectedLeagueId)
+
+  // All seasons of the currently-viewed league (newest first), derived from
+  // the leagues the user already has cached. Stays stable when the user
+  // switches seasons via the dropdown.
+  const familySeasons = useMemo(
+    () => (selectedLeagueId && allLeagues ? getFamilySeasons(selectedLeagueId, allLeagues) : []),
+    [selectedLeagueId, allLeagues],
+  )
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -84,17 +92,20 @@ export function DashboardPage() {
             )}
             <span className="text-sm font-medium text-gray-700">{selectedLeague.name}</span>
             <span className="text-xs text-gray-400">· {selectedLeague.totalRosters} teams</span>
-            {leagueHistory && leagueHistory.length > 0 && (
+            {familySeasons.length > 1 && (
               <select
                 value={selectedLeague.season}
                 onChange={e => {
-                  const entry = leagueHistory.find(h => h.season === e.target.value)
-                  if (entry) dispatch(setSelectedLeague(entry.leagueId))
+                  const entry = familySeasons.find(l => l.season === e.target.value)
+                  if (entry) {
+                    dispatch(setSelectedLeague(entry.ref.leagueId))
+                    dispatch(setSelectedYear(entry.season))
+                  }
                 }}
                 className="ml-1 text-xs border rounded-md px-2 py-0.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                {leagueHistory.map(h => (
-                  <option key={h.leagueId} value={h.season}>{h.season}</option>
+                {familySeasons.map(l => (
+                  <option key={l.ref.leagueId} value={l.season}>{l.season}</option>
                 ))}
               </select>
             )}
