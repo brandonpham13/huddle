@@ -14,6 +14,7 @@ import {
   useGroupDetail,
   useGroupPendingClaims,
   useSubmitClaim,
+  useUpdateGroup,
 } from "../hooks/useGroups";
 import {
   useLeague,
@@ -104,6 +105,8 @@ export function GroupDetailPage() {
                 leagueUsers={leagueUsers ?? []}
               />
             )}
+
+            {isCommissioner && <CommissionerSettings groupId={groupId} />}
 
             {isCommissioner && (
               <DangerZone
@@ -445,6 +448,95 @@ function CommissionerPendingPanel({
             {(decide.error as Error).message}
           </p>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---- Commissioner settings (change join password) ----
+
+function CommissionerSettings({ groupId }: { groupId: string }) {
+  const update = useUpdateGroup();
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  const mismatch =
+    confirmPassword.length > 0 && newPassword !== confirmPassword;
+  const canSave =
+    newPassword.length >= 4 &&
+    newPassword === confirmPassword &&
+    !update.isPending;
+
+  const handleSave = () => {
+    update.mutate(
+      { groupId, password: newPassword },
+      {
+        onSuccess: () => {
+          setNewPassword("");
+          setConfirmPassword("");
+          setSuccess(true);
+          setTimeout(() => setSuccess(false), 3000);
+        },
+      },
+    );
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Change join password</CardTitle>
+        <CardDescription>
+          New members will need this password to claim a team.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">
+              New password
+            </label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full text-sm border rounded-md px-2 py-1.5"
+              placeholder="Min 4 characters"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">
+              Confirm password
+            </label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full text-sm border rounded-md px-2 py-1.5"
+              placeholder="Repeat new password"
+            />
+            {mismatch && (
+              <p className="text-xs text-red-500 mt-1">
+                Passwords don't match.
+              </p>
+            )}
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs">
+              {success && (
+                <span className="text-green-600">Password updated!</span>
+              )}
+              {update.isError && (
+                <span className="text-red-500">
+                  {(update.error as Error).message}
+                </span>
+              )}
+            </span>
+            <Button disabled={!canSave} onClick={handleSave}>
+              {update.isPending ? "Saving…" : "Save password"}
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
