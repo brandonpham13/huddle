@@ -1,43 +1,33 @@
 name: Notify Discord on Vercel Deploy
 
 on:
-  push:
-    branches: ['**']
+  deployment_status:
 
 jobs:
   notify:
+    if: github.event.deployment_status.state == 'success'
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for Vercel deployment
-        id: vercel
-        uses: patrickedqvist/wait-for-vercel-preview@v1.3.2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          max_timeout: 300
-          check_interval: 5
-
       - name: Post to Discord
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          BRANCH="${{ github.ref_name }}"
-          URL="${{ steps.vercel.outputs.url }}"
-          SHORT_SHA="${{ github.sha }}"
-          SHORT_SHA="${SHORT_SHA:0:7}"
-          ACTOR="${{ github.actor }}"
-          COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | head -1)
+          BRANCH="${{ github.event.deployment.ref }}"
+          URL="${{ github.event.deployment_status.target_url }}"
+          SHA="${{ github.event.deployment.sha }}"
+          SHORT_SHA="${SHA:0:7}"
+          ACTOR="${{ github.event.deployment.creator.login }}"
 
           curl -s -H "Content-Type: application/json" \
             -d "{
               \"embeds\": [{
                 \"title\": \"🚀 Deployed: \`${BRANCH}\`\",
-                \"description\": \"**[${SHORT_SHA}]** ${COMMIT_MSG}\",
                 \"url\": \"${URL}\",
                 \"color\": 5763719,
                 \"fields\": [
                   { \"name\": \"Preview\", \"value\": \"[Open deployment](${URL})\", \"inline\": true },
                   { \"name\": \"Branch\", \"value\": \"\`${BRANCH}\`\", \"inline\": true },
-                  { \"name\": \"Author\", \"value\": \"${ACTOR}\", \"inline\": true }
+                  { \"name\": \"Commit\", \"value\": \"\`${SHORT_SHA}\`\", \"inline\": true }
                 ]
               }]
             }" \
