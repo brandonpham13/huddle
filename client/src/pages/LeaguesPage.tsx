@@ -6,6 +6,7 @@ import { useAllSleeperLeagues, useSyncLeagues } from '../hooks/useSleeper'
 import { buildFamilyRootMap } from '../utils/leagueFamily'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
 import { Button } from '../components/ui/button'
+import { LeagueGroupsSection } from '../components/groups/LeagueGroupsSection'
 import type { League } from '../types/fantasy'
 
 function leagueStatusBadge(status: string) {
@@ -218,33 +219,36 @@ export function LeaguesPage() {
                     {importedFamilies.map(({ representative: league, allIds }) => (
                       <div
                         key={allIds.join(',')}
-                        className="flex items-center justify-between p-4 rounded-lg border bg-white"
+                        className="p-4 rounded-lg border bg-white"
                       >
-                        <div className="flex items-center gap-3">
-                          {league.avatar ? (
-                            <img
-                              src={`https://sleepercdn.com/avatars/thumbs/${league.avatar}`}
-                              alt={league.name}
-                              className="w-10 h-10 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold">
-                              {league.name.charAt(0)}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {league.avatar ? (
+                              <img
+                                src={`https://sleepercdn.com/avatars/thumbs/${league.avatar}`}
+                                alt={league.name}
+                                className="w-10 h-10 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold">
+                                {league.name.charAt(0)}
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-medium text-sm">{league.name}</p>
+                              <p className="text-xs text-gray-400 mt-0.5">
+                                {allIds.length > 1 ? `${allIds.length} seasons imported` : league.season}
+                              </p>
                             </div>
-                          )}
-                          <div>
-                            <p className="font-medium text-sm">{league.name}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                              {allIds.length > 1 ? `${allIds.length} seasons imported` : league.season}
-                            </p>
                           </div>
+                          <button
+                            onClick={() => removeFamily(allIds)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-md border border-red-300 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors"
+                          >
+                            Remove
+                          </button>
                         </div>
-                        <button
-                          onClick={() => removeFamily(allIds)}
-                          className="text-xs font-medium px-3 py-1.5 rounded-md border border-red-300 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors"
-                        >
-                          Remove
-                        </button>
+                        <LeagueGroupsSection leagueId={league.ref.leagueId} />
                       </div>
                     ))}
                   </div>
