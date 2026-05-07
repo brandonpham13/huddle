@@ -1,10 +1,11 @@
 import { useUser } from "@clerk/clerk-react";
 import { LandingPage } from "../pages/LandingPage";
 import { DashboardPage } from "../pages/DashboardPage";
+import { AppShell } from "./AppShell";
 
 /**
- * Renders LandingPage for unauthenticated visitors and DashboardPage for
- * signed-in users. Keeps a loading spinner while Clerk resolves auth state.
+ * Renders LandingPage for unauthenticated visitors and DashboardPage (inside
+ * AppShell) for signed-in users. Keeps a loading spinner while Clerk resolves.
  */
 export function RootRoute() {
   const { isLoaded, isSignedIn } = useUser();
@@ -17,5 +18,11 @@ export function RootRoute() {
     );
   }
 
-  return isSignedIn ? <DashboardPage /> : <LandingPage />;
+  if (!isSignedIn) return <LandingPage />;
+
+  return (
+    <AppShell>
+      <DashboardPage />
+    </AppShell>
+  );
 }
