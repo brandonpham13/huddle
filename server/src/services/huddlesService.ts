@@ -223,17 +223,11 @@ export async function listClaimsForHuddle(
 export async function submitClaim(opts: {
   huddleId: string;
   userId: string;
-  inviteCode: unknown;
   rosterId: unknown;
   message?: unknown;
 }): Promise<TeamClaim> {
   const huddle = await getHuddle(opts.huddleId);
   if (!huddle) fail(404, "Huddle not found");
-
-  if (typeof opts.inviteCode !== "string" || !opts.inviteCode)
-    fail(400, "Invite code required");
-  if ((opts.inviteCode as string).toUpperCase() !== huddle!.inviteCode)
-    fail(403, "Invalid invite code");
 
   if (
     typeof opts.rosterId !== "number" ||

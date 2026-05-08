@@ -17,9 +17,9 @@ import {
   useHuddlePendingClaims,
   useAddCommissioner,
   useRemoveCommissioner,
+  useRemoveClaim,
   useRotateInviteCode,
   useSubmitClaim,
-  useUnclaimTeam,
   useUpdateHuddle,
 } from "../hooks/useHuddles";
 import {
@@ -171,13 +171,8 @@ function RosterTable({
   isCommissioner: boolean;
 }) {
   const submit = useSubmitClaim();
-  const unclaim = useUnclaimTeam();
-  const forceRemove = useForceRemoveClaim();
-  const cachedCode = huddleId
-    ? (sessionStorage.getItem(`huddle-code:${huddleId}`) ?? "")
-    : "";
+  const removeClaim = useRemoveClaim();
   const [claimingRosterId, setClaimingRosterId] = useState<number | null>(null);
-  const [inviteCode, setInviteCode] = useState(cachedCode);
   const [message, setMessage] = useState("");
   const [confirmRemoveClaimId, setConfirmRemoveClaimId] = useState<
     string | null
@@ -200,8 +195,7 @@ function RosterTable({
   const hasApprovedClaim = myClaim?.status === "approved";
   const canClaimNew = !hasPendingClaim && !hasApprovedClaim;
 
-  const mutationError =
-    submit.error ?? unclaim.error ?? forceRemove.error ?? null;
+  const mutationError = submit.error ?? removeClaim.error ?? null;
 
   return (
     <Card>
@@ -238,31 +232,18 @@ function RosterTable({
                             {describeUser(claim.user)}
                           </span>
                         </span>
-                        {/* Own unclaim */}
-                        {isMyTeam && (
+                        {/* Unclaim: own team or commissioner on any team */}
+                        {(isMyTeam || isCommissioner) &&
+                        confirmRemoveClaimId !== claim.id ? (
                           <Button
                             size="sm"
                             variant="outline"
                             className="h-6 px-2 text-xs"
-                            disabled={unclaim.isPending}
-                            onClick={() =>
-                              unclaim.mutate({ huddleId, claimId: claim.id })
-                            }
+                            onClick={() => setConfirmRemoveClaimId(claim.id)}
                           >
                             Unclaim
                           </Button>
-                        )}
-                        {/* Commissioner force-remove */}
-                        {isCommissioner && confirmRemoveClaimId !== claim.id ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
-                            onClick={() => setConfirmRemoveClaimId(claim.id)}
-                          >
-                            Unlink
-                          </Button>
-                        ) : isCommissioner &&
+                        ) : (isMyTeam || isCommissioner) &&
                           confirmRemoveClaimId === claim.id ? (
                           <div className="flex gap-1">
                             <Button
@@ -277,10 +258,14 @@ function RosterTable({
                               size="sm"
                               variant="outline"
                               className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
-                              disabled={forceRemove.isPending}
+                              disabled={removeClaim.isPending}
                               onClick={() => {
-                                forceRemove.mutate(
-                                  { huddleId, claimId: claim.id },
+                                removeClaim.mutate(
+                                  {
+                                    huddleId,
+                                    claimId: claim.id,
+                                    isCommissioner,
+                                  },
                                   {
                                     onSuccess: () =>
                                       setConfirmRemoveClaimId(null),
@@ -303,7 +288,6 @@ function RosterTable({
                             className="h-6 px-2 text-xs"
                             onClick={() => {
                               setClaimingRosterId(roster.rosterId);
-                              setInviteCode(cachedCode);
                               setMessage("");
                             }}
                           >
@@ -318,18 +302,6 @@ function RosterTable({
                 {/* Inline claim form */}
                 {isExpanding && (
                   <div className="pb-3 pl-8 space-y-2">
-                    {!cachedCode && (
-                      <input
-                        value={inviteCode}
-                        onChange={(e) =>
-                          setInviteCode(e.target.value.toUpperCase())
-                        }
-                        maxLength={6}
-                        className="w-full text-sm font-mono tracking-widest text-center border rounded-md px-2 py-1 uppercase"
-                        placeholder="Invite code (ABC123)"
-                        autoFocus
-                      />
-                    )}
                     <textarea
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
@@ -337,6 +309,7 @@ function RosterTable({
                       maxLength={500}
                       className="w-full text-sm border rounded-md px-2 py-1"
                       placeholder="Message for the commissioner (optional)"
+                      autoFocus
                     />
                     <div className="flex gap-2 justify-end">
                       <Button
@@ -349,16 +322,12 @@ function RosterTable({
                       </Button>
                       <Button
                         size="sm"
-                        disabled={
-                          (!cachedCode && inviteCode.length !== 6) ||
-                          submit.isPending
-                        }
+                        disabled={submit.isPending}
                         onClick={() => {
                           submit.mutate(
                             {
                               huddleId,
                               rosterId: roster.rosterId,
-                              inviteCode: cachedCode || inviteCode,
                               message: message.trim() || undefined,
                             },
                             {

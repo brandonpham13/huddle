@@ -117,7 +117,6 @@ export function useSubmitClaim() {
   return useMutation({
     mutationFn: async (input: {
       huddleId: string;
-      inviteCode: string;
       rosterId: number;
       message?: string;
     }) => {
@@ -126,7 +125,6 @@ export function useSubmitClaim() {
         const res = await axios.post<{ claim: HuddleClaim }>(
           `/api/huddles/${input.huddleId}/claims`,
           {
-            inviteCode: input.inviteCode,
             rosterId: input.rosterId,
             message: input.message,
           },
@@ -324,17 +322,22 @@ export function useRemoveCommissioner() {
   });
 }
 
-export function useUnclaimTeam() {
+// Single hook for removing any claim — commissioner uses /force, members use base endpoint
+export function useRemoveClaim() {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { huddleId: string; claimId: string }) => {
+    mutationFn: async (input: {
+      huddleId: string;
+      claimId: string;
+      isCommissioner: boolean;
+    }) => {
       const token = await getToken();
+      const url = input.isCommissioner
+        ? `/api/huddles/${input.huddleId}/claims/${input.claimId}/force`
+        : `/api/huddles/${input.huddleId}/claims/${input.claimId}`;
       try {
-        await axios.delete(
-          `/api/huddles/${input.huddleId}/claims/${input.claimId}`,
-          { headers: authHeader(token) },
-        );
+        await axios.delete(url, { headers: authHeader(token) });
       } catch (err) {
         throw new Error(errorMessage(err, "Failed to unclaim team"));
       }
@@ -347,25 +350,6 @@ export function useUnclaimTeam() {
   });
 }
 
-export function useForceRemoveClaim() {
-  const { getToken } = useAuth();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: { huddleId: string; claimId: string }) => {
-      const token = await getToken();
-      try {
-        await axios.delete(
-          `/api/huddles/${input.huddleId}/claims/${input.claimId}/force`,
-          { headers: authHeader(token) },
-        );
-      } catch (err) {
-        throw new Error(errorMessage(err, "Failed to remove team assignment"));
-      }
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["huddle", variables.huddleId],
-      });
-    },
-  });
-}
+// Keep old names as aliases for backward compat (can remove later)
+export const useUnclaimTeam = useRemoveClaim;
+export const useForceRemoveClaim = useRemoveClaim;

@@ -273,15 +273,13 @@ export function initHuddleRoutes(app: Express) {
     async (req: Request, res: Response) => {
       try {
         const { userId } = getAuth(req);
-        const { inviteCode, rosterId, message } = req.body as {
-          inviteCode?: string;
+        const { rosterId, message } = req.body as {
           rosterId?: number;
           message?: string;
         };
         const claim = await submitClaim({
           huddleId: req.params.id!,
           userId: userId!,
-          inviteCode,
           rosterId,
           message,
         });
