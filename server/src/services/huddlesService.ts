@@ -159,26 +159,15 @@ export async function listHuddlesForLeague(
   leagueId: string,
   userId: string,
 ): Promise<Huddle[]> {
-  // Only show huddles where the user has an approved claim or is a commissioner
-  const [claimRows, commishRows] = await Promise.all([
-    db
-      .select({ huddleId: teamClaims.huddleId })
-      .from(teamClaims)
-      .where(
-        and(eq(teamClaims.userId, userId), eq(teamClaims.status, "approved")),
-      ),
-    db
-      .select({ huddleId: huddleCommissioners.huddleId })
-      .from(huddleCommissioners)
-      .where(eq(huddleCommissioners.userId, userId)),
-  ]);
+  // Only show huddles where the user has an approved claim
+  const claimRows = await db
+    .select({ huddleId: teamClaims.huddleId })
+    .from(teamClaims)
+    .where(
+      and(eq(teamClaims.userId, userId), eq(teamClaims.status, "approved")),
+    );
 
-  const memberHuddleIds = [
-    ...new Set([
-      ...claimRows.map((r) => r.huddleId),
-      ...commishRows.map((r) => r.huddleId),
-    ]),
-  ];
+  const memberHuddleIds = [...new Set(claimRows.map((r) => r.huddleId))];
 
   if (memberHuddleIds.length === 0) return [];
 
