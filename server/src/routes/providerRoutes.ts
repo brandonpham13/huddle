@@ -185,11 +185,9 @@ export function initProviderRoutes(app: Express) {
       const provider = resolveProvider(req.params.providerId, res);
       if (!provider) return;
       if (!provider.getTransactions) {
-        res
-          .status(404)
-          .json({
-            error: `${req.params.providerId} does not support transactions`,
-          });
+        res.status(404).json({
+          error: `${req.params.providerId} does not support transactions`,
+        });
         return;
       }
       const week = parseInt(req.params.week, 10);
@@ -218,11 +216,9 @@ export function initProviderRoutes(app: Express) {
       const provider = resolveProvider(req.params.providerId, res);
       if (!provider) return;
       if (!provider.getTradedPicks) {
-        res
-          .status(404)
-          .json({
-            error: `${req.params.providerId} does not support traded picks`,
-          });
+        res.status(404).json({
+          error: `${req.params.providerId} does not support traded picks`,
+        });
         return;
       }
       try {
@@ -243,11 +239,9 @@ export function initProviderRoutes(app: Express) {
       const provider = resolveProvider(req.params.providerId, res);
       if (!provider) return;
       if (!provider.getWinnersBracket) {
-        res
-          .status(404)
-          .json({
-            error: `${req.params.providerId} does not support playoff brackets`,
-          });
+        res.status(404).json({
+          error: `${req.params.providerId} does not support playoff brackets`,
+        });
         return;
       }
       try {
@@ -268,11 +262,9 @@ export function initProviderRoutes(app: Express) {
       const provider = resolveProvider(req.params.providerId, res);
       if (!provider) return;
       if (!provider.getLosersBracket) {
-        res
-          .status(404)
-          .json({
-            error: `${req.params.providerId} does not support consolation brackets`,
-          });
+        res.status(404).json({
+          error: `${req.params.providerId} does not support consolation brackets`,
+        });
         return;
       }
       try {
@@ -308,11 +300,9 @@ export function initProviderRoutes(app: Express) {
     const provider = resolveProvider(req.params.providerId, res);
     if (!provider) return;
     if (!provider.getPlayers) {
-      res
-        .status(404)
-        .json({
-          error: `${req.params.providerId} does not expose a player dictionary`,
-        });
+      res.status(404).json({
+        error: `${req.params.providerId} does not expose a player dictionary`,
+      });
       return;
     }
     try {
@@ -352,11 +342,9 @@ export function initProviderRoutes(app: Express) {
       const provider = resolveProvider(req.params.providerId, res);
       if (!provider) return;
       if (!provider.getDraftPicks) {
-        res
-          .status(404)
-          .json({
-            error: `${req.params.providerId} does not support draft picks`,
-          });
+        res.status(404).json({
+          error: `${req.params.providerId} does not support draft picks`,
+        });
         return;
       }
       try {
@@ -377,11 +365,9 @@ export function initProviderRoutes(app: Express) {
       const provider = resolveProvider(req.params.providerId, res);
       if (!provider) return;
       if (!provider.getDraft) {
-        res
-          .status(404)
-          .json({
-            error: `${req.params.providerId} does not support draft data`,
-          });
+        res.status(404).json({
+          error: `${req.params.providerId} does not support draft data`,
+        });
         return;
       }
       try {
@@ -397,7 +383,7 @@ export function initProviderRoutes(app: Express) {
 
   // GET /api/provider/:providerId/league/:leagueId/power-rankings
   // Returns power rankings for all registered algorithms.
-  // Optional query param: ?week=N to override the current week used for matchup data.
+  // Optional query param: ?week=N to override the week range used for matchup data.
   router.get(
     "/:providerId/league/:leagueId/power-rankings",
     async (req: Request, res: Response) => {
@@ -406,18 +392,37 @@ export function initProviderRoutes(app: Express) {
       const { leagueId } = req.params;
 
       try {
-        // Fetch base data in parallel
-        const [rosters, users, nflState] = await Promise.all([
+        // Fetch league metadata alongside base data so we can derive the
+        // correct week range for this specific season.
+        const [league, rosters, users] = await Promise.all([
+          provider.getLeague(leagueId),
           provider.getRosters(leagueId),
           provider.getLeagueUsers(leagueId),
-          provider.getNFLState?.(),
         ]);
 
-        const currentWeek = req.query.week
-          ? parseInt(req.query.week as string, 10)
-          : (nflState?.week ?? 1);
+        // Determine how many weeks of matchup data to pull.
+        // Priority:
+        //   1. Explicit ?week=N query param
+        //   2. last_scored_leg from league settings (last week with scoring data)
+        //   3. playoff_week_start - 1 (last regular season week, for completed seasons)
+        //   4. Fall back to 1
+        let currentWeek: number;
+        if (req.query.week) {
+          currentWeek = parseInt(req.query.week as string, 10);
+        } else {
+          const settings = league.settings;
+          const lastScored = settings["last_scored_leg"];
+          const playoffStart = settings["playoff_week_start"];
+          if (typeof lastScored === "number" && lastScored > 0) {
+            currentWeek = lastScored;
+          } else if (typeof playoffStart === "number" && playoffStart > 1) {
+            currentWeek = playoffStart - 1;
+          } else {
+            currentWeek = 1;
+          }
+        }
 
-        // Fetch all completed weeks of matchups in parallel
+        // Fetch all weeks up to currentWeek in parallel
         const weekNumbers = Array.from(
           { length: currentWeek },
           (_, i) => i + 1,
