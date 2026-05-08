@@ -13,6 +13,9 @@ import {
   useDeleteGroup,
   useGroupDetail,
   useGroupPendingClaims,
+  usePromoteCommissioner,
+  useRevokeClaim,
+  useRotateInviteCode,
   useSubmitClaim,
   useUpdateGroup,
 } from "../hooks/useGroups";
@@ -35,7 +38,6 @@ export function GroupDetailPage() {
   const detail = groupQuery.data;
   const isCommissioner = !!detail?.group.isCommissioner;
 
-  // Sleeper roster/user data for the league this group belongs to
   const leagueId = detail?.group.leagueId ?? null;
   const { data: league } = useLeague(leagueId);
   const { data: rosters } = useLeagueRosters(leagueId);
@@ -83,9 +85,11 @@ export function GroupDetailPage() {
             </Card>
 
             <RosterTable
+              groupId={groupId}
               rosters={rosters ?? []}
               leagueUsers={leagueUsers ?? []}
               claims={detail.claims}
+              isCommissioner={isCommissioner}
             />
 
             {!isCommissioner && (
@@ -106,7 +110,19 @@ export function GroupDetailPage() {
               />
             )}
 
-            {isCommissioner && <CommissionerSettings groupId={groupId} />}
+            {isCommissioner && (
+              <CommissionerSettings
+                groupId={groupId}
+                inviteCode={detail.group.inviteCode}
+              />
+            )}
+
+            {isCommissioner && (
+              <PromoteCommissionerCard
+                groupId={groupId}
+                claims={detail.claims}
+              />
+            )}
 
             {isCommissioner && (
               <DangerZone
@@ -133,14 +149,20 @@ function rosterTeamName(roster: Roster, leagueUsers: TeamUser[]): string {
 }
 
 function RosterTable({
+  groupId,
   rosters,
   leagueUsers,
   claims,
+  isCommissioner,
 }: {
+  groupId: string;
   rosters: Roster[];
   leagueUsers: TeamUser[];
   claims: GroupClaimSummary[];
+  isCommissioner: boolean;
 }) {
+  const revoke = useRevokeClaim();
+
   const approvedByRoster = useMemo(() => {
     const map = new Map<number, GroupClaimSummary>();
     for (const c of claims) {
@@ -180,13 +202,28 @@ function RosterTable({
                     {teamName}
                   </span>
                 </div>
-                <div className="text-xs text-gray-500">
+                <div className="flex items-center gap-2 text-xs text-gray-500">
                   {claim ? (
                     <>
-                      Claimed by{" "}
-                      <span className="font-medium text-gray-900">
-                        {describeUser(claim.user)}
+                      <span>
+                        Claimed by{" "}
+                        <span className="font-medium text-gray-900">
+                          {describeUser(claim.user)}
+                        </span>
                       </span>
+                      {isCommissioner && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
+                          disabled={revoke.isPending}
+                          onClick={() =>
+                            revoke.mutate({ groupId, claimId: claim.id })
+                          }
+                        >
+                          Revoke
+                        </Button>
+                      )}
                     </>
                   ) : (
                     <span className="text-gray-400">Unclaimed</span>
@@ -199,6 +236,11 @@ function RosterTable({
             <p className="text-sm text-gray-500">No rosters loaded yet.</p>
           )}
         </div>
+        {revoke.isError && (
+          <p className="text-xs text-red-500 mt-2">
+            {(revoke.error as Error).message}
+          </p>
+        )}
       </CardContent>
     </Card>
   );
@@ -220,12 +262,12 @@ function ClaimTeamCard({
   myClaim: {
     id: string;
     rosterId: number;
-    status: "pending" | "approved" | "rejected";
+    status: "pending" | "approved" | "rejected" | "revoked";
   } | null;
 }) {
   const submit = useSubmitClaim();
   const [rosterId, setRosterId] = useState<number | null>(null);
-  const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [message, setMessage] = useState("");
 
   const approvedRosterIds = useMemo(
@@ -264,15 +306,26 @@ function ClaimTeamCard({
     );
   }
 
+  if (myClaim?.status === "revoked") {
+    return (
+      <Card>
+        <CardContent className="py-4 text-sm text-red-700">
+          Your team ownership was revoked by the commissioner. Contact them if
+          you think this is a mistake.
+        </CardContent>
+      </Card>
+    );
+  }
+
   const canSubmit =
-    rosterId !== null && password.length >= 4 && !submit.isPending;
+    rosterId !== null && inviteCode.length === 6 && !submit.isPending;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Claim a team</CardTitle>
         <CardDescription>
-          Enter the group password to request your team.
+          Enter the group invite code to request your team.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -296,14 +349,14 @@ function ClaimTeamCard({
           </div>
           <div>
             <label className="text-xs text-gray-500 block mb-1">
-              Group password
+              Invite code
             </label>
             <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full text-sm border rounded-md px-2 py-1.5"
-              placeholder="••••••••"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+              maxLength={6}
+              className="w-full text-sm font-mono tracking-widest text-center border rounded-md px-2 py-1.5 uppercase"
+              placeholder="ABC123"
             />
           </div>
           <div>
@@ -331,12 +384,12 @@ function ClaimTeamCard({
                   {
                     groupId,
                     rosterId,
-                    password,
+                    inviteCode,
                     message: message.trim() || undefined,
                   },
                   {
                     onSuccess: () => {
-                      setPassword("");
+                      setInviteCode("");
                       setMessage("");
                     },
                   },
@@ -453,30 +506,127 @@ function CommissionerPendingPanel({
   );
 }
 
-// ---- Commissioner settings (change join password) ----
+// ---- Commissioner settings (invite code) ----
 
-function CommissionerSettings({ groupId }: { groupId: string }) {
-  const update = useUpdateGroup();
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [success, setSuccess] = useState(false);
+function CommissionerSettings({
+  groupId,
+  inviteCode,
+}: {
+  groupId: string;
+  inviteCode?: string;
+}) {
+  const rotate = useRotateInviteCode();
+  const [copied, setCopied] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
-  const mismatch =
-    confirmPassword.length > 0 && newPassword !== confirmPassword;
-  const canSave =
-    newPassword.length >= 4 &&
-    newPassword === confirmPassword &&
-    !update.isPending;
+  const displayCode = rotate.data?.inviteCode ?? inviteCode;
 
-  const handleSave = () => {
-    update.mutate(
-      { groupId, password: newPassword },
+  const handleCopy = () => {
+    if (displayCode) {
+      navigator.clipboard.writeText(displayCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleRotate = () => {
+    rotate.mutate({ groupId }, { onSuccess: () => setConfirming(false) });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Invite code</CardTitle>
+        <CardDescription>
+          Share this with members so they can join and claim a team. Rotate it
+          if you want to stop accepting new members with the old code.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 text-center bg-gray-50 border rounded-md py-2 font-mono text-2xl font-bold tracking-widest text-gray-900">
+              {displayCode ?? "———"}
+            </div>
+            <Button variant="outline" onClick={handleCopy} className="shrink-0">
+              {copied ? "Copied!" : "Copy"}
+            </Button>
+          </div>
+
+          {!confirming ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirming(true)}
+            >
+              Rotate code…
+            </Button>
+          ) : (
+            <div className="space-y-2 p-3 rounded-md border border-amber-200 bg-amber-50">
+              <p className="text-xs text-amber-800">
+                The old code will stop working immediately. Members with the old
+                code can't join. Continue?
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirming(false)}
+                  disabled={rotate.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleRotate}
+                  disabled={rotate.isPending}
+                >
+                  {rotate.isPending ? "Rotating…" : "Yes, rotate"}
+                </Button>
+              </div>
+            </div>
+          )}
+          {rotate.isError && (
+            <p className="text-xs text-red-500">
+              {(rotate.error as Error).message}
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---- Promote commissioner ----
+
+function PromoteCommissionerCard({
+  groupId,
+  claims,
+}: {
+  groupId: string;
+  claims: GroupClaimSummary[];
+}) {
+  const promote = usePromoteCommissioner();
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [confirming, setConfirming] = useState(false);
+
+  // Only approved, non-commissioner members can be promoted
+  const eligibleMembers = claims.filter((c) => c.status === "approved");
+
+  if (eligibleMembers.length === 0) return null;
+
+  const selectedMember = eligibleMembers.find(
+    (c) => c.user?.id === selectedUserId,
+  );
+
+  const handlePromote = () => {
+    if (!selectedUserId) return;
+    promote.mutate(
+      { groupId, newCommissionerUserId: selectedUserId },
       {
         onSuccess: () => {
-          setNewPassword("");
-          setConfirmPassword("");
-          setSuccess(true);
-          setTimeout(() => setSuccess(false), 3000);
+          setConfirming(false);
+          setSelectedUserId("");
         },
       },
     );
@@ -485,57 +635,77 @@ function CommissionerSettings({ groupId }: { groupId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Change join password</CardTitle>
+        <CardTitle>Transfer commissioner role</CardTitle>
         <CardDescription>
-          New members will need this password to claim a team.
+          Make another team owner the commissioner. You'll lose your
+          commissioner privileges.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
           <div>
             <label className="text-xs text-gray-500 block mb-1">
-              New password
+              New commissioner
             </label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full text-sm border rounded-md px-2 py-1.5"
-              placeholder="Min 4 characters"
-            />
+            <select
+              value={selectedUserId}
+              onChange={(e) => {
+                setSelectedUserId(e.target.value);
+                setConfirming(false);
+              }}
+              className="w-full text-sm border rounded-md px-2 py-1.5 bg-white"
+            >
+              <option value="">Select a member…</option>
+              {eligibleMembers.map((c) => (
+                <option key={c.id} value={c.user?.id ?? ""}>
+                  {describeUser(c.user)}
+                </option>
+              ))}
+            </select>
           </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">
-              Confirm password
-            </label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full text-sm border rounded-md px-2 py-1.5"
-              placeholder="Repeat new password"
-            />
-            {mismatch && (
-              <p className="text-xs text-red-500 mt-1">
-                Passwords don't match.
-              </p>
-            )}
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs">
-              {success && (
-                <span className="text-green-600">Password updated!</span>
-              )}
-              {update.isError && (
-                <span className="text-red-500">
-                  {(update.error as Error).message}
-                </span>
-              )}
-            </span>
-            <Button disabled={!canSave} onClick={handleSave}>
-              {update.isPending ? "Saving…" : "Save password"}
+
+          {selectedUserId && !confirming && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirming(true)}
+            >
+              Transfer to {describeUser(selectedMember?.user)}…
             </Button>
-          </div>
+          )}
+
+          {confirming && (
+            <div className="space-y-2 p-3 rounded-md border border-amber-200 bg-amber-50">
+              <p className="text-xs text-amber-800">
+                <strong>{describeUser(selectedMember?.user)}</strong> will
+                become the commissioner. You'll no longer have commissioner
+                access. This can't be undone by you.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirming(false)}
+                  disabled={promote.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handlePromote}
+                  disabled={promote.isPending}
+                >
+                  {promote.isPending ? "Transferring…" : "Yes, transfer"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {promote.isError && (
+            <p className="text-xs text-red-500">
+              {(promote.error as Error).message}
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>
