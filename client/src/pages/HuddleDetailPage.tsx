@@ -248,7 +248,9 @@ function ClaimTeamCard({
 }) {
   const submit = useSubmitClaim();
   const [rosterId, setRosterId] = useState<number | null>(null);
-  const [inviteCode, setInviteCode] = useState("");
+  // Pre-fill invite code if the user already verified it via JoinHuddleModal
+  const cachedCode = sessionStorage.getItem(`huddle-code:${huddleId}`) ?? "";
+  const [inviteCode, setInviteCode] = useState(cachedCode);
   const [message, setMessage] = useState("");
 
   const approvedRosterIds = useMemo(
@@ -295,7 +297,9 @@ function ClaimTeamCard({
       <CardHeader>
         <CardTitle>Claim a team</CardTitle>
         <CardDescription>
-          Enter the huddle invite code to request your team.
+          {cachedCode
+            ? "Pick your team and submit a request to the commissioner."
+            : "Enter the huddle invite code to request your team."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -317,18 +321,20 @@ function ClaimTeamCard({
               ))}
             </select>
           </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">
-              Invite code
-            </label>
-            <input
-              value={inviteCode}
-              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-              maxLength={6}
-              className="w-full text-sm font-mono tracking-widest text-center border rounded-md px-2 py-1.5 uppercase"
-              placeholder="ABC123"
-            />
-          </div>
+          {!cachedCode && (
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">
+                Invite code
+              </label>
+              <input
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                maxLength={6}
+                className="w-full text-sm font-mono tracking-widest text-center border rounded-md px-2 py-1.5 uppercase"
+                placeholder="ABC123"
+              />
+            </div>
+          )}
           <div>
             <label className="text-xs text-gray-500 block mb-1">
               Message (optional)

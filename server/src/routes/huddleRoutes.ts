@@ -235,7 +235,9 @@ export function initHuddleRoutes(app: Express) {
             createdAt: c.createdAt,
             decidedAt: c.decidedAt,
             user:
-              userIsCommissioner || c.userId === userId
+              userIsCommissioner ||
+              c.userId === userId ||
+              c.status === "approved"
                 ? (userMap.get(c.userId) ?? {
                     id: c.userId,
                     username: null,
