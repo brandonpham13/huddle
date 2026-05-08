@@ -323,3 +323,49 @@ export function useRemoveCommissioner() {
     },
   });
 }
+
+export function useUnclaimTeam() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { huddleId: string; claimId: string }) => {
+      const token = await getToken();
+      try {
+        await axios.delete(
+          `/api/huddles/${input.huddleId}/claims/${input.claimId}`,
+          { headers: authHeader(token) },
+        );
+      } catch (err) {
+        throw new Error(errorMessage(err, "Failed to unclaim team"));
+      }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["huddle", variables.huddleId],
+      });
+    },
+  });
+}
+
+export function useForceRemoveClaim() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { huddleId: string; claimId: string }) => {
+      const token = await getToken();
+      try {
+        await axios.delete(
+          `/api/huddles/${input.huddleId}/claims/${input.claimId}/force`,
+          { headers: authHeader(token) },
+        );
+      } catch (err) {
+        throw new Error(errorMessage(err, "Failed to remove team assignment"));
+      }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["huddle", variables.huddleId],
+      });
+    },
+  });
+}

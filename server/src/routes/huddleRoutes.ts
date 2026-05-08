@@ -7,6 +7,7 @@ import {
   createHuddle,
   decideClaim,
   deleteHuddle,
+  forceRemoveClaim,
   getHuddle,
   getHuddleByInviteCode,
   isCommissioner,
@@ -16,6 +17,7 @@ import {
   removeCommissioner,
   rotateInviteCode,
   submitClaim,
+  unclaimTeam,
   updateHuddle,
 } from "../services/huddlesService.js";
 
@@ -343,6 +345,44 @@ export function initHuddleRoutes(app: Express) {
           decidedBy: userId!,
         });
         res.json({ claim: serializeClaim(claim) });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // DELETE /api/huddles/:id/claims/:claimId — self-unclaim
+  app.delete(
+    "/api/huddles/:id/claims/:claimId",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        await unclaimTeam({
+          huddleId: req.params.id!,
+          claimId: req.params.claimId!,
+          userId: userId!,
+        });
+        res.status(204).end();
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // DELETE /api/huddles/:id/claims/:claimId/force — commissioner removes any claim
+  app.delete(
+    "/api/huddles/:id/claims/:claimId/force",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        await forceRemoveClaim({
+          huddleId: req.params.id!,
+          claimId: req.params.claimId!,
+          actingUserId: userId!,
+        });
+        res.status(204).end();
       } catch (err) {
         handleError(err, res);
       }

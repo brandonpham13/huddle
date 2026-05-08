@@ -484,3 +484,48 @@ export async function deleteHuddle(opts: {
     fail(403, "Only a commissioner can delete the huddle");
   await db.delete(huddles).where(eq(huddles.id, opts.huddleId));
 }
+
+// Self-unclaim: user removes their own pending or approved claim
+export async function unclaimTeam(opts: {
+  huddleId: string;
+  claimId: string;
+  userId: string;
+}): Promise<void> {
+  const rows = await db
+    .select()
+    .from(teamClaims)
+    .where(
+      and(
+        eq(teamClaims.id, opts.claimId),
+        eq(teamClaims.huddleId, opts.huddleId),
+        eq(teamClaims.userId, opts.userId),
+      ),
+    )
+    .limit(1);
+  if (!rows[0]) fail(404, "Claim not found");
+  if (rows[0].status === "rejected")
+    fail(409, "Claim has already been rejected");
+  await db.delete(teamClaims).where(eq(teamClaims.id, opts.claimId));
+}
+
+// Commissioner force-remove: remove any claim regardless of owner
+export async function forceRemoveClaim(opts: {
+  huddleId: string;
+  claimId: string;
+  actingUserId: string;
+}): Promise<void> {
+  if (!(await isCommissioner(opts.huddleId, opts.actingUserId)))
+    fail(403, "Only a commissioner can remove team assignments");
+  const rows = await db
+    .select()
+    .from(teamClaims)
+    .where(
+      and(
+        eq(teamClaims.id, opts.claimId),
+        eq(teamClaims.huddleId, opts.huddleId),
+      ),
+    )
+    .limit(1);
+  if (!rows[0]) fail(404, "Claim not found");
+  await db.delete(teamClaims).where(eq(teamClaims.id, opts.claimId));
+}
