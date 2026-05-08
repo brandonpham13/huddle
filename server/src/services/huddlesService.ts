@@ -1,5 +1,5 @@
 import { randomBytes } from "crypto";
-import { and, eq, count } from "drizzle-orm";
+import { and, eq, count, inArray } from "drizzle-orm";
 import { db } from "../db/client.js";
 import {
   huddles,
@@ -157,7 +157,29 @@ export async function createHuddle(opts: {
 export async function listHuddlesForLeague(
   leagueProvider: string,
   leagueId: string,
+  userId: string,
 ): Promise<Huddle[]> {
+  // Only return huddles the user is a member of (has a claim or is a commissioner)
+  const [claimRows, commishRows] = await Promise.all([
+    db
+      .select({ huddleId: teamClaims.huddleId })
+      .from(teamClaims)
+      .where(eq(teamClaims.userId, userId)),
+    db
+      .select({ huddleId: huddleCommissioners.huddleId })
+      .from(huddleCommissioners)
+      .where(eq(huddleCommissioners.userId, userId)),
+  ]);
+
+  const memberHuddleIds = [
+    ...new Set([
+      ...claimRows.map((r) => r.huddleId),
+      ...commishRows.map((r) => r.huddleId),
+    ]),
+  ];
+
+  if (memberHuddleIds.length === 0) return [];
+
   return db
     .select()
     .from(huddles)
@@ -165,6 +187,7 @@ export async function listHuddlesForLeague(
       and(
         eq(huddles.leagueProvider, leagueProvider),
         eq(huddles.leagueId, leagueId),
+        inArray(huddles.id, memberHuddleIds),
       ),
     );
 }

@@ -146,6 +146,7 @@ export function initHuddleRoutes(app: Express) {
   // GET /api/huddles?leagueProvider=sleeper&leagueId=123
   app.get("/api/huddles", requireAuth, async (req: Request, res: Response) => {
     try {
+      const { userId } = getAuth(req);
       const leagueProvider = req.query["leagueProvider"];
       const leagueId = req.query["leagueId"];
       if (typeof leagueProvider !== "string" || typeof leagueId !== "string") {
@@ -154,7 +155,11 @@ export function initHuddleRoutes(app: Express) {
           .json({ error: "leagueProvider and leagueId query params required" });
         return;
       }
-      const list = await listHuddlesForLeague(leagueProvider, leagueId);
+      const list = await listHuddlesForLeague(
+        leagueProvider,
+        leagueId,
+        userId!,
+      );
       res.json({ huddles: list.map((h) => serializeHuddle(h, false)) });
     } catch (err) {
       handleError(err, res);
