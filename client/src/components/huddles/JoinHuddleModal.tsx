@@ -15,11 +15,6 @@ export function JoinHuddleModal({ onClose }: { onClose: () => void }) {
       { code: code.trim().toUpperCase() },
       {
         onSuccess: (huddle) => {
-          // Cache the verified code so the claim form doesn't ask again
-          sessionStorage.setItem(
-            `huddle-code:${huddle.id}`,
-            code.trim().toUpperCase(),
-          );
           onClose();
           navigate(`/huddles/${huddle.id}`);
         },

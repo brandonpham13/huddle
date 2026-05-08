@@ -12,7 +12,6 @@ import { Button } from "../components/ui/button";
 import {
   useDecideClaim,
   useDeleteHuddle,
-  useForceRemoveClaim,
   useHuddleDetail,
   useHuddlePendingClaims,
   useAddCommissioner,
@@ -365,11 +364,6 @@ function RosterTable({
     </Card>
   );
 }
-
-// ---- Claim form ----
-// Kept as a type alias only; component removed (merged into RosterTable)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _ClaimTeamCard = null;
 
 // ---- Commissioner pending panel ----
 

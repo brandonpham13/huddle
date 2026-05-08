@@ -349,7 +349,3 @@ export function useRemoveClaim() {
     },
   });
 }
-
-// Keep old names as aliases for backward compat (can remove later)
-export const useUnclaimTeam = useRemoveClaim;
-export const useForceRemoveClaim = useRemoveClaim;
