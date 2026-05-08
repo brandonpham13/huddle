@@ -233,16 +233,26 @@ export function useRotateInviteCode() {
 export function useLookupHuddleByCode() {
   const { getToken } = useAuth();
   return useMutation({
-    mutationFn: async (input: { code: string }) => {
+    mutationFn: async (input: {
+      code: string;
+      leagueProvider: string;
+      leagueId: string;
+    }) => {
       const token = await getToken();
       try {
         const res = await axios.get<{ huddle: Huddle }>("/api/huddles/lookup", {
-          params: { code: input.code.toUpperCase() },
+          params: {
+            code: input.code.toUpperCase(),
+            leagueProvider: input.leagueProvider,
+            leagueId: input.leagueId,
+          },
           headers: authHeader(token),
         });
         return res.data.huddle;
       } catch (err) {
-        throw new Error(errorMessage(err, "Huddle not found"));
+        throw new Error(
+          errorMessage(err, "No huddle found with that invite code"),
+        );
       }
     },
   });

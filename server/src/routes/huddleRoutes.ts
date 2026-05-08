@@ -175,11 +175,28 @@ export function initHuddleRoutes(app: Express) {
     async (req: Request, res: Response) => {
       try {
         const code = req.query["code"];
+        const leagueProvider = req.query["leagueProvider"];
+        const leagueId = req.query["leagueId"];
         if (typeof code !== "string" || !code) {
           res.status(400).json({ error: "code query param required" });
           return;
         }
-        const huddle = await getHuddleByInviteCode(code);
+        if (
+          typeof leagueProvider !== "string" ||
+          typeof leagueId !== "string"
+        ) {
+          res
+            .status(400)
+            .json({
+              error: "leagueProvider and leagueId query params required",
+            });
+          return;
+        }
+        const huddle = await getHuddleByInviteCode(
+          code,
+          leagueProvider,
+          leagueId,
+        );
         if (!huddle) {
           res
             .status(404)
