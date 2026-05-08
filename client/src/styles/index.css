@@ -1,1 +1,33 @@
+@import url("https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,500;1,6..72,600;1,6..72,700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
+
+/* ---- Register design tokens with Tailwind's theme ---- */
+/* Using @theme makes bg-paper, text-ink, border-line, divide-line etc
+   all work automatically via Tailwind's color system — no @utility needed. */
+@theme {
+  --color-paper: #f5efe2;
+  --color-chrome: #ede5d3;
+  --color-ink: #1a1814;
+  --color-body: #3d3830;
+  --color-muted: #7a7263;
+  --color-line: rgba(26, 24, 20, 0.18);
+  --color-accent: #2d6a4f;
+  --color-highlight: rgba(45, 106, 79, 0.08);
+  --color-loss: #a14535;
+
+  --font-family-serif: "Newsreader", Georgia, serif;
+  --font-family-mono: "IBM Plex Mono", "JetBrains Mono", monospace;
+}
+
+/* ---- Dark mode overrides (applied via .dark class on root div) ---- */
+.dark {
+  --color-paper: #22201a;
+  --color-chrome: #2a2820;
+  --color-ink: #f4ecd8;
+  --color-body: #d2c9b3;
+  --color-muted: #8c8472;
+  --color-line: rgba(244, 236, 216, 0.16);
+  --color-accent: #7fb685;
+  --color-highlight: rgba(127, 182, 133, 0.1);
+  --color-loss: #d68a7d;
+}
