@@ -57,7 +57,12 @@ export function LeagueHuddlesSection({ leagueId }: { leagueId: string }) {
           onClose={() => setCreateOpen(false)}
         />
       )}
-      {joinOpen && <JoinHuddleModal onClose={() => setJoinOpen(false)} />}
+      {joinOpen && (
+        <JoinHuddleModal
+          leagueId={leagueId}
+          onClose={() => setJoinOpen(false)}
+        />
+      )}
     </div>
   );
 }

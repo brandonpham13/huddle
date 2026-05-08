@@ -203,11 +203,19 @@ export async function getHuddle(huddleId: string): Promise<Huddle | null> {
 
 export async function getHuddleByInviteCode(
   code: string,
+  leagueProvider: string,
+  leagueId: string,
 ): Promise<Huddle | null> {
   const rows = await db
     .select()
     .from(huddles)
-    .where(eq(huddles.inviteCode, code.toUpperCase()))
+    .where(
+      and(
+        eq(huddles.inviteCode, code.toUpperCase()),
+        eq(huddles.leagueProvider, leagueProvider),
+        eq(huddles.leagueId, leagueId),
+      ),
+    )
     .limit(1);
   return rows[0] ?? null;
 }
