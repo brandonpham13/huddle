@@ -28,6 +28,7 @@ import {
   getLosersBracket,
   getDraft,
   getDraftPicks,
+  getPlayerStats,
 } from "../../services/sleeperService.js";
 import type {
   SleeperLeague,
@@ -342,5 +343,12 @@ export const sleeperProvider: FantasyProvider = {
 
   async getDraftPicks(draftId: string): Promise<DraftPick[]> {
     return (await getDraftPicks(draftId)).map(toDraftPick);
+  },
+
+  async getPlayerStats(
+    season: string,
+    week: number,
+  ): Promise<Record<string, Record<string, number | string>>> {
+    return getPlayerStats(season, week);
   },
 };
