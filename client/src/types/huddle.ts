@@ -6,6 +6,8 @@ export interface Huddle {
   leagueId: string;
   name: string;
   commissionerUserId: string;
+  inviteCode?: string;
+  inviteCodeUpdatedAt?: string;
   createdAt: string;
   updatedAt: string;
 }

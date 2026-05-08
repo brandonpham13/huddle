@@ -7,8 +7,10 @@ import {
   decideClaim,
   deleteHuddle,
   getHuddle,
+  getHuddleByInviteCode,
   listClaimsForHuddle,
   listHuddlesForLeague,
+  rotateInviteCode,
   submitClaim,
   updateHuddle,
 } from "../services/huddlesService.js";
@@ -57,19 +59,67 @@ function handleError(err: unknown, res: Response): void {
   res.status(500).json({ error: "Internal error" });
 }
 
+function serializeHuddle(
+  h: {
+    id: string;
+    leagueProvider: string;
+    leagueId: string;
+    name: string;
+    commissionerUserId: string;
+    inviteCode: string;
+    inviteCodeUpdatedAt: Date;
+    createdAt: Date;
+    updatedAt: Date;
+  },
+  includeCode: boolean,
+) {
+  return {
+    id: h.id,
+    leagueProvider: h.leagueProvider,
+    leagueId: h.leagueId,
+    name: h.name,
+    commissionerUserId: h.commissionerUserId,
+    ...(includeCode
+      ? { inviteCode: h.inviteCode, inviteCodeUpdatedAt: h.inviteCodeUpdatedAt }
+      : {}),
+    createdAt: h.createdAt,
+    updatedAt: h.updatedAt,
+  };
+}
+
+function serializeClaim(c: {
+  id: string;
+  huddleId: string;
+  rosterId: number;
+  status: string;
+  message: string | null;
+  createdAt: Date;
+  decidedAt: Date | null;
+  userId: string;
+}) {
+  return {
+    id: c.id,
+    huddleId: c.huddleId,
+    rosterId: c.rosterId,
+    status: c.status,
+    message: c.message,
+    userId: c.userId,
+    createdAt: c.createdAt,
+    decidedAt: c.decidedAt,
+  };
+}
+
 export function initHuddleRoutes(app: Express) {
-  // POST /api/huddles — create a huddle for a league
+  // POST /api/huddles
   app.post("/api/huddles", requireAuth, async (req: Request, res: Response) => {
     try {
       const { userId } = getAuth(req);
-      const { leagueProvider, leagueId, name, password, rosterId } =
-        req.body as {
-          leagueProvider?: string;
-          leagueId?: string;
-          name?: string;
-          password?: string;
-          rosterId?: number | null;
-        };
+      const { leagueProvider, leagueId, name, rosterId } = req.body as {
+        leagueProvider?: string;
+        leagueId?: string;
+        name?: string;
+        rosterId?: number | null;
+      };
       if (typeof leagueProvider !== "string" || !leagueProvider) {
         res.status(400).json({ error: "leagueProvider required" });
         return;
@@ -82,17 +132,16 @@ export function initHuddleRoutes(app: Express) {
         leagueProvider,
         leagueId,
         name,
-        password,
         rosterId: rosterId ?? null,
         commissionerUserId: userId!,
       });
-      res.status(201).json({ huddle: serializeHuddle(huddle) });
+      res.status(201).json({ huddle: serializeHuddle(huddle, true) });
     } catch (err) {
       handleError(err, res);
     }
   });
 
-  // GET /api/huddles?leagueProvider=sleeper&leagueId=123 — list huddles for a league
+  // GET /api/huddles?leagueProvider=sleeper&leagueId=123
   app.get("/api/huddles", requireAuth, async (req: Request, res: Response) => {
     try {
       const leagueProvider = req.query["leagueProvider"];
@@ -104,13 +153,38 @@ export function initHuddleRoutes(app: Express) {
         return;
       }
       const list = await listHuddlesForLeague(leagueProvider, leagueId);
-      res.json({ huddles: list.map(serializeHuddle) });
+      res.json({ huddles: list.map((h) => serializeHuddle(h, false)) });
     } catch (err) {
       handleError(err, res);
     }
   });
 
-  // GET /api/huddles/:id — huddle detail with claim summary
+  // GET /api/huddles/lookup?code=ABC123
+  app.get(
+    "/api/huddles/lookup",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const code = req.query["code"];
+        if (typeof code !== "string" || !code) {
+          res.status(400).json({ error: "code query param required" });
+          return;
+        }
+        const huddle = await getHuddleByInviteCode(code);
+        if (!huddle) {
+          res
+            .status(404)
+            .json({ error: "No huddle found with that invite code" });
+          return;
+        }
+        res.json({ huddle: serializeHuddle(huddle, false) });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // GET /api/huddles/:id
   app.get(
     "/api/huddles/:id",
     requireAuth,
@@ -132,12 +206,11 @@ export function initHuddleRoutes(app: Express) {
           ...claims.map((c) => c.userId),
         ];
         const userMap = await fetchUserSummaries(claimerIds);
-
         const myClaim = claims.find((c) => c.userId === userId) ?? null;
 
         res.json({
           huddle: {
-            ...serializeHuddle(huddle),
+            ...serializeHuddle(huddle, isCommissioner),
             commissioner: userMap.get(huddle.commissionerUserId) ?? {
               id: huddle.commissionerUserId,
               username: null,
@@ -175,22 +248,22 @@ export function initHuddleRoutes(app: Express) {
     },
   );
 
-  // POST /api/huddles/:id/claims — submit a team claim with the huddle password
+  // POST /api/huddles/:id/claims — submit claim with invite code
   app.post(
     "/api/huddles/:id/claims",
     requireAuth,
     async (req: Request, res: Response) => {
       try {
         const { userId } = getAuth(req);
-        const { password, rosterId, message } = req.body as {
-          password?: string;
+        const { inviteCode, rosterId, message } = req.body as {
+          inviteCode?: string;
           rosterId?: number;
           message?: string;
         };
         const claim = await submitClaim({
           huddleId: req.params.id!,
           userId: userId!,
-          password,
+          inviteCode,
           rosterId,
           message,
         });
@@ -201,7 +274,7 @@ export function initHuddleRoutes(app: Express) {
     },
   );
 
-  // GET /api/huddles/:id/claims — commissioner-only pending list with claimer identities
+  // GET /api/huddles/:id/claims — commissioner pending list
   app.get(
     "/api/huddles/:id/claims",
     requireAuth,
@@ -238,7 +311,7 @@ export function initHuddleRoutes(app: Express) {
     },
   );
 
-  // POST /api/huddles/:id/claims/:claimId/decide — commissioner approves/rejects
+  // POST /api/huddles/:id/claims/:claimId/decide
   app.post(
     "/api/huddles/:id/claims/:claimId/decide",
     requireAuth,
@@ -265,31 +338,45 @@ export function initHuddleRoutes(app: Express) {
     },
   );
 
-  // PATCH /api/huddles/:id — commissioner edits name and/or rotates password
-  app.patch(
-    "/api/huddles/:id",
+  // POST /api/huddles/:id/rotate-code — commissioner rotates invite code
+  app.post(
+    "/api/huddles/:id/rotate-code",
     requireAuth,
     async (req: Request, res: Response) => {
       try {
         const { userId } = getAuth(req);
-        const { name, password } = req.body as {
-          name?: string;
-          password?: string;
-        };
-        const huddle = await updateHuddle({
+        const huddle = await rotateInviteCode({
           huddleId: req.params.id!,
           userId: userId!,
-          name,
-          password,
         });
-        res.json({ huddle: serializeHuddle(huddle) });
+        res.json({ huddle: serializeHuddle(huddle, true) });
       } catch (err) {
         handleError(err, res);
       }
     },
   );
 
-  // DELETE /api/huddles/:id — commissioner deletes huddle (cascades claims)
+  // PATCH /api/huddles/:id — rename
+  app.patch(
+    "/api/huddles/:id",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        const { name } = req.body as { name?: string };
+        const huddle = await updateHuddle({
+          huddleId: req.params.id!,
+          userId: userId!,
+          name,
+        });
+        res.json({ huddle: serializeHuddle(huddle, true) });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // DELETE /api/huddles/:id
   app.delete(
     "/api/huddles/:id",
     requireAuth,
@@ -303,46 +390,4 @@ export function initHuddleRoutes(app: Express) {
       }
     },
   );
-}
-
-function serializeHuddle(h: {
-  id: string;
-  leagueProvider: string;
-  leagueId: string;
-  name: string;
-  commissionerUserId: string;
-  createdAt: Date;
-  updatedAt: Date;
-}) {
-  return {
-    id: h.id,
-    leagueProvider: h.leagueProvider,
-    leagueId: h.leagueId,
-    name: h.name,
-    commissionerUserId: h.commissionerUserId,
-    createdAt: h.createdAt,
-    updatedAt: h.updatedAt,
-  };
-}
-
-function serializeClaim(c: {
-  id: string;
-  huddleId: string;
-  rosterId: number;
-  status: string;
-  message: string | null;
-  createdAt: Date;
-  decidedAt: Date | null;
-  userId: string;
-}) {
-  return {
-    id: c.id,
-    huddleId: c.huddleId,
-    rosterId: c.rosterId,
-    status: c.status,
-    message: c.message,
-    userId: c.userId,
-    createdAt: c.createdAt,
-    decidedAt: c.decidedAt,
-  };
 }

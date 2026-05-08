@@ -50,9 +50,7 @@ export function useHuddleDetail(huddleId: string | null) {
       const token = await getToken();
       const res = await axios.get<HuddleDetailResponse>(
         `/api/huddles/${huddleId}`,
-        {
-          headers: authHeader(token),
-        },
+        { headers: authHeader(token) },
       );
       return res.data;
     },
@@ -72,9 +70,7 @@ export function useHuddlePendingClaims(
       const token = await getToken();
       const res = await axios.get<{ claims: HuddleClaimSummary[] }>(
         `/api/huddles/${huddleId}/claims`,
-        {
-          headers: authHeader(token),
-        },
+        { headers: authHeader(token) },
       );
       return res.data.claims;
     },
@@ -93,7 +89,6 @@ export function useCreateHuddle() {
       leagueProvider: string;
       leagueId: string;
       name: string;
-      password: string;
       rosterId?: number;
     }) => {
       const token = await getToken();
@@ -122,7 +117,7 @@ export function useSubmitClaim() {
   return useMutation({
     mutationFn: async (input: {
       huddleId: string;
-      password: string;
+      inviteCode: string;
       rosterId: number;
       message?: string;
     }) => {
@@ -131,7 +126,7 @@ export function useSubmitClaim() {
         const res = await axios.post<{ claim: HuddleClaim }>(
           `/api/huddles/${input.huddleId}/claims`,
           {
-            password: input.password,
+            inviteCode: input.inviteCode,
             rosterId: input.rosterId,
             message: input.message,
           },
@@ -189,16 +184,12 @@ export function useUpdateHuddle() {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: {
-      huddleId: string;
-      name?: string;
-      password?: string;
-    }) => {
+    mutationFn: async (input: { huddleId: string; name?: string }) => {
       const token = await getToken();
       try {
         const res = await axios.patch<{ huddle: Huddle }>(
           `/api/huddles/${input.huddleId}`,
-          { name: input.name, password: input.password },
+          { name: input.name },
           { headers: authHeader(token) },
         );
         return res.data.huddle;
@@ -211,6 +202,50 @@ export function useUpdateHuddle() {
       queryClient.invalidateQueries({
         queryKey: ["huddles", huddle.leagueProvider, huddle.leagueId],
       });
+    },
+  });
+}
+
+export function useRotateInviteCode() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { huddleId: string }) => {
+      const token = await getToken();
+      try {
+        const res = await axios.post<{ huddle: Huddle }>(
+          `/api/huddles/${input.huddleId}/rotate-code`,
+          {},
+          { headers: authHeader(token) },
+        );
+        return res.data.huddle;
+      } catch (err) {
+        throw new Error(errorMessage(err, "Failed to rotate invite code"));
+      }
+    },
+    onSuccess: (huddle) => {
+      queryClient.invalidateQueries({ queryKey: ["huddle", huddle.id] });
+      queryClient.invalidateQueries({
+        queryKey: ["huddles", huddle.leagueProvider, huddle.leagueId],
+      });
+    },
+  });
+}
+
+export function useLookupHuddleByCode() {
+  const { getToken } = useAuth();
+  return useMutation({
+    mutationFn: async (input: { code: string }) => {
+      const token = await getToken();
+      try {
+        const res = await axios.get<{ huddle: Huddle }>("/api/huddles/lookup", {
+          params: { code: input.code.toUpperCase() },
+          headers: authHeader(token),
+        });
+        return res.data.huddle;
+      } catch (err) {
+        throw new Error(errorMessage(err, "Huddle not found"));
+      }
     },
   });
 }

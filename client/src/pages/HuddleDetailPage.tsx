@@ -13,6 +13,7 @@ import {
   useDeleteHuddle,
   useHuddleDetail,
   useHuddlePendingClaims,
+  useRotateInviteCode,
   useSubmitClaim,
   useUpdateHuddle,
 } from "../hooks/useHuddles";
@@ -106,7 +107,12 @@ export function HuddleDetailPage() {
               />
             )}
 
-            {isCommissioner && <CommissionerSettings huddleId={huddleId} />}
+            {isCommissioner && (
+              <CommissionerSettings
+                huddleId={huddleId}
+                inviteCode={detail.huddle.inviteCode}
+              />
+            )}
 
             {isCommissioner && (
               <DangerZone
@@ -225,7 +231,7 @@ function ClaimTeamCard({
 }) {
   const submit = useSubmitClaim();
   const [rosterId, setRosterId] = useState<number | null>(null);
-  const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [message, setMessage] = useState("");
 
   const approvedRosterIds = useMemo(
@@ -265,14 +271,14 @@ function ClaimTeamCard({
   }
 
   const canSubmit =
-    rosterId !== null && password.length >= 4 && !submit.isPending;
+    rosterId !== null && inviteCode.length === 6 && !submit.isPending;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Claim a team</CardTitle>
         <CardDescription>
-          Enter the huddle password to request your team.
+          Enter the huddle invite code to request your team.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -296,14 +302,14 @@ function ClaimTeamCard({
           </div>
           <div>
             <label className="text-xs text-gray-500 block mb-1">
-              Group password
+              Invite code
             </label>
             <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full text-sm border rounded-md px-2 py-1.5"
-              placeholder="••••••••"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+              maxLength={6}
+              className="w-full text-sm font-mono tracking-widest text-center border rounded-md px-2 py-1.5 uppercase"
+              placeholder="ABC123"
             />
           </div>
           <div>
@@ -331,12 +337,12 @@ function ClaimTeamCard({
                   {
                     huddleId,
                     rosterId,
-                    password,
+                    inviteCode,
                     message: message.trim() || undefined,
                   },
                   {
                     onSuccess: () => {
-                      setPassword("");
+                      setInviteCode("");
                       setMessage("");
                     },
                   },
@@ -453,89 +459,92 @@ function CommissionerPendingPanel({
   );
 }
 
-// ---- Commissioner settings (change join password) ----
+// ---- Commissioner settings (invite code) ----
 
-function CommissionerSettings({ huddleId }: { huddleId: string }) {
-  const update = useUpdateHuddle();
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [success, setSuccess] = useState(false);
+function CommissionerSettings({
+  huddleId,
+  inviteCode,
+}: {
+  huddleId: string;
+  inviteCode?: string;
+}) {
+  const rotate = useRotateInviteCode();
+  const [copied, setCopied] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
-  const mismatch =
-    confirmPassword.length > 0 && newPassword !== confirmPassword;
-  const canSave =
-    newPassword.length >= 4 &&
-    newPassword === confirmPassword &&
-    !update.isPending;
+  const displayCode = rotate.data?.inviteCode ?? inviteCode;
 
-  const handleSave = () => {
-    update.mutate(
-      { huddleId, password: newPassword },
-      {
-        onSuccess: () => {
-          setNewPassword("");
-          setConfirmPassword("");
-          setSuccess(true);
-          setTimeout(() => setSuccess(false), 3000);
-        },
-      },
-    );
+  const handleCopy = () => {
+    if (displayCode) {
+      navigator.clipboard.writeText(displayCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Change join password</CardTitle>
+        <CardTitle>Invite code</CardTitle>
         <CardDescription>
-          New members will need this password to claim a team.
+          Share this with members so they can join and claim a team. Rotate it
+          to invalidate the old code immediately.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">
-              New password
-            </label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full text-sm border rounded-md px-2 py-1.5"
-              placeholder="Min 4 characters"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">
-              Confirm password
-            </label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full text-sm border rounded-md px-2 py-1.5"
-              placeholder="Repeat new password"
-            />
-            {mismatch && (
-              <p className="text-xs text-red-500 mt-1">
-                Passwords don't match.
-              </p>
-            )}
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs">
-              {success && (
-                <span className="text-green-600">Password updated!</span>
-              )}
-              {update.isError && (
-                <span className="text-red-500">
-                  {(update.error as Error).message}
-                </span>
-              )}
-            </span>
-            <Button disabled={!canSave} onClick={handleSave}>
-              {update.isPending ? "Saving…" : "Save password"}
+          <div className="flex items-center gap-2">
+            <div className="flex-1 text-center bg-gray-50 border rounded-md py-2 font-mono text-2xl font-bold tracking-widest text-gray-900">
+              {displayCode ?? "———"}
+            </div>
+            <Button variant="outline" onClick={handleCopy} className="shrink-0">
+              {copied ? "Copied!" : "Copy"}
             </Button>
           </div>
+
+          {!confirming ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirming(true)}
+            >
+              Rotate code…
+            </Button>
+          ) : (
+            <div className="space-y-2 p-3 rounded-md border border-amber-200 bg-amber-50">
+              <p className="text-xs text-amber-800">
+                The old code stops working immediately. Continue?
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirming(false)}
+                  disabled={rotate.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    rotate.mutate(
+                      { huddleId },
+                      { onSuccess: () => setConfirming(false) },
+                    )
+                  }
+                  disabled={rotate.isPending}
+                >
+                  {rotate.isPending ? "Rotating…" : "Yes, rotate"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {rotate.isError && (
+            <p className="text-xs text-red-500">
+              {(rotate.error as Error).message}
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>

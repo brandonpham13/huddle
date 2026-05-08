@@ -1,4 +1,4 @@
-import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
 import { and, eq } from "drizzle-orm";
 import { db } from "../db/client.js";
 import {
@@ -8,9 +8,36 @@ import {
   type TeamClaim,
 } from "../db/schema.js";
 
-const BCRYPT_COST = 10;
-const MIN_PASSWORD_LEN = 4;
-const MAX_PASSWORD_LEN = 128;
+// 6-char uppercase alphanumeric, excluding 0/O/1/I to avoid visual confusion
+const INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const INVITE_CODE_LEN = 6;
+
+function generateCode(): string {
+  let result = "";
+  const bytes = randomBytes(INVITE_CODE_LEN * 2);
+  let i = 0;
+  while (result.length < INVITE_CODE_LEN) {
+    const byte = bytes[i++ % bytes.length]!;
+    if (byte < 256 - (256 % INVITE_ALPHABET.length)) {
+      result += INVITE_ALPHABET[byte % INVITE_ALPHABET.length];
+    }
+  }
+  return result;
+}
+
+async function generateUniqueCode(): Promise<string> {
+  for (let i = 0; i < 10; i++) {
+    const code = generateCode();
+    const existing = await db
+      .select()
+      .from(huddles)
+      .where(eq(huddles.inviteCode, code))
+      .limit(1);
+    if (existing.length === 0) return code;
+  }
+  throw new HuddlesServiceError(500, "Failed to generate unique invite code");
+}
+
 const MAX_NAME_LEN = 80;
 const MAX_MESSAGE_LEN = 500;
 
@@ -27,20 +54,6 @@ const fail = (status: number, message: string): never => {
   throw new HuddlesServiceError(status, message);
 };
 
-function validatePassword(pw: unknown): string {
-  if (
-    typeof pw !== "string" ||
-    pw.length < MIN_PASSWORD_LEN ||
-    pw.length > MAX_PASSWORD_LEN
-  ) {
-    fail(
-      400,
-      `Password must be ${MIN_PASSWORD_LEN}-${MAX_PASSWORD_LEN} characters`,
-    );
-  }
-  return pw as string;
-}
-
 function validateName(name: unknown): string {
   if (
     typeof name !== "string" ||
@@ -52,17 +65,17 @@ function validateName(name: unknown): string {
   return (name as string).trim();
 }
 
+// ---- Huddle CRUD ----
+
 export async function createHuddle(opts: {
   leagueProvider: string;
   leagueId: string;
   name: unknown;
-  password: unknown;
   rosterId?: number | null;
   commissionerUserId: string;
 }): Promise<Huddle> {
   const name = validateName(opts.name);
-  const password = validatePassword(opts.password);
-  const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
+  const inviteCode = await generateUniqueCode();
 
   const [created] = await db
     .insert(huddles)
@@ -71,7 +84,7 @@ export async function createHuddle(opts: {
       leagueId: opts.leagueId,
       name,
       commissionerUserId: opts.commissionerUserId,
-      passwordHash,
+      inviteCode,
     })
     .returning();
 
@@ -116,28 +129,39 @@ export async function getHuddle(huddleId: string): Promise<Huddle | null> {
   return rows[0] ?? null;
 }
 
+export async function getHuddleByInviteCode(
+  code: string,
+): Promise<Huddle | null> {
+  const rows = await db
+    .select()
+    .from(huddles)
+    .where(eq(huddles.inviteCode, code.toUpperCase()))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export async function listClaimsForHuddle(
   huddleId: string,
 ): Promise<TeamClaim[]> {
   return db.select().from(teamClaims).where(eq(teamClaims.huddleId, huddleId));
 }
 
+// ---- Claims ----
+
 export async function submitClaim(opts: {
   huddleId: string;
   userId: string;
-  password: unknown;
+  inviteCode: unknown;
   rosterId: unknown;
   message?: unknown;
 }): Promise<TeamClaim> {
   const huddle = await getHuddle(opts.huddleId);
   if (!huddle) fail(404, "Huddle not found");
 
-  if (typeof opts.password !== "string") fail(400, "Password required");
-  const match = await bcrypt.compare(
-    opts.password as string,
-    huddle!.passwordHash,
-  );
-  if (!match) fail(403, "Incorrect password");
+  if (typeof opts.inviteCode !== "string" || !opts.inviteCode)
+    fail(400, "Invite code required");
+  if ((opts.inviteCode as string).toUpperCase() !== huddle!.inviteCode)
+    fail(403, "Invalid invite code");
 
   if (
     typeof opts.rosterId !== "number" ||
@@ -158,7 +182,6 @@ export async function submitClaim(opts: {
     message = (opts.message as string).trim() || null;
   }
 
-  // Reject if user already has an approved claim in this huddle
   const existingApproved = await db
     .select()
     .from(teamClaims)
@@ -173,7 +196,6 @@ export async function submitClaim(opts: {
   if (existingApproved.length > 0)
     fail(409, "You already have an approved team in this huddle");
 
-  // Reject if user already has a pending claim
   const existingPending = await db
     .select()
     .from(teamClaims)
@@ -188,7 +210,6 @@ export async function submitClaim(opts: {
   if (existingPending.length > 0)
     fail(409, "You already have a pending claim in this huddle");
 
-  // Reject if the roster is already approved-claimed
   const rosterTaken = await db
     .select()
     .from(teamClaims)
@@ -269,11 +290,12 @@ export async function decideClaim(opts: {
   return updated!;
 }
 
+// ---- Huddle settings ----
+
 export async function updateHuddle(opts: {
   huddleId: string;
   userId: string;
   name?: unknown;
-  password?: unknown;
 }): Promise<Huddle> {
   const huddle = await getHuddle(opts.huddleId);
   if (!huddle) fail(404, "Huddle not found");
@@ -282,10 +304,6 @@ export async function updateHuddle(opts: {
 
   const patch: Partial<typeof huddles.$inferInsert> = { updatedAt: new Date() };
   if (opts.name !== undefined) patch.name = validateName(opts.name);
-  if (opts.password !== undefined) {
-    const password = validatePassword(opts.password);
-    patch.passwordHash = await bcrypt.hash(password, BCRYPT_COST);
-  }
 
   const [updated] = await db
     .update(huddles)
@@ -293,6 +311,29 @@ export async function updateHuddle(opts: {
     .where(eq(huddles.id, opts.huddleId))
     .returning();
   if (!updated) fail(500, "Failed to update huddle");
+  return updated!;
+}
+
+export async function rotateInviteCode(opts: {
+  huddleId: string;
+  userId: string;
+}): Promise<Huddle> {
+  const huddle = await getHuddle(opts.huddleId);
+  if (!huddle) fail(404, "Huddle not found");
+  if (huddle!.commissionerUserId !== opts.userId)
+    fail(403, "Only the commissioner can rotate the invite code");
+
+  const newCode = await generateUniqueCode();
+  const [updated] = await db
+    .update(huddles)
+    .set({
+      inviteCode: newCode,
+      inviteCodeUpdatedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(huddles.id, opts.huddleId))
+    .returning();
+  if (!updated) fail(500, "Failed to rotate invite code");
   return updated!;
 }
 

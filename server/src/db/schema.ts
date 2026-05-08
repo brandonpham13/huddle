@@ -24,7 +24,12 @@ export const huddles = pgTable(
     leagueId: text("league_id").notNull(),
     name: text("name").notNull(),
     commissionerUserId: text("commissioner_user_id").notNull(),
-    passwordHash: text("password_hash").notNull(),
+    inviteCode: text("invite_code").notNull(),
+    inviteCodeUpdatedAt: timestamp("invite_code_updated_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -35,6 +40,7 @@ export const huddles = pgTable(
   (t) => ({
     byLeague: index("huddles_league_idx").on(t.leagueProvider, t.leagueId),
     byCommissioner: index("huddles_commissioner_idx").on(t.commissionerUserId),
+    uniqInviteCode: uniqueIndex("huddles_invite_code_uniq").on(t.inviteCode),
   }),
 );
 

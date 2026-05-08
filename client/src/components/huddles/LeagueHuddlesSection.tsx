@@ -1,48 +1,31 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { Button } from "../ui/button";
-import { useHuddlesForLeague } from "../../hooks/useHuddles";
 import { CreateHuddleModal } from "./CreateHuddleModal";
+import { JoinHuddleModal } from "./JoinHuddleModal";
 
 export function LeagueHuddlesSection({ leagueId }: { leagueId: string }) {
-  const { data: huddles, isLoading } = useHuddlesForLeague("sleeper", leagueId);
   const [createOpen, setCreateOpen] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
 
   return (
     <div className="mt-3 pt-3 border-t border-dashed">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between">
         <span className="text-xs uppercase tracking-wide text-gray-500 font-medium">
-          Huddles{huddles && huddles.length > 0 ? ` (${huddles.length})` : ""}
+          Huddles
         </span>
-        <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
-          Create huddle
-        </Button>
-      </div>
-
-      {isLoading && <p className="text-xs text-gray-400">Loading…</p>}
-
-      {!isLoading && (huddles?.length ?? 0) === 0 && (
-        <p className="text-xs text-gray-400">No huddles yet for this league.</p>
-      )}
-
-      {(huddles?.length ?? 0) > 0 && (
-        <div className="space-y-1">
-          {huddles!.map((g) => (
-            <div
-              key={g.id}
-              className="flex items-center justify-between text-sm"
-            >
-              <span className="truncate">{g.name}</span>
-              <Link
-                to={`/huddles/${g.id}`}
-                className="text-xs font-medium text-blue-600 hover:underline shrink-0"
-              >
-                Open →
-              </Link>
-            </div>
-          ))}
+        <div className="flex gap-1">
+          <Button size="sm" variant="outline" onClick={() => setJoinOpen(true)}>
+            Join
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setCreateOpen(true)}
+          >
+            Create
+          </Button>
         </div>
-      )}
+      </div>
 
       {createOpen && (
         <CreateHuddleModal
@@ -50,6 +33,7 @@ export function LeagueHuddlesSection({ leagueId }: { leagueId: string }) {
           onClose={() => setCreateOpen(false)}
         />
       )}
+      {joinOpen && <JoinHuddleModal onClose={() => setJoinOpen(false)} />}
     </div>
   );
 }

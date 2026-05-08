@@ -7,6 +7,7 @@ import {
   useLeagueRosters,
   useLeagueUsers,
 } from "../../hooks/useSleeper";
+import type { Huddle } from "../../types/huddle";
 
 export function CreateHuddleModal({
   leagueId,
@@ -22,11 +23,11 @@ export function CreateHuddleModal({
   const navigate = useNavigate();
 
   const [name, setName] = useState(league?.name ?? "");
-  const [password, setPassword] = useState("");
   const [rosterId, setRosterId] = useState<number | null>(null);
+  const [created, setCreated] = useState<Huddle | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  const canSubmit =
-    name.trim().length > 0 && password.length >= 4 && !create.isPending;
+  const canSubmit = name.trim().length > 0 && !create.isPending;
 
   const handleSubmit = () => {
     create.mutate(
@@ -34,17 +35,65 @@ export function CreateHuddleModal({
         leagueProvider: "sleeper",
         leagueId,
         name: name.trim(),
-        password,
         rosterId: rosterId ?? undefined,
       },
-      {
-        onSuccess: (group) => {
-          onClose();
-          navigate(`/huddles/${group.id}`);
-        },
-      },
+      { onSuccess: (huddle) => setCreated(huddle) },
     );
   };
+
+  const handleCopy = () => {
+    if (created?.inviteCode) {
+      navigator.clipboard.writeText(created.inviteCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  // After creation: show invite code
+  if (created) {
+    return (
+      <div
+        className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+        onClick={onClose}
+      >
+        <div
+          className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div>
+            <h2 className="text-lg font-bold">Huddle created! 🎉</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Share this invite code with your league members so they can join.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="flex-1 text-center bg-gray-50 border rounded-md py-3 font-mono text-3xl font-bold tracking-widest text-gray-900">
+              {created.inviteCode}
+            </div>
+            <Button variant="outline" onClick={handleCopy} className="shrink-0">
+              {copied ? "Copied!" : "Copy"}
+            </Button>
+          </div>
+
+          <p className="text-xs text-gray-400">
+            You can rotate this code any time from the huddle settings.
+          </p>
+
+          <div className="flex justify-end pt-2">
+            <Button
+              onClick={() => {
+                onClose();
+                navigate(`/huddles/${created.id}`);
+              }}
+            >
+              Go to huddle →
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -58,8 +107,8 @@ export function CreateHuddleModal({
         <div>
           <h2 className="text-lg font-bold">Create huddle</h2>
           <p className="text-sm text-gray-500 mt-1">
-            You'll be the commissioner. Members join by password and request a
-            team — you approve.
+            You'll be the commissioner. An invite code is generated
+            automatically — share it with your league.
           </p>
         </div>
 
@@ -71,26 +120,10 @@ export function CreateHuddleModal({
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={80}
+            autoFocus
             className="w-full text-sm border rounded-md px-2 py-1.5"
             placeholder={league?.name ?? "Huddle name"}
           />
-        </div>
-
-        <div>
-          <label className="text-xs text-gray-500 block mb-1">
-            Join password
-          </label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            minLength={4}
-            className="w-full text-sm border rounded-md px-2 py-1.5"
-            placeholder="At least 4 characters"
-          />
-          <p className="text-[11px] text-gray-400 mt-1">
-            Share this with your league out-of-band.
-          </p>
         </div>
 
         <div>
