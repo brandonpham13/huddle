@@ -335,6 +335,35 @@ export function initProviderRoutes(app: Express) {
     }
   });
 
+  // GET /api/provider/:providerId/stats/:season/:week
+  // Returns per-player fantasy stats for a given season + week.
+  router.get(
+    "/:providerId/stats/:season/:week",
+    async (req: Request, res: Response) => {
+      const provider = resolveProvider(req.params.providerId, res);
+      if (!provider) return;
+      if (!provider.getPlayerStats) {
+        res.status(404).json({
+          error: `${req.params.providerId} does not expose player stats`,
+        });
+        return;
+      }
+      const week = parseInt(req.params.week ?? "", 10);
+      if (isNaN(week) || week < 1 || week > 18) {
+        res.status(400).json({ error: "week must be an integer 1–18" });
+        return;
+      }
+      try {
+        const stats = await provider.getPlayerStats(req.params.season!, week);
+        res.json({ stats });
+      } catch (err) {
+        res
+          .status(httpStatus(err))
+          .json({ error: err instanceof Error ? err.message : "Unknown" });
+      }
+    },
+  );
+
   // GET /api/provider/:providerId/draft/:draftId/picks
   router.get(
     "/:providerId/draft/:draftId/picks",
