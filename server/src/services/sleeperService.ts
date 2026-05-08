@@ -351,6 +351,6 @@ export async function getPlayerStats(
   week: number,
 ): Promise<SleeperStatsMap> {
   return fetchJson<SleeperStatsMap>(
-    `${SLEEPER_BASE}/stats/nfl/${season}/${week}?season_type=regular`,
+    `${SLEEPER_BASE}/stats/nfl/regular/${season}/${week}`,
   );
 }
