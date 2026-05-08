@@ -231,16 +231,16 @@ function RosterTable({
                             {describeUser(claim.user)}
                           </span>
                         </span>
-                        {/* Unclaim: own team or commissioner on any team */}
+                        {/* Unlink: own team or commissioner on any team */}
                         {(isMyTeam || isCommissioner) &&
                         confirmRemoveClaimId !== claim.id ? (
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-6 px-2 text-xs"
+                            className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
                             onClick={() => setConfirmRemoveClaimId(claim.id)}
                           >
-                            Unclaim
+                            Unlink
                           </Button>
                         ) : (isMyTeam || isCommissioner) &&
                           confirmRemoveClaimId === claim.id ? (
