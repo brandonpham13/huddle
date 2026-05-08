@@ -14,6 +14,13 @@ export interface PowerRankingInput {
 }
 
 /**
+ * Controls what the UI column shows.
+ * - "score" (default): the raw computed value
+ * - "rank": the rank position (1 = best); raw score is hidden
+ */
+export type ColumnDisplayMode = "score" | "rank";
+
+/**
  * An algorithm returns a score for each rosterId.
  * Higher score = better ranking (algorithms normalise internally).
  */
@@ -24,6 +31,12 @@ export interface PowerRankingAlgorithm {
   label: string;
   /** Brief tooltip / description */
   description: string;
+  /**
+   * Controls what value the UI column renders.
+   * "score" = raw computed value, "rank" = ordinal rank position (hides raw score).
+   * Defaults to "score" when omitted.
+   */
+  displayMode?: ColumnDisplayMode;
   compute(input: PowerRankingInput): Map<number, number>;
 }
 
@@ -45,14 +58,17 @@ export interface PowerRankingColumn {
   id: string;
   label: string;
   description: string;
+  displayMode: ColumnDisplayMode;
 }
 
 export interface PowerRankingRow {
   rosterId: number;
   teamName: string;
   avatar: string | null;
-  /** Scores keyed by algorithm id — null means not computed */
+  /** Raw scores keyed by algorithm id — null means not computed */
   scores: Record<string, number | null>;
+  /** Per-algorithm ranks (1 = best) keyed by algorithm id */
+  ranks: Record<string, number | null>;
   /** Overall rank (average rank across all algorithms, lower = better) */
   overallRank: number;
 }
@@ -76,7 +92,6 @@ export function computePowerRankings(
     try {
       scoresByAlgo.set(algo.id, algo.compute(input));
     } catch {
-      // If an algorithm throws, treat all scores as null for that column
       scoresByAlgo.set(algo.id, new Map());
     }
   }
@@ -105,13 +120,18 @@ export function computePowerRankings(
     const avatar = user?.avatar ?? null;
 
     const scores: Record<string, number | null> = {};
+    const ranks: Record<string, number | null> = {};
     let rankSum = 0;
     let rankCount = 0;
+
     for (const algo of algos) {
       const score = scoresByAlgo.get(algo.id)?.get(roster.rosterId) ?? null;
       scores[algo.id] = score !== undefined ? score : null;
-      const rank = ranksByAlgo.get(algo.id)?.get(roster.rosterId);
-      if (rank !== undefined) {
+
+      const rank = ranksByAlgo.get(algo.id)?.get(roster.rosterId) ?? null;
+      ranks[algo.id] = rank;
+
+      if (rank !== null) {
         rankSum += rank;
         rankCount++;
       }
@@ -119,7 +139,14 @@ export function computePowerRankings(
 
     const overallRank = rankCount > 0 ? rankSum / rankCount : Infinity;
 
-    return { rosterId: roster.rosterId, teamName, avatar, scores, overallRank };
+    return {
+      rosterId: roster.rosterId,
+      teamName,
+      avatar,
+      scores,
+      ranks,
+      overallRank,
+    };
   });
 
   // Sort by overall rank
@@ -129,6 +156,7 @@ export function computePowerRankings(
     id: a.id,
     label: a.label,
     description: a.description,
+    displayMode: a.displayMode ?? "score",
   }));
 
   return { columns, rows };
