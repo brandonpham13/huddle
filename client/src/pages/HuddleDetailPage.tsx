@@ -243,51 +243,49 @@ function RosterTable({
                           <Button
                             size="sm"
                             variant="outline"
-                            className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
+                            className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                            disabled={selfUnlinkBlocked}
+                            title={
+                              selfUnlinkBlocked
+                                ? "Assign another commissioner before unlinking yourself"
+                                : undefined
+                            }
                             onClick={() => setConfirmRemoveClaimId(claim.id)}
                           >
                             Unlink
                           </Button>
                         ) : (isMyTeam || isCommissioner) &&
                           confirmRemoveClaimId === claim.id ? (
-                          <div className="flex items-center gap-1">
-                            {selfUnlinkBlocked ? (
-                              <span className="text-xs text-amber-600">
-                                Assign another commissioner first
-                              </span>
-                            ) : (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-6 px-2 text-xs"
-                                  onClick={() => setConfirmRemoveClaimId(null)}
-                                >
-                                  Cancel
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
-                                  disabled={removeClaim.isPending}
-                                  onClick={() => {
-                                    removeClaim.mutate(
-                                      {
-                                        huddleId,
-                                        claimId: claim.id,
-                                        isCommissioner,
-                                      },
-                                      {
-                                        onSuccess: () =>
-                                          setConfirmRemoveClaimId(null),
-                                      },
-                                    );
-                                  }}
-                                >
-                                  Confirm
-                                </Button>
-                              </>
-                            )}
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => setConfirmRemoveClaimId(null)}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
+                              disabled={removeClaim.isPending}
+                              onClick={() => {
+                                removeClaim.mutate(
+                                  {
+                                    huddleId,
+                                    claimId: claim.id,
+                                    isCommissioner,
+                                  },
+                                  {
+                                    onSuccess: () =>
+                                      setConfirmRemoveClaimId(null),
+                                  },
+                                );
+                              }}
+                            >
+                              Confirm
+                            </Button>
                           </div>
                         ) : null}
                       </>
