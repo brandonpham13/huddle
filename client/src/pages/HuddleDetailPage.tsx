@@ -2,6 +2,11 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "../components/ui/tooltip";
+import {
   Card,
   CardContent,
   CardHeader,
@@ -103,6 +108,7 @@ export function HuddleDetailPage() {
               myClaim={detail.myClaim}
               currentUserId={userId ?? null}
               isCommissioner={isCommissioner}
+              commissionerCount={detail.huddle.commissioners.length}
             />
 
             {isCommissioner && (
@@ -160,6 +166,7 @@ function RosterTable({
   myClaim,
   currentUserId,
   isCommissioner,
+  commissionerCount,
 }: {
   huddleId: string;
   rosters: Roster[];
@@ -168,6 +175,7 @@ function RosterTable({
   myClaim: { id: string; rosterId: number; status: string } | null;
   currentUserId: string | null;
   isCommissioner: boolean;
+  commissionerCount: number;
 }) {
   const submit = useSubmitClaim();
   const removeClaim = useRemoveClaim();
@@ -211,6 +219,9 @@ function RosterTable({
             const teamName = rosterTeamName(roster, leagueUsers);
             const isMyTeam = claim && claim.user?.id === currentUserId;
             const isExpanding = claimingRosterId === roster.rosterId;
+            // Last-commish self-unlink guard
+            const selfUnlinkBlocked =
+              isMyTeam && isCommissioner && commissionerCount <= 1;
 
             return (
               <div key={roster.rosterId} className="border-b last:border-b-0">
@@ -234,14 +245,29 @@ function RosterTable({
                         {/* Unlink: own team or commissioner on any team */}
                         {(isMyTeam || isCommissioner) &&
                         confirmRemoveClaimId !== claim.id ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
-                            onClick={() => setConfirmRemoveClaimId(claim.id)}
-                          >
-                            Unlink
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                                  disabled={selfUnlinkBlocked}
+                                  onClick={() =>
+                                    setConfirmRemoveClaimId(claim.id)
+                                  }
+                                >
+                                  Unlink
+                                </Button>
+                              </span>
+                            </TooltipTrigger>
+                            {selfUnlinkBlocked && (
+                              <TooltipContent>
+                                Assign another commissioner before unlinking
+                                yourself
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
                         ) : (isMyTeam || isCommissioner) &&
                           confirmRemoveClaimId === claim.id ? (
                           <div className="flex gap-1">
