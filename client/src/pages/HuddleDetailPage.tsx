@@ -10,38 +10,38 @@ import {
 import { Button } from "../components/ui/button";
 import {
   useDecideClaim,
-  useDeleteGroup,
-  useGroupDetail,
-  useGroupPendingClaims,
+  useDeleteHuddle,
+  useHuddleDetail,
+  useHuddlePendingClaims,
   useSubmitClaim,
-  useUpdateGroup,
-} from "../hooks/useGroups";
+  useUpdateHuddle,
+} from "../hooks/useHuddles";
 import {
   useLeague,
   useLeagueRosters,
   useLeagueUsers,
 } from "../hooks/useSleeper";
 import type { Roster, TeamUser } from "../types/fantasy";
-import type { GroupClaimSummary, UserSummary } from "../types/group";
+import type { HuddleClaimSummary, UserSummary } from "../types/huddle";
 
 function describeUser(u: UserSummary | null | undefined): string {
   if (!u) return "Unknown user";
   return u.username ?? u.email ?? u.id;
 }
 
-export function GroupDetailPage() {
-  const { id: groupId } = useParams<{ id: string }>();
-  const groupQuery = useGroupDetail(groupId ?? null);
-  const detail = groupQuery.data;
-  const isCommissioner = !!detail?.group.isCommissioner;
+export function HuddleDetailPage() {
+  const { id: huddleId } = useParams<{ id: string }>();
+  const huddleQuery = useHuddleDetail(huddleId ?? null);
+  const detail = huddleQuery.data;
+  const isCommissioner = !!detail?.huddle.isCommissioner;
 
-  // Sleeper roster/user data for the league this group belongs to
-  const leagueId = detail?.group.leagueId ?? null;
+  // Sleeper roster/user data for the league this huddle belongs to
+  const leagueId = detail?.huddle.leagueId ?? null;
   const { data: league } = useLeague(leagueId);
   const { data: rosters } = useLeagueRosters(leagueId);
   const { data: leagueUsers } = useLeagueUsers(leagueId);
 
-  if (!groupId) return <div className="p-6 text-gray-500">No group id.</div>;
+  if (!huddleId) return <div className="p-6 text-gray-500">No huddle id.</div>;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -52,19 +52,19 @@ export function GroupDetailPage() {
         >
           ← Leagues
         </Link>
-        <h1 className="text-xl font-bold">{detail?.group.name ?? "Group"}</h1>
+        <h1 className="text-xl font-bold">{detail?.huddle.name ?? "Group"}</h1>
       </nav>
 
       <main className="p-6 max-w-3xl mx-auto space-y-4">
-        {groupQuery.isLoading && (
+        {huddleQuery.isLoading && (
           <div className="flex justify-center py-12">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900" />
           </div>
         )}
-        {groupQuery.isError && (
+        {huddleQuery.isError && (
           <Card>
             <CardContent className="py-8 text-center text-red-500">
-              Failed to load group.
+              Failed to load huddle.
             </CardContent>
           </Card>
         )}
@@ -73,11 +73,11 @@ export function GroupDetailPage() {
           <>
             <Card>
               <CardHeader>
-                <CardTitle>{detail.group.name}</CardTitle>
+                <CardTitle>{detail.huddle.name}</CardTitle>
                 <CardDescription>
-                  League: {league?.name ?? detail.group.leagueId}
+                  League: {league?.name ?? detail.huddle.leagueId}
                   {" · "}
-                  Commissioner: {describeUser(detail.group.commissioner)}
+                  Commissioner: {describeUser(detail.huddle.commissioner)}
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -90,7 +90,7 @@ export function GroupDetailPage() {
 
             {!isCommissioner && (
               <ClaimTeamCard
-                groupId={groupId}
+                huddleId={huddleId}
                 rosters={rosters ?? []}
                 leagueUsers={leagueUsers ?? []}
                 claims={detail.claims}
@@ -100,20 +100,20 @@ export function GroupDetailPage() {
 
             {isCommissioner && (
               <CommissionerPendingPanel
-                groupId={groupId}
+                huddleId={huddleId}
                 rosters={rosters ?? []}
                 leagueUsers={leagueUsers ?? []}
               />
             )}
 
-            {isCommissioner && <CommissionerSettings groupId={groupId} />}
+            {isCommissioner && <CommissionerSettings huddleId={huddleId} />}
 
             {isCommissioner && (
               <DangerZone
-                groupId={groupId}
-                groupName={detail.group.name}
-                leagueProvider={detail.group.leagueProvider}
-                leagueId={detail.group.leagueId}
+                huddleId={huddleId}
+                groupName={detail.huddle.name}
+                leagueProvider={detail.huddle.leagueProvider}
+                leagueId={detail.huddle.leagueId}
               />
             )}
           </>
@@ -139,10 +139,10 @@ function RosterTable({
 }: {
   rosters: Roster[];
   leagueUsers: TeamUser[];
-  claims: GroupClaimSummary[];
+  claims: HuddleClaimSummary[];
 }) {
   const approvedByRoster = useMemo(() => {
-    const map = new Map<number, GroupClaimSummary>();
+    const map = new Map<number, HuddleClaimSummary>();
     for (const c of claims) {
       if (c.status === "approved") map.set(c.rosterId, c);
     }
@@ -159,7 +159,7 @@ function RosterTable({
       <CardHeader>
         <CardTitle>Teams</CardTitle>
         <CardDescription>
-          Claim status for every roster in this group.
+          Claim status for every roster in this huddle.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -207,16 +207,16 @@ function RosterTable({
 // ---- Claim form ----
 
 function ClaimTeamCard({
-  groupId,
+  huddleId,
   rosters,
   leagueUsers,
   claims,
   myClaim,
 }: {
-  groupId: string;
+  huddleId: string;
   rosters: Roster[];
   leagueUsers: TeamUser[];
-  claims: GroupClaimSummary[];
+  claims: HuddleClaimSummary[];
   myClaim: {
     id: string;
     rosterId: number;
@@ -272,7 +272,7 @@ function ClaimTeamCard({
       <CardHeader>
         <CardTitle>Claim a team</CardTitle>
         <CardDescription>
-          Enter the group password to request your team.
+          Enter the huddle password to request your team.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -329,7 +329,7 @@ function ClaimTeamCard({
                 if (rosterId == null) return;
                 submit.mutate(
                   {
-                    groupId,
+                    huddleId,
                     rosterId,
                     password,
                     message: message.trim() || undefined,
@@ -355,15 +355,15 @@ function ClaimTeamCard({
 // ---- Commissioner pending panel ----
 
 function CommissionerPendingPanel({
-  groupId,
+  huddleId,
   rosters,
   leagueUsers,
 }: {
-  groupId: string;
+  huddleId: string;
   rosters: Roster[];
   leagueUsers: TeamUser[];
 }) {
-  const claimsQuery = useGroupPendingClaims(groupId, true);
+  const claimsQuery = useHuddlePendingClaims(huddleId, true);
   const decide = useDecideClaim();
   const pending = (claimsQuery.data ?? []).filter(
     (c) => c.status === "pending",
@@ -415,7 +415,7 @@ function CommissionerPendingPanel({
                       variant="outline"
                       onClick={() =>
                         decide.mutate({
-                          groupId,
+                          huddleId,
                           claimId: claim.id,
                           decision: "rejected",
                         })
@@ -428,7 +428,7 @@ function CommissionerPendingPanel({
                       size="sm"
                       onClick={() =>
                         decide.mutate({
-                          groupId,
+                          huddleId,
                           claimId: claim.id,
                           decision: "approved",
                         })
@@ -455,8 +455,8 @@ function CommissionerPendingPanel({
 
 // ---- Commissioner settings (change join password) ----
 
-function CommissionerSettings({ groupId }: { groupId: string }) {
-  const update = useUpdateGroup();
+function CommissionerSettings({ huddleId }: { huddleId: string }) {
+  const update = useUpdateHuddle();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [success, setSuccess] = useState(false);
@@ -470,7 +470,7 @@ function CommissionerSettings({ groupId }: { groupId: string }) {
 
   const handleSave = () => {
     update.mutate(
-      { groupId, password: newPassword },
+      { huddleId, password: newPassword },
       {
         onSuccess: () => {
           setNewPassword("");
@@ -545,17 +545,17 @@ function CommissionerSettings({ groupId }: { groupId: string }) {
 // ---- Danger zone (commissioner-only delete) ----
 
 function DangerZone({
-  groupId,
+  huddleId,
   groupName,
   leagueProvider,
   leagueId,
 }: {
-  groupId: string;
+  huddleId: string;
   groupName: string;
   leagueProvider: string;
   leagueId: string;
 }) {
-  const del = useDeleteGroup();
+  const del = useDeleteHuddle();
   const navigate = useNavigate();
   const [confirming, setConfirming] = useState(false);
   const [confirmText, setConfirmText] = useState("");
@@ -564,7 +564,7 @@ function DangerZone({
 
   const handleDelete = () => {
     del.mutate(
-      { groupId, leagueProvider, leagueId },
+      { huddleId, leagueProvider, leagueId },
       {
         onSuccess: () => {
           navigate("/leagues");
@@ -578,14 +578,14 @@ function DangerZone({
       <CardHeader>
         <CardTitle className="text-red-700">Danger zone</CardTitle>
         <CardDescription>
-          Deleting the group removes all claims permanently. This can't be
+          Deleting the huddle removes all claims permanently. This can't be
           undone.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {!confirming ? (
           <Button variant="destructive" onClick={() => setConfirming(true)}>
-            Delete group
+            Delete huddle
           </Button>
         ) : (
           <div className="space-y-2">
