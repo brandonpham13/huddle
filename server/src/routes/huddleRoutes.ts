@@ -174,6 +174,7 @@ export function initHuddleRoutes(app: Express) {
     requireAuth,
     async (req: Request, res: Response) => {
       try {
+        const { userId } = getAuth(req);
         const code = req.query["code"];
         const leagueProvider = req.query["leagueProvider"];
         const leagueId = req.query["leagueId"];
@@ -185,11 +186,9 @@ export function initHuddleRoutes(app: Express) {
           typeof leagueProvider !== "string" ||
           typeof leagueId !== "string"
         ) {
-          res
-            .status(400)
-            .json({
-              error: "leagueProvider and leagueId query params required",
-            });
+          res.status(400).json({
+            error: "leagueProvider and leagueId query params required",
+          });
           return;
         }
         const huddle = await getHuddleByInviteCode(
@@ -201,6 +200,20 @@ export function initHuddleRoutes(app: Express) {
           res
             .status(404)
             .json({ error: "No huddle found with that invite code" });
+          return;
+        }
+        // Check if the user is already a member (has any claim or is a commissioner)
+        const [existingClaims, commishRows] = await Promise.all([
+          listClaimsForHuddle(huddle.id),
+          listCommissioners(huddle.id),
+        ]);
+        const alreadyMember =
+          existingClaims.some((c) => c.userId === userId) ||
+          commishRows.some((c) => c.userId === userId);
+        if (alreadyMember) {
+          res
+            .status(409)
+            .json({ error: "You're already a member of this huddle" });
           return;
         }
         res.json({ huddle: serializeHuddle(huddle, false) });
