@@ -9,6 +9,7 @@ import {
 } from "../widgets/registry";
 import { useAllSleeperLeagues, useLeague } from "../hooks/useSleeper";
 import { getFamilySeasons } from "../utils/leagueFamily";
+import { useMyClaimedTeam } from "../hooks/useMyClaimedTeam";
 import { Card, CardContent } from "../components/ui/card";
 
 // Register widgets
@@ -31,6 +32,8 @@ export function DashboardPage() {
   const syncedLeagues =
     allLeagues?.filter((l) => syncedLeagueIds.includes(l.ref.leagueId)) ?? [];
   const { data: selectedLeague } = useLeague(selectedLeagueId);
+  const { teamName: claimedTeamName, avatar: claimedAvatar } =
+    useMyClaimedTeam(selectedLeagueId);
 
   const familySeasons = useMemo(
     () =>
@@ -78,6 +81,24 @@ export function DashboardPage() {
                 </option>
               ))}
             </select>
+          )}
+
+          {/* Claimed team badge */}
+          {claimedTeamName && (
+            <div className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200">
+              {claimedAvatar ? (
+                <img
+                  src={`https://sleepercdn.com/avatars/thumbs/${claimedAvatar}`}
+                  alt={claimedTeamName}
+                  className="w-4 h-4 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-4 h-4 rounded-full bg-blue-200" />
+              )}
+              <span className="text-xs font-medium text-blue-700">
+                {claimedTeamName}
+              </span>
+            </div>
           )}
         </div>
       )}
