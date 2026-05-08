@@ -3,13 +3,17 @@ import { getAuth, createClerkClient } from "@clerk/express";
 import { requireAuth } from "../middleware/requireAuth.js";
 import {
   HuddlesServiceError,
+  addCommissioner,
   createHuddle,
   decideClaim,
   deleteHuddle,
   getHuddle,
   getHuddleByInviteCode,
+  isCommissioner,
   listClaimsForHuddle,
+  listCommissioners,
   listHuddlesForLeague,
+  removeCommissioner,
   rotateInviteCode,
   submitClaim,
   updateHuddle,
@@ -65,7 +69,6 @@ function serializeHuddle(
     leagueProvider: string;
     leagueId: string;
     name: string;
-    commissionerUserId: string;
     inviteCode: string;
     inviteCodeUpdatedAt: Date;
     createdAt: Date;
@@ -78,7 +81,6 @@ function serializeHuddle(
     leagueProvider: h.leagueProvider,
     leagueId: h.leagueId,
     name: h.name,
-    commissionerUserId: h.commissionerUserId,
     ...(includeCode
       ? { inviteCode: h.inviteCode, inviteCodeUpdatedAt: h.inviteCodeUpdatedAt }
       : {}),
@@ -198,25 +200,32 @@ export function initHuddleRoutes(app: Express) {
           return;
         }
 
-        const claims = await listClaimsForHuddle(huddleId);
-        const isCommissioner = huddle.commissionerUserId === userId;
+        const [claims, commissioners] = await Promise.all([
+          listClaimsForHuddle(huddleId),
+          listCommissioners(huddleId),
+        ]);
+        const userIsCommissioner = await isCommissioner(huddleId, userId!);
 
-        const claimerIds = [
-          huddle.commissionerUserId,
+        const allUserIds = [
+          ...commissioners.map((c) => c.userId),
           ...claims.map((c) => c.userId),
         ];
-        const userMap = await fetchUserSummaries(claimerIds);
+        const userMap = await fetchUserSummaries(allUserIds);
         const myClaim = claims.find((c) => c.userId === userId) ?? null;
 
         res.json({
           huddle: {
-            ...serializeHuddle(huddle, isCommissioner),
-            commissioner: userMap.get(huddle.commissionerUserId) ?? {
-              id: huddle.commissionerUserId,
-              username: null,
-              email: null,
-            },
-            isCommissioner,
+            ...serializeHuddle(huddle, userIsCommissioner),
+            isCommissioner: userIsCommissioner,
+            commissioners: commissioners.map((c) => ({
+              userId: c.userId,
+              addedAt: c.addedAt,
+              user: userMap.get(c.userId) ?? {
+                id: c.userId,
+                username: null,
+                email: null,
+              },
+            })),
           },
           claims: claims.map((c) => ({
             id: c.id,
@@ -226,7 +235,7 @@ export function initHuddleRoutes(app: Express) {
             createdAt: c.createdAt,
             decidedAt: c.decidedAt,
             user:
-              isCommissioner || c.userId === userId
+              userIsCommissioner || c.userId === userId
                 ? (userMap.get(c.userId) ?? {
                     id: c.userId,
                     username: null,
@@ -248,7 +257,7 @@ export function initHuddleRoutes(app: Express) {
     },
   );
 
-  // POST /api/huddles/:id/claims — submit claim with invite code
+  // POST /api/huddles/:id/claims
   app.post(
     "/api/huddles/:id/claims",
     requireAuth,
@@ -274,7 +283,7 @@ export function initHuddleRoutes(app: Express) {
     },
   );
 
-  // GET /api/huddles/:id/claims — commissioner pending list
+  // GET /api/huddles/:id/claims — commissioner only
   app.get(
     "/api/huddles/:id/claims",
     requireAuth,
@@ -282,15 +291,10 @@ export function initHuddleRoutes(app: Express) {
       try {
         const { userId } = getAuth(req);
         const huddleId = req.params.id!;
-        const huddle = await getHuddle(huddleId);
-        if (!huddle) {
-          res.status(404).json({ error: "Huddle not found" });
-          return;
-        }
-        if (huddle.commissionerUserId !== userId) {
+        if (!(await isCommissioner(huddleId, userId!))) {
           res
             .status(403)
-            .json({ error: "Only the commissioner can list claims" });
+            .json({ error: "Only a commissioner can list claims" });
           return;
         }
         const claims = await listClaimsForHuddle(huddleId);
@@ -338,7 +342,88 @@ export function initHuddleRoutes(app: Express) {
     },
   );
 
-  // POST /api/huddles/:id/rotate-code — commissioner rotates invite code
+  // GET /api/huddles/:id/commissioners
+  app.get(
+    "/api/huddles/:id/commissioners",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const commissioners = await listCommissioners(req.params.id!);
+        const userMap = await fetchUserSummaries(
+          commissioners.map((c) => c.userId),
+        );
+        res.json({
+          commissioners: commissioners.map((c) => ({
+            userId: c.userId,
+            addedAt: c.addedAt,
+            user: userMap.get(c.userId) ?? {
+              id: c.userId,
+              username: null,
+              email: null,
+            },
+          })),
+        });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // POST /api/huddles/:id/commissioners — add co-commissioner
+  app.post(
+    "/api/huddles/:id/commissioners",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        const { newUserId } = req.body as { newUserId?: string };
+        if (typeof newUserId !== "string" || !newUserId) {
+          res.status(400).json({ error: "newUserId required" });
+          return;
+        }
+        const row = await addCommissioner({
+          huddleId: req.params.id!,
+          newUserId,
+          actingUserId: userId!,
+        });
+        const userMap = await fetchUserSummaries([row.userId]);
+        res.status(201).json({
+          commissioner: {
+            userId: row.userId,
+            addedAt: row.addedAt,
+            user: userMap.get(row.userId) ?? {
+              id: row.userId,
+              username: null,
+              email: null,
+            },
+          },
+        });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // DELETE /api/huddles/:id/commissioners/:targetUserId — remove commissioner
+  app.delete(
+    "/api/huddles/:id/commissioners/:targetUserId",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        await removeCommissioner({
+          huddleId: req.params.id!,
+          targetUserId: req.params.targetUserId!,
+          actingUserId: userId!,
+        });
+        res.status(204).end();
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // POST /api/huddles/:id/rotate-code
   app.post(
     "/api/huddles/:id/rotate-code",
     requireAuth,
@@ -356,7 +441,7 @@ export function initHuddleRoutes(app: Express) {
     },
   );
 
-  // PATCH /api/huddles/:id — rename
+  // PATCH /api/huddles/:id
   app.patch(
     "/api/huddles/:id",
     requireAuth,

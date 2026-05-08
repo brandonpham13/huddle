@@ -8,6 +8,7 @@ import {
   pgEnum,
   uniqueIndex,
   index,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 
 export const claimStatus = pgEnum("claim_status", [
@@ -23,7 +24,6 @@ export const huddles = pgTable(
     leagueProvider: text("league_provider").notNull(),
     leagueId: text("league_id").notNull(),
     name: text("name").notNull(),
-    commissionerUserId: text("commissioner_user_id").notNull(),
     inviteCode: text("invite_code").notNull(),
     inviteCodeUpdatedAt: timestamp("invite_code_updated_at", {
       withTimezone: true,
@@ -39,8 +39,26 @@ export const huddles = pgTable(
   },
   (t) => ({
     byLeague: index("huddles_league_idx").on(t.leagueProvider, t.leagueId),
-    byCommissioner: index("huddles_commissioner_idx").on(t.commissionerUserId),
     uniqInviteCode: uniqueIndex("huddles_invite_code_uniq").on(t.inviteCode),
+  }),
+);
+
+// Many-to-many: a huddle can have multiple commissioners (co-commish support)
+export const huddleCommissioners = pgTable(
+  "huddle_commissioners",
+  {
+    huddleId: uuid("huddle_id")
+      .notNull()
+      .references(() => huddles.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    addedAt: timestamp("added_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    addedBy: text("added_by").notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.huddleId, t.userId] }),
+    byUser: index("huddle_commissioners_user_idx").on(t.userId),
   }),
 );
 
@@ -62,12 +80,9 @@ export const teamClaims = pgTable(
     decidedBy: text("decided_by"),
   },
   (t) => ({
-    // One approved claim per (huddle, roster). Partial index allows multiple
-    // pending or rejected claims on the same roster while only one becomes approved.
     uniqApprovedRoster: uniqueIndex("team_claims_huddle_roster_approved_uniq")
       .on(t.huddleId, t.rosterId)
       .where(sql`${t.status} = 'approved'`),
-    // One approved claim per (huddle, user) — a user can only own one team in a huddle.
     uniqApprovedUser: uniqueIndex("team_claims_huddle_user_approved_uniq")
       .on(t.huddleId, t.userId)
       .where(sql`${t.status} = 'approved'`),
@@ -78,5 +93,6 @@ export const teamClaims = pgTable(
 
 export type Huddle = typeof huddles.$inferSelect;
 export type NewHuddle = typeof huddles.$inferInsert;
+export type HuddleCommissioner = typeof huddleCommissioners.$inferSelect;
 export type TeamClaim = typeof teamClaims.$inferSelect;
 export type NewTeamClaim = typeof teamClaims.$inferInsert;

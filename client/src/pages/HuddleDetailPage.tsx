@@ -13,6 +13,8 @@ import {
   useDeleteHuddle,
   useHuddleDetail,
   useHuddlePendingClaims,
+  useAddCommissioner,
+  useRemoveCommissioner,
   useRotateInviteCode,
   useSubmitClaim,
   useUpdateHuddle,
@@ -23,7 +25,11 @@ import {
   useLeagueUsers,
 } from "../hooks/useSleeper";
 import type { Roster, TeamUser } from "../types/fantasy";
-import type { HuddleClaimSummary, UserSummary } from "../types/huddle";
+import type {
+  CommissionerSummary,
+  HuddleClaimSummary,
+  UserSummary,
+} from "../types/huddle";
 
 function describeUser(u: UserSummary | null | undefined): string {
   if (!u) return "Unknown user";
@@ -78,7 +84,10 @@ export function HuddleDetailPage() {
                 <CardDescription>
                   League: {league?.name ?? detail.huddle.leagueId}
                   {" · "}
-                  Commissioner: {describeUser(detail.huddle.commissioner)}
+                  Commissioners:{" "}
+                  {detail.huddle.commissioners
+                    .map((c) => describeUser(c.user))
+                    .join(", ")}
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -111,6 +120,14 @@ export function HuddleDetailPage() {
               <CommissionerSettings
                 huddleId={huddleId}
                 inviteCode={detail.huddle.inviteCode}
+              />
+            )}
+
+            {isCommissioner && (
+              <ManageCommissioners
+                huddleId={huddleId}
+                commissioners={detail.huddle.commissioners}
+                claims={detail.claims}
               />
             )}
 
@@ -543,6 +560,132 @@ function CommissionerSettings({
           {rotate.isError && (
             <p className="text-xs text-red-500">
               {(rotate.error as Error).message}
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---- Manage commissioners ----
+
+function ManageCommissioners({
+  huddleId,
+  commissioners,
+  claims,
+}: {
+  huddleId: string;
+  commissioners: CommissionerSummary[];
+  claims: HuddleClaimSummary[];
+}) {
+  const add = useAddCommissioner();
+  const remove = useRemoveCommissioner();
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+
+  // Approved members who aren't already commissioners
+  const commissionerIds = new Set(commissioners.map((c) => c.userId));
+  const eligible = claims.filter(
+    (c) => c.status === "approved" && !commissionerIds.has(c.user?.id ?? ""),
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Commissioners</CardTitle>
+        <CardDescription>
+          Co-commissioners can approve claims, rotate the invite code, and
+          manage the huddle. There must always be at least one.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {/* Current commissioners */}
+          <div className="space-y-1">
+            {commissioners.map((c) => (
+              <div
+                key={c.userId}
+                className="flex items-center justify-between text-sm py-1"
+              >
+                <span>{describeUser(c.user)}</span>
+                {commissioners.length > 1 && confirmRemoveId !== c.userId ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
+                    onClick={() => setConfirmRemoveId(c.userId)}
+                  >
+                    Remove
+                  </Button>
+                ) : confirmRemoveId === c.userId ? (
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 px-2 text-xs"
+                      onClick={() => setConfirmRemoveId(null)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
+                      disabled={remove.isPending}
+                      onClick={() => {
+                        remove.mutate(
+                          { huddleId, targetUserId: c.userId },
+                          { onSuccess: () => setConfirmRemoveId(null) },
+                        );
+                      }}
+                    >
+                      Confirm
+                    </Button>
+                  </div>
+                ) : (
+                  <span className="text-xs text-gray-400">last commish</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Add co-commissioner */}
+          {eligible.length > 0 && (
+            <div className="pt-2 border-t">
+              <p className="text-xs text-gray-500 mb-2">Add co-commissioner</p>
+              <div className="flex gap-2">
+                <select
+                  value={selectedUserId}
+                  onChange={(e) => setSelectedUserId(e.target.value)}
+                  className="flex-1 text-sm border rounded-md px-2 py-1.5 bg-white"
+                >
+                  <option value="">Select a member…</option>
+                  {eligible.map((c) => (
+                    <option key={c.id} value={c.user?.id ?? ""}>
+                      {describeUser(c.user)}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  size="sm"
+                  disabled={!selectedUserId || add.isPending}
+                  onClick={() => {
+                    add.mutate(
+                      { huddleId, newUserId: selectedUserId },
+                      { onSuccess: () => setSelectedUserId("") },
+                    );
+                  }}
+                >
+                  {add.isPending ? "Adding…" : "Add"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {(add.isError || remove.isError) && (
+            <p className="text-xs text-red-500">
+              {((add.error ?? remove.error) as Error).message}
             </p>
           )}
         </div>

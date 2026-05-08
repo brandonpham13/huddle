@@ -5,7 +5,6 @@ export interface Huddle {
   leagueProvider: string;
   leagueId: string;
   name: string;
-  commissionerUserId: string;
   inviteCode?: string;
   inviteCodeUpdatedAt?: string;
   createdAt: string;
@@ -18,9 +17,15 @@ export interface UserSummary {
   email: string | null;
 }
 
+export interface CommissionerSummary {
+  userId: string;
+  addedAt: string;
+  user: UserSummary;
+}
+
 export interface HuddleDetail extends Huddle {
-  commissioner: UserSummary;
   isCommissioner: boolean;
+  commissioners: CommissionerSummary[];
 }
 
 export interface HuddleClaim {
