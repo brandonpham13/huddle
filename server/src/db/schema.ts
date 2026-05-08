@@ -15,6 +15,7 @@ export const claimStatus = pgEnum("claim_status", [
   "pending",
   "approved",
   "rejected",
+  "revoked",
 ]);
 
 export const huddles = pgTable(

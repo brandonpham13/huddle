@@ -523,3 +523,37 @@ export async function forceRemoveClaim(opts: {
   if (!rows[0]) fail(404, "Claim not found");
   await db.delete(teamClaims).where(eq(teamClaims.id, opts.claimId));
 }
+
+// Revoke: marks approved claim as revoked, preserves history, allows re-claim
+export async function revokeClaim(opts: {
+  huddleId: string;
+  claimId: string;
+  actingUserId: string;
+}): Promise<TeamClaim> {
+  if (!(await isCommissioner(opts.huddleId, opts.actingUserId)))
+    fail(403, "Only a commissioner can revoke team ownership");
+  const rows = await db
+    .select()
+    .from(teamClaims)
+    .where(
+      and(
+        eq(teamClaims.id, opts.claimId),
+        eq(teamClaims.huddleId, opts.huddleId),
+      ),
+    )
+    .limit(1);
+  const claim = rows[0];
+  if (!claim) fail(404, "Claim not found");
+  if (claim.status !== "approved") fail(409, "Can only revoke approved claims");
+  const [updated] = await db
+    .update(teamClaims)
+    .set({
+      status: "revoked",
+      decidedAt: new Date(),
+      decidedBy: opts.actingUserId,
+    })
+    .where(eq(teamClaims.id, opts.claimId))
+    .returning();
+  if (!updated) fail(500, "Failed to revoke claim");
+  return updated!;
+}

@@ -8,6 +8,7 @@ import {
   decideClaim,
   deleteHuddle,
   forceRemoveClaim,
+  revokeClaim,
   getHuddle,
   getHuddleByInviteCode,
   isCommissioner,
@@ -218,7 +219,14 @@ export function initHuddleRoutes(app: Express) {
           ...claims.map((c) => c.userId),
         ];
         const userMap = await fetchUserSummaries(allUserIds);
-        const myClaim = claims.find((c) => c.userId === userId) ?? null;
+        // Prefer active claims (approved/pending) over historical ones (rejected/revoked)
+        const myClaims = claims.filter((c) => c.userId === userId);
+        const myClaim =
+          myClaims.find((c) => c.status === "approved") ??
+          myClaims.find((c) => c.status === "pending") ??
+          myClaims.find((c) => c.status === "revoked") ??
+          myClaims[0] ??
+          null;
 
         res.json({
           huddle: {
@@ -381,6 +389,25 @@ export function initHuddleRoutes(app: Express) {
           actingUserId: userId!,
         });
         res.status(204).end();
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // POST /api/huddles/:id/claims/:claimId/revoke — commissioner revokes approved claim (preserves history)
+  app.post(
+    "/api/huddles/:id/claims/:claimId/revoke",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        const claim = await revokeClaim({
+          huddleId: req.params.id!,
+          claimId: req.params.claimId!,
+          actingUserId: userId!,
+        });
+        res.json({ claim: serializeClaim(claim) });
       } catch (err) {
         handleError(err, res);
       }

@@ -349,3 +349,28 @@ export function useRemoveClaim() {
     },
   });
 }
+
+export function useRevokeClaim() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { huddleId: string; claimId: string }) => {
+      const token = await getToken();
+      try {
+        const res = await axios.post<{ claim: HuddleClaim }>(
+          `/api/huddles/${input.huddleId}/claims/${input.claimId}/revoke`,
+          {},
+          { headers: authHeader(token) },
+        );
+        return res.data.claim;
+      } catch (err) {
+        throw new Error(errorMessage(err, "Failed to revoke claim"));
+      }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["huddle", variables.huddleId],
+      });
+    },
+  });
+}

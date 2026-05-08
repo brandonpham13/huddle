@@ -17,6 +17,7 @@ import {
   useAddCommissioner,
   useRemoveCommissioner,
   useRemoveClaim,
+  useRevokeClaim,
   useRotateInviteCode,
   useSubmitClaim,
   useUpdateHuddle,
@@ -171,9 +172,13 @@ function RosterTable({
 }) {
   const submit = useSubmitClaim();
   const removeClaim = useRemoveClaim();
+  const revokeClaim = useRevokeClaim();
   const [claimingRosterId, setClaimingRosterId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [confirmRemoveClaimId, setConfirmRemoveClaimId] = useState<
+    string | null
+  >(null);
+  const [confirmRevokeClaimId, setConfirmRevokeClaimId] = useState<
     string | null
   >(null);
 
@@ -194,7 +199,8 @@ function RosterTable({
   const hasApprovedClaim = myClaim?.status === "approved";
   const canClaimNew = !hasPendingClaim && !hasApprovedClaim;
 
-  const mutationError = submit.error ?? removeClaim.error ?? null;
+  const mutationError =
+    submit.error ?? removeClaim.error ?? revokeClaim.error ?? null;
 
   return (
     <Card>
@@ -268,6 +274,46 @@ function RosterTable({
                                   {
                                     onSuccess: () =>
                                       setConfirmRemoveClaimId(null),
+                                  },
+                                );
+                              }}
+                            >
+                              Confirm
+                            </Button>
+                          </div>
+                        ) : null}
+                        {/* Revoke: commissioner soft-removes, preserves history, allows re-claim */}
+                        {isCommissioner && confirmRevokeClaimId !== claim.id ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-amber-600 border-amber-300 hover:bg-amber-50 h-6 px-2 text-xs"
+                            onClick={() => setConfirmRevokeClaimId(claim.id)}
+                          >
+                            Revoke
+                          </Button>
+                        ) : isCommissioner &&
+                          confirmRevokeClaimId === claim.id ? (
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => setConfirmRevokeClaimId(null)}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-amber-600 border-amber-300 hover:bg-amber-50 h-6 px-2 text-xs"
+                              disabled={revokeClaim.isPending}
+                              onClick={() => {
+                                revokeClaim.mutate(
+                                  { huddleId, claimId: claim.id },
+                                  {
+                                    onSuccess: () =>
+                                      setConfirmRevokeClaimId(null),
                                   },
                                 );
                               }}
@@ -353,6 +399,12 @@ function RosterTable({
         {myClaim?.status === "pending" && (
           <p className="text-xs text-amber-600 mt-3">
             Your claim for roster #{myClaim.rosterId} is pending approval.
+          </p>
+        )}
+        {myClaim?.status === "revoked" && (
+          <p className="text-xs text-gray-500 mt-3">
+            Your previous claim was revoked by a commissioner. You can claim a
+            team again.
           </p>
         )}
         {mutationError && (

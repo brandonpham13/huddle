@@ -1,4 +1,4 @@
-export type ClaimStatus = "pending" | "approved" | "rejected";
+export type ClaimStatus = "pending" | "approved" | "rejected" | "revoked";
 
 export interface Huddle {
   id: string;
