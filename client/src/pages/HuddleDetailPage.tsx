@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "@clerk/clerk-react";
 import {
   Card,
   CardContent,
@@ -13,6 +14,9 @@ import {
   useDeleteHuddle,
   useHuddleDetail,
   useHuddlePendingClaims,
+  useAddCommissioner,
+  useRemoveCommissioner,
+  useRemoveClaim,
   useRotateInviteCode,
   useSubmitClaim,
   useUpdateHuddle,
@@ -23,7 +27,11 @@ import {
   useLeagueUsers,
 } from "../hooks/useSleeper";
 import type { Roster, TeamUser } from "../types/fantasy";
-import type { HuddleClaimSummary, UserSummary } from "../types/huddle";
+import type {
+  CommissionerSummary,
+  HuddleClaimSummary,
+  UserSummary,
+} from "../types/huddle";
 
 function describeUser(u: UserSummary | null | undefined): string {
   if (!u) return "Unknown user";
@@ -31,6 +39,7 @@ function describeUser(u: UserSummary | null | undefined): string {
 }
 
 export function HuddleDetailPage() {
+  const { userId } = useAuth();
   const { id: huddleId } = useParams<{ id: string }>();
   const huddleQuery = useHuddleDetail(huddleId ?? null);
   const detail = huddleQuery.data;
@@ -78,26 +87,23 @@ export function HuddleDetailPage() {
                 <CardDescription>
                   League: {league?.name ?? detail.huddle.leagueId}
                   {" · "}
-                  Commissioner: {describeUser(detail.huddle.commissioner)}
+                  Commissioners:{" "}
+                  {detail.huddle.commissioners
+                    .map((c) => describeUser(c.user))
+                    .join(", ")}
                 </CardDescription>
               </CardHeader>
             </Card>
 
             <RosterTable
+              huddleId={huddleId}
               rosters={rosters ?? []}
               leagueUsers={leagueUsers ?? []}
               claims={detail.claims}
+              myClaim={detail.myClaim}
+              currentUserId={userId ?? null}
+              isCommissioner={isCommissioner}
             />
-
-            {!isCommissioner && (
-              <ClaimTeamCard
-                huddleId={huddleId}
-                rosters={rosters ?? []}
-                leagueUsers={leagueUsers ?? []}
-                claims={detail.claims}
-                myClaim={detail.myClaim}
-              />
-            )}
 
             {isCommissioner && (
               <CommissionerPendingPanel
@@ -111,6 +117,14 @@ export function HuddleDetailPage() {
               <CommissionerSettings
                 huddleId={huddleId}
                 inviteCode={detail.huddle.inviteCode}
+              />
+            )}
+
+            {isCommissioner && (
+              <ManageCommissioners
+                huddleId={huddleId}
+                commissioners={detail.huddle.commissioners}
+                claims={detail.claims}
               />
             )}
 
@@ -139,14 +153,30 @@ function rosterTeamName(roster: Roster, leagueUsers: TeamUser[]): string {
 }
 
 function RosterTable({
+  huddleId,
   rosters,
   leagueUsers,
   claims,
+  myClaim,
+  currentUserId,
+  isCommissioner,
 }: {
+  huddleId: string;
   rosters: Roster[];
   leagueUsers: TeamUser[];
   claims: HuddleClaimSummary[];
+  myClaim: { id: string; rosterId: number; status: string } | null;
+  currentUserId: string | null;
+  isCommissioner: boolean;
 }) {
+  const submit = useSubmitClaim();
+  const removeClaim = useRemoveClaim();
+  const [claimingRosterId, setClaimingRosterId] = useState<number | null>(null);
+  const [message, setMessage] = useState("");
+  const [confirmRemoveClaimId, setConfirmRemoveClaimId] = useState<
+    string | null
+  >(null);
+
   const approvedByRoster = useMemo(() => {
     const map = new Map<number, HuddleClaimSummary>();
     for (const c of claims) {
@@ -159,6 +189,12 @@ function RosterTable({
     () => [...rosters].sort((a, b) => a.rosterId - b.rosterId),
     [rosters],
   );
+
+  const hasPendingClaim = myClaim?.status === "pending";
+  const hasApprovedClaim = myClaim?.status === "approved";
+  const canClaimNew = !hasPendingClaim && !hasApprovedClaim;
+
+  const mutationError = submit.error ?? removeClaim.error ?? null;
 
   return (
     <Card>
@@ -173,31 +209,140 @@ function RosterTable({
           {sorted.map((roster) => {
             const claim = approvedByRoster.get(roster.rosterId);
             const teamName = rosterTeamName(roster, leagueUsers);
+            const isMyTeam = claim && claim.user?.id === currentUserId;
+            const isExpanding = claimingRosterId === roster.rosterId;
+
             return (
-              <div
-                key={roster.rosterId}
-                className="flex items-center justify-between py-2 border-b last:border-b-0"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-xs text-gray-400 w-5">
-                    {roster.rosterId}
-                  </span>
-                  <span className="text-sm font-medium truncate">
-                    {teamName}
-                  </span>
+              <div key={roster.rosterId} className="border-b last:border-b-0">
+                <div className="flex items-center justify-between py-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-xs text-gray-400 w-5">
+                      {roster.rosterId}
+                    </span>
+                    <span className="text-sm font-medium truncate">
+                      {teamName}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {claim ? (
+                      <>
+                        <span className="text-xs text-gray-500">
+                          <span className="font-medium text-gray-900">
+                            {describeUser(claim.user)}
+                          </span>
+                        </span>
+                        {/* Unlink: own team or commissioner on any team */}
+                        {(isMyTeam || isCommissioner) &&
+                        confirmRemoveClaimId !== claim.id ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
+                            onClick={() => setConfirmRemoveClaimId(claim.id)}
+                          >
+                            Unlink
+                          </Button>
+                        ) : (isMyTeam || isCommissioner) &&
+                          confirmRemoveClaimId === claim.id ? (
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => setConfirmRemoveClaimId(null)}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
+                              disabled={removeClaim.isPending}
+                              onClick={() => {
+                                removeClaim.mutate(
+                                  {
+                                    huddleId,
+                                    claimId: claim.id,
+                                    isCommissioner,
+                                  },
+                                  {
+                                    onSuccess: () =>
+                                      setConfirmRemoveClaimId(null),
+                                  },
+                                );
+                              }}
+                            >
+                              Confirm
+                            </Button>
+                          </div>
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-xs text-gray-400">Unclaimed</span>
+                        {canClaimNew && !isExpanding && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => {
+                              setClaimingRosterId(roster.rosterId);
+                              setMessage("");
+                            }}
+                          >
+                            Claim
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div className="text-xs text-gray-500">
-                  {claim ? (
-                    <>
-                      Claimed by{" "}
-                      <span className="font-medium text-gray-900">
-                        {describeUser(claim.user)}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-gray-400">Unclaimed</span>
-                  )}
-                </div>
+
+                {/* Inline claim form */}
+                {isExpanding && (
+                  <div className="pb-3 pl-8 space-y-2">
+                    <textarea
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      rows={2}
+                      maxLength={500}
+                      className="w-full text-sm border rounded-md px-2 py-1"
+                      placeholder="Message for the commissioner (optional)"
+                      autoFocus
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setClaimingRosterId(null)}
+                        disabled={submit.isPending}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={submit.isPending}
+                        onClick={() => {
+                          submit.mutate(
+                            {
+                              huddleId,
+                              rosterId: roster.rosterId,
+                              message: message.trim() || undefined,
+                            },
+                            {
+                              onSuccess: () => {
+                                setClaimingRosterId(null);
+                                setMessage("");
+                              },
+                            },
+                          );
+                        }}
+                      >
+                        {submit.isPending ? "Submitting…" : "Submit claim"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -205,154 +350,16 @@ function RosterTable({
             <p className="text-sm text-gray-500">No rosters loaded yet.</p>
           )}
         </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ---- Claim form ----
-
-function ClaimTeamCard({
-  huddleId,
-  rosters,
-  leagueUsers,
-  claims,
-  myClaim,
-}: {
-  huddleId: string;
-  rosters: Roster[];
-  leagueUsers: TeamUser[];
-  claims: HuddleClaimSummary[];
-  myClaim: {
-    id: string;
-    rosterId: number;
-    status: "pending" | "approved" | "rejected";
-  } | null;
-}) {
-  const submit = useSubmitClaim();
-  const [rosterId, setRosterId] = useState<number | null>(null);
-  const [inviteCode, setInviteCode] = useState("");
-  const [message, setMessage] = useState("");
-
-  const approvedRosterIds = useMemo(
-    () =>
-      new Set(
-        claims.filter((c) => c.status === "approved").map((c) => c.rosterId),
-      ),
-    [claims],
-  );
-  const availableRosters = useMemo(
-    () =>
-      rosters
-        .filter((r) => !approvedRosterIds.has(r.rosterId))
-        .sort((a, b) => a.rosterId - b.rosterId),
-    [rosters, approvedRosterIds],
-  );
-
-  if (myClaim?.status === "approved") {
-    return (
-      <Card>
-        <CardContent className="py-4 text-sm text-green-700">
-          You're approved as roster #{myClaim.rosterId}.
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (myClaim?.status === "pending") {
-    return (
-      <Card>
-        <CardContent className="py-4 text-sm text-amber-700">
-          Your claim for roster #{myClaim.rosterId} is pending commissioner
-          approval.
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const canSubmit =
-    rosterId !== null && inviteCode.length === 6 && !submit.isPending;
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Claim a team</CardTitle>
-        <CardDescription>
-          Enter the huddle invite code to request your team.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">Team</label>
-            <select
-              value={rosterId ?? ""}
-              onChange={(e) =>
-                setRosterId(e.target.value ? Number(e.target.value) : null)
-              }
-              className="w-full text-sm border rounded-md px-2 py-1.5 bg-white"
-            >
-              <option value="">Select a team…</option>
-              {availableRosters.map((r) => (
-                <option key={r.rosterId} value={r.rosterId}>
-                  {rosterTeamName(r, leagueUsers)}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">
-              Invite code
-            </label>
-            <input
-              value={inviteCode}
-              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-              maxLength={6}
-              className="w-full text-sm font-mono tracking-widest text-center border rounded-md px-2 py-1.5 uppercase"
-              placeholder="ABC123"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">
-              Message (optional)
-            </label>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              rows={2}
-              maxLength={500}
-              className="w-full text-sm border rounded-md px-2 py-1.5"
-              placeholder="A note for the commissioner…"
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-red-500">
-              {submit.isError ? (submit.error as Error).message : ""}
-            </span>
-            <Button
-              disabled={!canSubmit}
-              onClick={() => {
-                if (rosterId == null) return;
-                submit.mutate(
-                  {
-                    huddleId,
-                    rosterId,
-                    inviteCode,
-                    message: message.trim() || undefined,
-                  },
-                  {
-                    onSuccess: () => {
-                      setInviteCode("");
-                      setMessage("");
-                    },
-                  },
-                );
-              }}
-            >
-              {submit.isPending ? "Submitting…" : "Submit claim"}
-            </Button>
-          </div>
-        </div>
+        {myClaim?.status === "pending" && (
+          <p className="text-xs text-amber-600 mt-3">
+            Your claim for roster #{myClaim.rosterId} is pending approval.
+          </p>
+        )}
+        {mutationError && (
+          <p className="text-xs text-red-500 mt-3">
+            {(mutationError as Error).message}
+          </p>
+        )}
       </CardContent>
     </Card>
   );
@@ -543,6 +550,132 @@ function CommissionerSettings({
           {rotate.isError && (
             <p className="text-xs text-red-500">
               {(rotate.error as Error).message}
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---- Manage commissioners ----
+
+function ManageCommissioners({
+  huddleId,
+  commissioners,
+  claims,
+}: {
+  huddleId: string;
+  commissioners: CommissionerSummary[];
+  claims: HuddleClaimSummary[];
+}) {
+  const add = useAddCommissioner();
+  const remove = useRemoveCommissioner();
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+
+  // Approved members who aren't already commissioners
+  const commissionerIds = new Set(commissioners.map((c) => c.userId));
+  const eligible = claims.filter(
+    (c) => c.status === "approved" && !commissionerIds.has(c.user?.id ?? ""),
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Commissioners</CardTitle>
+        <CardDescription>
+          Co-commissioners can approve claims, rotate the invite code, and
+          manage the huddle. There must always be at least one.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {/* Current commissioners */}
+          <div className="space-y-1">
+            {commissioners.map((c) => (
+              <div
+                key={c.userId}
+                className="flex items-center justify-between text-sm py-1"
+              >
+                <span>{describeUser(c.user)}</span>
+                {commissioners.length > 1 && confirmRemoveId !== c.userId ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
+                    onClick={() => setConfirmRemoveId(c.userId)}
+                  >
+                    Remove
+                  </Button>
+                ) : confirmRemoveId === c.userId ? (
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 px-2 text-xs"
+                      onClick={() => setConfirmRemoveId(null)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
+                      disabled={remove.isPending}
+                      onClick={() => {
+                        remove.mutate(
+                          { huddleId, targetUserId: c.userId },
+                          { onSuccess: () => setConfirmRemoveId(null) },
+                        );
+                      }}
+                    >
+                      Confirm
+                    </Button>
+                  </div>
+                ) : (
+                  <span className="text-xs text-gray-400">last commish</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Add co-commissioner */}
+          {eligible.length > 0 && (
+            <div className="pt-2 border-t">
+              <p className="text-xs text-gray-500 mb-2">Add co-commissioner</p>
+              <div className="flex gap-2">
+                <select
+                  value={selectedUserId}
+                  onChange={(e) => setSelectedUserId(e.target.value)}
+                  className="flex-1 text-sm border rounded-md px-2 py-1.5 bg-white"
+                >
+                  <option value="">Select a member…</option>
+                  {eligible.map((c) => (
+                    <option key={c.id} value={c.user?.id ?? ""}>
+                      {describeUser(c.user)}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  size="sm"
+                  disabled={!selectedUserId || add.isPending}
+                  onClick={() => {
+                    add.mutate(
+                      { huddleId, newUserId: selectedUserId },
+                      { onSuccess: () => setSelectedUserId("") },
+                    );
+                  }}
+                >
+                  {add.isPending ? "Adding…" : "Add"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {(add.isError || remove.isError) && (
+            <p className="text-xs text-red-500">
+              {((add.error ?? remove.error) as Error).message}
             </p>
           )}
         </div>

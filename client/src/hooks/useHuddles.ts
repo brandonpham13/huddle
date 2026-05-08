@@ -117,7 +117,6 @@ export function useSubmitClaim() {
   return useMutation({
     mutationFn: async (input: {
       huddleId: string;
-      inviteCode: string;
       rosterId: number;
       message?: string;
     }) => {
@@ -126,7 +125,6 @@ export function useSubmitClaim() {
         const res = await axios.post<{ claim: HuddleClaim }>(
           `/api/huddles/${input.huddleId}/claims`,
           {
-            inviteCode: input.inviteCode,
             rosterId: input.rosterId,
             message: input.message,
           },
@@ -271,6 +269,82 @@ export function useDeleteHuddle() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: ["huddles", variables.leagueProvider, variables.leagueId],
+      });
+    },
+  });
+}
+
+export function useAddCommissioner() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { huddleId: string; newUserId: string }) => {
+      const token = await getToken();
+      try {
+        const res = await axios.post(
+          `/api/huddles/${input.huddleId}/commissioners`,
+          { newUserId: input.newUserId },
+          { headers: authHeader(token) },
+        );
+        return res.data;
+      } catch (err) {
+        throw new Error(errorMessage(err, "Failed to add commissioner"));
+      }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["huddle", variables.huddleId],
+      });
+    },
+  });
+}
+
+export function useRemoveCommissioner() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { huddleId: string; targetUserId: string }) => {
+      const token = await getToken();
+      try {
+        await axios.delete(
+          `/api/huddles/${input.huddleId}/commissioners/${input.targetUserId}`,
+          { headers: authHeader(token) },
+        );
+      } catch (err) {
+        throw new Error(errorMessage(err, "Failed to remove commissioner"));
+      }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["huddle", variables.huddleId],
+      });
+    },
+  });
+}
+
+// Single hook for removing any claim — commissioner uses /force, members use base endpoint
+export function useRemoveClaim() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      huddleId: string;
+      claimId: string;
+      isCommissioner: boolean;
+    }) => {
+      const token = await getToken();
+      const url = input.isCommissioner
+        ? `/api/huddles/${input.huddleId}/claims/${input.claimId}/force`
+        : `/api/huddles/${input.huddleId}/claims/${input.claimId}`;
+      try {
+        await axios.delete(url, { headers: authHeader(token) });
+      } catch (err) {
+        throw new Error(errorMessage(err, "Failed to unclaim team"));
+      }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["huddle", variables.huddleId],
       });
     },
   });
