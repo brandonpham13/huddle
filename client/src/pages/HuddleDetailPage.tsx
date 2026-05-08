@@ -2,6 +2,11 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "../components/ui/tooltip";
+import {
   Card,
   CardContent,
   CardHeader,
@@ -240,24 +245,29 @@ function RosterTable({
                         {/* Unlink: own team or commissioner on any team */}
                         {(isMyTeam || isCommissioner) &&
                         confirmRemoveClaimId !== claim.id ? (
-                          <span
-                            title={
-                              selfUnlinkBlocked
-                                ? "Assign another commissioner before unlinking yourself"
-                                : undefined
-                            }
-                            className="inline-flex"
-                          >
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                              disabled={selfUnlinkBlocked}
-                              onClick={() => setConfirmRemoveClaimId(claim.id)}
-                            >
-                              Unlink
-                            </Button>
-                          </span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                                  disabled={selfUnlinkBlocked}
+                                  onClick={() =>
+                                    setConfirmRemoveClaimId(claim.id)
+                                  }
+                                >
+                                  Unlink
+                                </Button>
+                              </span>
+                            </TooltipTrigger>
+                            {selfUnlinkBlocked && (
+                              <TooltipContent>
+                                Assign another commissioner before unlinking
+                                yourself
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
                         ) : (isMyTeam || isCommissioner) &&
                           confirmRemoveClaimId === claim.id ? (
                           <div className="flex gap-1">
