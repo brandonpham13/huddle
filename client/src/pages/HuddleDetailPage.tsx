@@ -240,20 +240,24 @@ function RosterTable({
                         {/* Unlink: own team or commissioner on any team */}
                         {(isMyTeam || isCommissioner) &&
                         confirmRemoveClaimId !== claim.id ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                            disabled={selfUnlinkBlocked}
+                          <span
                             title={
                               selfUnlinkBlocked
                                 ? "Assign another commissioner before unlinking yourself"
                                 : undefined
                             }
-                            onClick={() => setConfirmRemoveClaimId(claim.id)}
+                            className="inline-flex"
                           >
-                            Unlink
-                          </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                              disabled={selfUnlinkBlocked}
+                              onClick={() => setConfirmRemoveClaimId(claim.id)}
+                            >
+                              Unlink
+                            </Button>
+                          </span>
                         ) : (isMyTeam || isCommissioner) &&
                           confirmRemoveClaimId === claim.id ? (
                           <div className="flex gap-1">
