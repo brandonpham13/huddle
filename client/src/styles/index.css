@@ -1,1 +1,74 @@
 @import "tailwindcss";
+
+/* ---- Newspaper design tokens ---- */
+:root {
+  --color-paper: #f5efe2;
+  --color-chrome: #ede5d3;
+  --color-ticker-bg: #f0e9d8;
+  --color-ink: #1a1814;
+  --color-body: #3d3830;
+  --color-muted: #7a7263;
+  --color-line: rgba(26, 24, 20, 0.18);
+  --color-accent: #2d6a4f;
+  --color-highlight: rgba(45, 106, 79, 0.08);
+  --color-loss: #a14535;
+}
+
+.dark {
+  --color-paper: #22201a;
+  --color-chrome: #2a2820;
+  --color-ticker-bg: #26241d;
+  --color-ink: #f4ecd8;
+  --color-body: #d2c9b3;
+  --color-muted: #8c8472;
+  --color-line: rgba(244, 236, 216, 0.16);
+  --color-accent: #7fb685;
+  --color-highlight: rgba(127, 182, 133, 0.1);
+  --color-loss: #d68a7d;
+}
+
+/* ---- Tailwind v4 custom utilities ---- */
+@utility bg-paper {
+  background-color: var(--color-paper);
+}
+@utility bg-chrome {
+  background-color: var(--color-chrome);
+}
+@utility bg-highlight {
+  background-color: var(--color-highlight);
+}
+@utility text-ink {
+  color: var(--color-ink);
+}
+@utility text-body {
+  color: var(--color-body);
+}
+@utility text-muted {
+  color: var(--color-muted);
+}
+@utility text-accent {
+  color: var(--color-accent);
+}
+@utility text-loss {
+  color: var(--color-loss);
+}
+@utility border-ink {
+  border-color: var(--color-ink);
+}
+@utility border-line {
+  border-color: var(--color-line);
+}
+@utility divide-line > * + * {
+  border-color: var(--color-line);
+}
+
+/* ---- Google Fonts ---- */
+@import url("https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,500;1,6..72,600;1,6..72,700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap");
+
+/* ---- Font utilities ---- */
+@utility font-serif {
+  font-family: "Newsreader", Georgia, serif;
+}
+@utility font-mono {
+  font-family: "IBM Plex Mono", "JetBrains Mono", monospace;
+}

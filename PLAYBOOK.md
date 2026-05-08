@@ -114,27 +114,63 @@ interface PowerRankingInput {
 
 ---
 
-## Adding a new widget to the dashboard
+## Adding a new section to the Dashboard
 
-1. Create `client/src/widgets/MyWidget/MyWidget.tsx` — default export a React component
-2. Create `client/src/widgets/MyWidget/index.tsx`:
-```ts
-import { lazy } from 'react'
-import { registerWidget } from '../registry'
+The dashboard (`client/src/pages/DashboardPage.tsx`) is a **newspaper-style layout** — not a widget grid. Each section is a self-contained component in the same file.
 
-registerWidget({
-  id: 'my-widget',
-  name: 'My Widget',
-  description: 'What it shows',
-  component: lazy(() => import('./MyWidget')),
-  defaultSize: { w: 6, h: 1 },  // w: cols on 12-col grid, h: row-span
-  tags: ['sleeper'],
-})
+To add a new section:
+
+1. Write a new component in `DashboardPage.tsx` (co-locate it with the others):
+```tsx
+function MyStat({ rosters, users }: { rosters: Roster[]; users: TeamUser[] }) {
+  return (
+    <section>
+      <SectionHead kicker="My Kicker" title="My Section" rule="subtitle" />
+      {/* your content */}
+    </section>
+  )
+}
 ```
-3. Import it in `client/src/pages/DashboardPage.tsx`:
-```ts
-import '../widgets/MyWidget'
+
+2. Drop it into the page body inside `DashboardPage`:
+```tsx
+<div className="h-4" />
+<MyStat rosters={rosters ?? []} users={users ?? []} />
 ```
+
+3. Use the shared atoms for consistency:
+ - `<SectionHead kicker="…" title="…" rule="…" />` — section header with rule line
+ - `<Avatar avatar={...} name={...} size={20} />` — team/player avatar
+ - `<Stat label="…" value="…" accent />` — single stat block
+ - `<MatchupResult name={...} pts={...} won={...} />` — matchup row
+ - `<Eyebrow>…</Eyebrow>` — uppercase label
+
+### Design tokens
+All colours come from CSS variables defined in `client/src/styles/index.css`. Use the Tailwind utilities:
+- `bg-paper`, `bg-chrome`, `bg-highlight`
+- `text-ink`, `text-body`, `text-muted`, `text-accent`
+- `border-ink`, `border-line`, `divide-line`
+- `font-serif` (Newsreader), `font-mono` (IBM Plex Mono)
+
+Dark mode is automatic — variables swap when the `.dark` class is on the root `div`.
+
+### Data available in DashboardPage
+| Hook | Data |
+|---|---|
+| `useLeagueRosters(leagueId)` | All rosters (record, pointsFor, pointsAgainst, players[]) |
+| `useLeagueUsers(leagueId)` | Team names, avatars, Sleeper user info |
+| `useLeagueMatchups(leagueId, week)` | Matchup pairs + scores for a given week |
+| `usePlayerStats(season, week)` | Per-player pts_ppr, rush_yd, rec_yd, etc. |
+| `useNFLPlayers()` | Full player dictionary (name, position, team) |
+| `useNFLState()` | Current week, season, season type |
+| `usePowerRankings(leagueId)` | Algorithm-based power ranking rows + columns |
+| `useMyClaimedTeam(leagueId)` | Current user's claimed team (teamName, avatar, rosterId) |
+
+---
+
+## The widget registry (standalone widgets)
+
+The registry (`client/src/widgets/registry.ts`) still exists for standalone widgets used outside the main dashboard (e.g. embedded in team pages or future sidebar panels). The dashboard itself no longer uses it.
 
 ---
 
