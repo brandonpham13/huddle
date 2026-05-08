@@ -32,15 +32,21 @@ export function DashboardPage() {
   const syncedLeagues =
     allLeagues?.filter((l) => syncedLeagueIds.includes(l.ref.leagueId)) ?? [];
   const { data: selectedLeague } = useLeague(selectedLeagueId);
-  const { teamName: claimedTeamName, avatar: claimedAvatar } =
-    useMyClaimedTeam(selectedLeagueId);
-
   const familySeasons = useMemo(
     () =>
       selectedLeagueId && allLeagues
         ? getFamilySeasons(selectedLeagueId, allLeagues)
         : [],
     [selectedLeagueId, allLeagues],
+  );
+
+  // Always use the most recent season in the family for huddle/claim lookup —
+  // huddles are created against the current season's league ID, so switching to
+  // a past season shouldn't hide the badge.
+  const currentFamilyLeagueId =
+    familySeasons[0]?.ref.leagueId ?? selectedLeagueId;
+  const { teamName: claimedTeamName, avatar: claimedAvatar } = useMyClaimedTeam(
+    currentFamilyLeagueId,
   );
 
   return (
