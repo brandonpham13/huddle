@@ -63,8 +63,20 @@ export default function PowerRankingsWidget() {
         label: col.label,
         title: col.description,
         align: "right" as const,
-        sortValue: (row: PowerRankingRow) => row.scores[col.id] ?? null,
+        // Rank-mode columns: negate rank so higher (better) rank sorts first
+        sortValue: (row: PowerRankingRow) =>
+          col.displayMode === "rank"
+            ? -(row.ranks[col.id] ?? Infinity)
+            : (row.scores[col.id] ?? null),
         render: (row: PowerRankingRow) => {
+          if (col.displayMode === "rank") {
+            const rank = row.ranks[col.id];
+            return rank !== null && rank !== undefined ? (
+              <span className="text-xs text-gray-600">#{rank}</span>
+            ) : (
+              <span className="text-gray-300 text-xs">—</span>
+            );
+          }
           const score = row.scores[col.id];
           return score !== null && score !== undefined ? (
             <span className="text-xs text-gray-600">{score.toFixed(3)}</span>

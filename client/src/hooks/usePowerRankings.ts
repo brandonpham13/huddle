@@ -8,6 +8,7 @@ export interface PowerRankingColumn {
   id: string;
   label: string;
   description: string;
+  displayMode: "score" | "rank";
 }
 
 export interface PowerRankingRow {
@@ -15,6 +16,7 @@ export interface PowerRankingRow {
   teamName: string;
   avatar: string | null;
   scores: Record<string, number | null>;
+  ranks: Record<string, number | null>;
   overallRank: number;
 }
 
