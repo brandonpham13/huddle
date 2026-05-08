@@ -103,6 +103,7 @@ export function HuddleDetailPage() {
               myClaim={detail.myClaim}
               currentUserId={userId ?? null}
               isCommissioner={isCommissioner}
+              commissionerCount={detail.huddle.commissioners.length}
             />
 
             {isCommissioner && (
@@ -160,6 +161,7 @@ function RosterTable({
   myClaim,
   currentUserId,
   isCommissioner,
+  commissionerCount,
 }: {
   huddleId: string;
   rosters: Roster[];
@@ -168,6 +170,7 @@ function RosterTable({
   myClaim: { id: string; rosterId: number; status: string } | null;
   currentUserId: string | null;
   isCommissioner: boolean;
+  commissionerCount: number;
 }) {
   const submit = useSubmitClaim();
   const removeClaim = useRemoveClaim();
@@ -211,6 +214,9 @@ function RosterTable({
             const teamName = rosterTeamName(roster, leagueUsers);
             const isMyTeam = claim && claim.user?.id === currentUserId;
             const isExpanding = claimingRosterId === roster.rosterId;
+            // Last-commish self-unlink guard
+            const selfUnlinkBlocked =
+              isMyTeam && isCommissioner && commissionerCount <= 1;
 
             return (
               <div key={roster.rosterId} className="border-b last:border-b-0">
@@ -237,7 +243,13 @@ function RosterTable({
                           <Button
                             size="sm"
                             variant="outline"
-                            className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
+                            className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs disabled:opacity-40"
+                            disabled={selfUnlinkBlocked}
+                            title={
+                              selfUnlinkBlocked
+                                ? "Assign another commissioner before unlinking yourself"
+                                : undefined
+                            }
                             onClick={() => setConfirmRemoveClaimId(claim.id)}
                           >
                             Unlink

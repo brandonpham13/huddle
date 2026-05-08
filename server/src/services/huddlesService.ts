@@ -159,12 +159,14 @@ export async function listHuddlesForLeague(
   leagueId: string,
   userId: string,
 ): Promise<Huddle[]> {
-  // Only return huddles the user is a member of (has a claim or is a commissioner)
+  // Only show huddles where the user has an approved claim or is a commissioner
   const [claimRows, commishRows] = await Promise.all([
     db
       .select({ huddleId: teamClaims.huddleId })
       .from(teamClaims)
-      .where(eq(teamClaims.userId, userId)),
+      .where(
+        and(eq(teamClaims.userId, userId), eq(teamClaims.status, "approved")),
+      ),
     db
       .select({ huddleId: huddleCommissioners.huddleId })
       .from(huddleCommissioners)
@@ -529,5 +531,14 @@ export async function forceRemoveClaim(opts: {
     )
     .limit(1);
   if (!rows[0]) fail(404, "Claim not found");
+  // Guard: commissioner cannot unlink themselves if they're the last commissioner
+  if (rows[0].userId === opts.actingUserId) {
+    const n = await commissionerCount(opts.huddleId);
+    if (n <= 1)
+      fail(
+        409,
+        "You can't unlink yourself while you're the only commissioner — assign another commissioner first",
+      );
+  }
   await db.delete(teamClaims).where(eq(teamClaims.id, opts.claimId));
 }

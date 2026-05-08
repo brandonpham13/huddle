@@ -202,14 +202,15 @@ export function initHuddleRoutes(app: Express) {
             .json({ error: "No huddle found with that invite code" });
           return;
         }
-        // Check if the user is already a member (has any claim or is a commissioner)
+        // Check if the user is already a member (approved claim or commissioner)
         const [existingClaims, commishRows] = await Promise.all([
           listClaimsForHuddle(huddle.id),
           listCommissioners(huddle.id),
         ]);
         const alreadyMember =
-          existingClaims.some((c) => c.userId === userId) ||
-          commishRows.some((c) => c.userId === userId);
+          existingClaims.some(
+            (c) => c.userId === userId && c.status === "approved",
+          ) || commishRows.some((c) => c.userId === userId);
         if (alreadyMember) {
           res
             .status(409)
