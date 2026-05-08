@@ -6,7 +6,7 @@ import { AccountModalProvider } from "./components/AccountModal";
 import { SignInPage } from "./pages/SignInPage";
 import { SignUpPage } from "./pages/SignUpPage";
 import { LeaguesPage } from "./pages/LeaguesPage";
-import { GroupDetailPage } from "./pages/GroupDetailPage";
+import { HuddleDetailPage } from "./pages/HuddleDetailPage";
 import { LeaguePage } from "./pages/LeaguePage";
 import { SchedulePage } from "./pages/SchedulePage";
 import { DraftPage } from "./pages/DraftPage";
@@ -34,7 +34,7 @@ export default function App() {
             <Route path="/schedule" element={<SchedulePage />} />
             <Route path="/draft" element={<DraftPage />} />
             <Route path="/leagues" element={<LeaguesPage />} />
-            <Route path="/groups/:id" element={<GroupDetailPage />} />
+            <Route path="/huddles/:id" element={<HuddleDetailPage />} />
           </Route>
         </Routes>
       </AccountModalProvider>
