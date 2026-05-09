@@ -321,7 +321,7 @@ function MyTeamSection({
     : null;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr] gap-6 border-t-2 border-ink pt-3 pb-4">
+    <div className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr] gap-6 pt-3 pb-4">
       <article>
         <Eyebrow>★ Lead · Your Team</Eyebrow>
         <h1 className="font-serif font-bold text-3xl text-ink leading-[1.05] mt-1 mb-2 tracking-tight">
@@ -754,7 +754,7 @@ function PowerRankings({ rows }: { rows: PowerRankingRow[] }) {
 
 // ---------- Masthead ----------
 
-function Masthead({ leagueName, week }: { leagueName: string; week: number }) {
+function Masthead({ leagueName, week, oldestYear }: { leagueName: string; week: number; oldestYear: string | null }) {
   const now = new Date();
   const dateStr = now.toLocaleDateString("en-US", {
     weekday: "long",
@@ -766,10 +766,10 @@ function Masthead({ leagueName, week }: { leagueName: string; week: number }) {
     <div className="px-3 sm:px-7 py-3 border-b-2 border-ink">
       <div className="flex flex-col items-center sm:flex-row sm:items-baseline sm:justify-between gap-1 sm:gap-0">
         <div className="hidden sm:block text-[10px] text-muted tracking-wide font-sans">
-          {leagueName.toUpperCase()}
+          ESTABLISHED {oldestYear}
         </div>
         <div className="font-serif font-bold italic text-3xl sm:text-5xl leading-[0.95] tracking-tight text-ink">
-          The Huddle
+          {leagueName.toUpperCase()}
         </div>
         <div className="text-[10px] text-muted tracking-wide font-sans text-center sm:text-right">
           {dateStr.toUpperCase()} · WEEK {week}
@@ -894,6 +894,13 @@ export function DashboardPage() {
         : [],
     [selectedLeagueId, allLeagues],
   );
+
+  // Oldest season of the selected league family
+  const oldestYear = useMemo(
+    () => familySeasons.at(-1)?.season ?? selectedLeague?.season ?? null,
+    [familySeasons, selectedLeague],
+  );
+  
   const currentFamilyLeagueId =
     familySeasons[0]?.ref.leagueId ?? selectedLeagueId;
   const {
@@ -928,7 +935,7 @@ export function DashboardPage() {
             week={week}
           />
 
-          <Masthead leagueName={selectedLeague?.name ?? ""} week={week} />
+          <Masthead leagueName={selectedLeague?.name ?? ""} week={week} oldestYear={oldestYear} />
 
           <div className="px-3 sm:px-7 pt-4 pb-6 flex-1">
             <MyTeamSection
