@@ -48,9 +48,22 @@ export function DashboardPage() {
   const { data: nflState } = useNFLState();
   const { data: players } = useNFLPlayers();
 
-  const week = nflState?.display_week ?? nflState?.week ?? 1;
-  const season = nflState?.season ?? selectedLeague?.season ?? "2024";
-  const nextWeek = week < 18 ? week + 1 : week;
+  // Scope display week + season to the selected league. The live NFL state's
+  // current week is only meaningful when the selected league is for the
+  // currently-active regular season; otherwise fall back to the regular-season
+  // finale (week 17) so Ticker / Scoreboard / Top Performers show real data
+  // instead of an empty preseason or wrong-year window.
+  const isLeagueCurrent =
+    !!selectedLeague?.season &&
+    !!nflState?.season &&
+    selectedLeague.season === nflState.season &&
+    nflState.season_type === "regular";
+
+  const week = isLeagueCurrent
+    ? (nflState!.display_week ?? nflState!.week ?? 1)
+    : 17;
+  const season = selectedLeague?.season ?? nflState?.season ?? "2024";
+  const nextWeek = isLeagueCurrent && week < 18 ? week + 1 : week;
 
   const { data: rosters } = useLeagueRosters(selectedLeagueId);
   const { data: users } = useLeagueUsers(selectedLeagueId);
