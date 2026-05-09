@@ -101,12 +101,15 @@ export function LeaguesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b px-6 py-4 flex items-center gap-4">
-        <Link to="/" className="text-sm text-gray-600 hover:text-gray-900">
+    <div className="min-h-screen bg-paper text-ink">
+      <nav className="bg-chrome border-b border-line px-6 py-4 flex items-center gap-4">
+        <Link
+          to="/"
+          className="text-sm text-muted hover:text-ink transition-colors"
+        >
           ← Dashboard
         </Link>
-        <h1 className="text-xl font-bold">My Leagues</h1>
+        <h1 className="text-xl font-bold text-ink">My Leagues</h1>
       </nav>
 
       <main className="p-6 max-w-2xl mx-auto space-y-4">

@@ -73,14 +73,14 @@ export function Sidebar() {
   return (
     <aside
       className={`
-        relative flex flex-col bg-white border-r shrink-0 transition-all duration-200
+        relative flex flex-col bg-chrome border-r border-line shrink-0 transition-all duration-200
         ${collapsed ? "w-14" : "w-52"}
       `}
     >
       {/* Collapse toggle */}
       <button
         onClick={() => setCollapsed((c) => !c)}
-        className="absolute -right-3 top-6 z-10 flex items-center justify-center w-6 h-6 rounded-full bg-white border text-gray-400 hover:text-gray-700 hover:border-gray-400 transition-colors"
+        className="absolute -right-3 top-6 z-10 flex items-center justify-center w-6 h-6 rounded-full bg-chrome border border-line text-muted hover:text-ink hover:border-ink/30 transition-colors"
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
         {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
@@ -96,8 +96,8 @@ export function Sidebar() {
               `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
               ${
                 isActive
-                  ? "bg-gray-100 text-gray-900"
-                  : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                  ? "bg-highlight text-ink"
+                  : "text-muted hover:bg-highlight hover:text-ink"
               }
               ${collapsed ? "justify-center" : ""}
               `
@@ -113,7 +113,7 @@ export function Sidebar() {
           <div className="mt-1">
             <button
               onClick={() => !collapsed && setTeamsOpen((o) => !o)}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors ${collapsed ? "justify-center" : "justify-between"}`}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-muted hover:bg-highlight hover:text-ink transition-colors ${collapsed ? "justify-center" : "justify-between"}`}
             >
               <div className="flex items-center gap-3">
                 <Users size={16} className="shrink-0" />
@@ -137,10 +137,10 @@ export function Sidebar() {
                       `flex items-center gap-2 pl-5 pr-2 py-1.5 rounded-md text-xs transition-colors truncate
                       ${
                         isActive
-                          ? "bg-gray-100 text-gray-900"
-                          : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                          ? "bg-highlight text-ink"
+                          : "text-muted hover:bg-highlight hover:text-ink"
                       }
-                      ${team.isMine ? "font-semibold text-gray-900" : "font-normal"}
+                      ${team.isMine ? "font-semibold text-ink" : "font-normal"}
                       `
                     }
                   >
@@ -151,13 +151,13 @@ export function Sidebar() {
                         className="w-4 h-4 rounded-full shrink-0 object-cover"
                       />
                     ) : (
-                      <div className="w-4 h-4 rounded-full bg-gray-200 shrink-0" />
+                      <div className="w-4 h-4 rounded-full bg-line shrink-0" />
                     )}
                     <span className="truncate">{team.name}</span>
                   </NavLink>
                 ))}
                 {teams.length === 0 && (
-                  <p className="pl-5 py-1 text-xs text-gray-400">Loading…</p>
+                  <p className="pl-5 py-1 text-xs text-muted">Loading…</p>
                 )}
               </div>
             )}

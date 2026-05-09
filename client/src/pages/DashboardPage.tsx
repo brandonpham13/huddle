@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { setSelectedLeague, setSelectedYear } from "../store/slices/authSlice";
@@ -861,10 +861,6 @@ function EmptyState() {
 // ---------- Main DashboardPage ----------
 
 export function DashboardPage() {
-  const [dark, setDark] = useState(
-    () => window.matchMedia("(prefers-color-scheme: dark)").matches,
-  );
-
   const syncedLeagueIds = useAppSelector(
     (state) => state.auth.user?.syncedLeagueIds ?? [],
   );
@@ -912,84 +908,73 @@ export function DashboardPage() {
   const hasLeague = !!selectedLeagueId && syncedLeagues.length > 0;
 
   return (
-    <div className={dark ? "dark" : ""}>
-      <div className="min-h-full bg-paper text-ink font-sans flex flex-col">
-        {/* Dark mode toggle */}
-        <button
-          onClick={() => setDark((d) => !d)}
-          className="fixed bottom-4 right-4 z-50 w-9 h-9 rounded-full border border-line bg-chrome text-muted hover:text-ink transition-colors flex items-center justify-center text-sm"
-          title={dark ? "Switch to light mode" : "Switch to dark mode"}
-        >
-          {dark ? "☀" : "☽"}
-        </button>
+    <div className="min-h-full bg-paper text-ink font-sans flex flex-col">
+      {!hasLeague ? (
+        <EmptyState />
+      ) : (
+        <>
+          <SeasonBar
+            selectedLeague={selectedLeague}
+            familySeasons={familySeasons}
+            myRosterId={myRosterId}
+            claimedTeamName={claimedTeamName}
+            claimedAvatar={claimedAvatar}
+          />
 
-        {!hasLeague ? (
-          <EmptyState />
-        ) : (
-          <>
-            <SeasonBar
-              selectedLeague={selectedLeague}
-              familySeasons={familySeasons}
+          <Ticker
+            matchups={matchups}
+            rosters={rosters ?? []}
+            users={users ?? []}
+            week={week}
+          />
+
+          <Masthead leagueName={selectedLeague?.name ?? ""} week={week} />
+
+          <div className="px-7 pt-4 pb-6 flex-1">
+            <MyTeamSection
               myRosterId={myRosterId}
-              claimedTeamName={claimedTeamName}
-              claimedAvatar={claimedAvatar}
-            />
-
-            <Ticker
-              matchups={matchups}
               rosters={rosters ?? []}
               users={users ?? []}
+              matchups={matchups}
+              nextMatchups={nextMatchups}
+              week={week}
+              nextWeek={nextWeek}
+              powerRows={powerData?.rows ?? []}
+            />
+
+            <div className="h-4" />
+
+            <TopPerformers
+              rosters={rosters ?? []}
+              users={users ?? []}
+              playerStats={
+                playerStats as
+                  | Record<string, Record<string, number>>
+                  | undefined
+              }
+              players={players}
               week={week}
             />
 
-            <Masthead leagueName={selectedLeague?.name ?? ""} week={week} />
+            <div className="h-4" />
 
-            <div className="px-7 pt-4 pb-6 flex-1">
-              <MyTeamSection
+            <div className="grid grid-cols-[1.1fr_1fr_0.9fr] gap-6">
+              <LeagueTable
+                rosters={rosters ?? []}
+                users={users ?? []}
                 myRosterId={myRosterId}
+              />
+              <Scoreboard
                 rosters={rosters ?? []}
                 users={users ?? []}
                 matchups={matchups}
-                nextMatchups={nextMatchups}
-                week={week}
-                nextWeek={nextWeek}
-                powerRows={powerData?.rows ?? []}
-              />
-
-              <div className="h-4" />
-
-              <TopPerformers
-                rosters={rosters ?? []}
-                users={users ?? []}
-                playerStats={
-                  playerStats as
-                    | Record<string, Record<string, number>>
-                    | undefined
-                }
-                players={players}
                 week={week}
               />
-
-              <div className="h-4" />
-
-              <div className="grid grid-cols-[1.1fr_1fr_0.9fr] gap-6">
-                <LeagueTable
-                  rosters={rosters ?? []}
-                  users={users ?? []}
-                  myRosterId={myRosterId}
-                />
-                <Scoreboard
-                  rosters={rosters ?? []}
-                  users={users ?? []}
-                  matchups={matchups}
-                  week={week}
-                />
-                <PowerRankings rows={powerData?.rows ?? []} />
-              </div>
+              <PowerRankings rows={powerData?.rows ?? []} />
             </div>
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
