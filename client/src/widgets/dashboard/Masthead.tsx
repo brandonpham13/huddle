@@ -22,7 +22,7 @@ export function Masthead({
           {oldestYear}
         </div>
         <div className="flex flex-col items-center">
-          <div className="font-serif font-bold italic text-3xl sm:text-6xl leading-[0.95] tracking-tight text-ink">
+          <div className="font-serif font-bold italic text-3xl sm:text-6xl leading-[0.95] tracking-tight text-ink mt-4">
             {leagueName}
           </div>
           <div className="mt-1 font-serif italic text-[13px] text-muted">
