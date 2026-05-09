@@ -735,14 +735,19 @@ function Masthead({ leagueName, week, oldestYear }: { leagueName: string; week: 
   });
   return (
     <div className="px-3 sm:px-7 py-3 border-b-2 border-ink">
-      <div className="flex flex-col items-center sm:flex-row sm:items-baseline sm:justify-between gap-1 sm:gap-0">
-        <div className="hidden sm:block text-[10px] text-muted tracking-wide font-sans">
-          ESTABLISHED {oldestYear}
+      <div className="flex flex-col items-center sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-0">
+        <div className="hidden sm:block text-[11px] text-muted tracking-wide font-sans">
+          VOL. {now.getFullYear() - Number(oldestYear) + 1} · ESTABLISHED {oldestYear}
         </div>
-        <div className="font-serif font-bold italic text-3xl sm:text-5xl leading-[0.95] tracking-tight text-ink">
-          {leagueName}
+        <div className="flex flex-col items-center">
+          <div className="font-serif font-bold italic text-3xl sm:text-6xl leading-[0.95] tracking-tight text-ink">
+            {leagueName}
+          </div>
+          <div className="mt-1 font-serif italic text-[13px] text-muted">
+            [PLATFORM] [# OF TEAMS] [FORMAT]
+          </div>
         </div>
-        <div className="text-[10px] text-muted tracking-wide font-sans text-center sm:text-right">
+        <div className="text-[11px] text-muted tracking-wide font-sans text-center sm:text-right">
           {dateStr.toUpperCase()} · WEEK {week}
         </div>
       </div>
