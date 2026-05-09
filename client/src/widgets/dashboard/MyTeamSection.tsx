@@ -97,7 +97,7 @@ export function MyTeamSection({
     : null;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr] gap-6 pt-3 pb-4">
+    <div className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr] gap-6 pt-1 pb-1">
       <article>
         <Eyebrow>★ Lead · Your Team</Eyebrow>
         <h1 className="font-serif font-bold text-3xl text-ink leading-[1.05] mt-1 mb-2 tracking-tight">
@@ -116,7 +116,7 @@ export function MyTeamSection({
           {myRank && <Stat label="Power Rank" value={ordinal(myRank)} accent />}
         </div>
 
-        <p className="font-serif text-[13.5px] leading-relaxed text-body mt-3 sm:columns-2 gap-5">
+        <p className="font-serif text-[13.5px] leading-relaxed text-body mt-2 sm:columns-2 gap-5">
           With a {myRecord[0]}–{myRecord[1]} record, <strong>{myName}</strong>{" "}
           heads into week {nextWeek} ranked {myRank ? ordinal(myRank) : "—"} in
           the power standings.{" "}
