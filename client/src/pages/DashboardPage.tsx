@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { setSelectedLeague, setSelectedYear } from "../store/slices/authSlice";
+import { useAppSelector } from "../store/hooks";
 import {
   useAllSleeperLeagues,
   useLeague,
@@ -15,8 +14,17 @@ import {
 import { usePowerRankings } from "../hooks/usePowerRankings";
 import { getFamilySeasons } from "../utils/leagueFamily";
 import { useMyClaimedTeam } from "../hooks/useMyClaimedTeam";
+import { Avatar } from "../components/Avatar";
+import {
+  useSortedRows,
+  type SortDir,
+  type SortableColumn,
+} from "../components/sortable";
 import type { Roster, TeamUser } from "../types/fantasy";
-import type { PowerRankingRow } from "../hooks/usePowerRankings";
+import type {
+  PowerRankingColumn,
+  PowerRankingRow,
+} from "../hooks/usePowerRankings";
 
 // ---------- helpers ----------
 
@@ -40,32 +48,49 @@ function teamAvatar(roster: Roster, users: TeamUser[]): string | null {
   return user?.avatar ?? null;
 }
 
-function Avatar({
-  avatar,
-  name,
-  size = 20,
+function SortHeader({
+  id,
+  label,
+  currentId,
+  dir,
+  onSort,
+  align = "left",
+  sortable = true,
+  className = "",
 }: {
-  avatar: string | null;
-  name: string;
-  size?: number;
+  id: string;
+  label: string;
+  currentId: string | null;
+  dir: SortDir;
+  onSort: (id: string) => void;
+  align?: "left" | "right";
+  sortable?: boolean;
+  className?: string;
 }) {
-  if (avatar) {
+  const isSorted = currentId === id;
+  if (!sortable) {
     return (
-      <img
-        src={`https://sleepercdn.com/avatars/thumbs/${avatar}`}
-        alt={name}
-        style={{ width: size, height: size }}
-        className="rounded-full object-cover shrink-0"
-      />
+      <div className={`${align === "right" ? "text-right" : ""} ${className}`}>
+        {label}
+      </div>
     );
   }
   return (
-    <div
-      style={{ width: size, height: size, fontSize: size * 0.42 }}
-      className="rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 font-bold shrink-0 font-serif"
+    <button
+      type="button"
+      onClick={() => onSort(id)}
+      className={`w-full flex items-center gap-0.5 cursor-pointer hover:text-ink transition-colors ${
+        align === "right" ? "justify-end" : "justify-start"
+      } ${isSorted ? "text-ink" : ""} ${className}`}
     >
-      {name.slice(0, 2).toUpperCase()}
-    </div>
+      <span>{label}</span>
+      <span
+        className={`text-[8px] leading-none ${isSorted ? "" : "opacity-30"}`}
+        aria-hidden="true"
+      >
+        {isSorted ? (dir === "asc" ? "▲" : "▼") : "▼"}
+      </span>
+    </button>
   );
 }
 
@@ -253,7 +278,7 @@ function MyTeamSection({
   const myRoster = rosters.find((r) => r.rosterId === myRosterId);
   if (!myRosterId || !myRoster) {
     return (
-      <div className="border-t-2 border-ink pt-3 pb-4">
+      <div>
         <Eyebrow>Your Team</Eyebrow>
         <p className="font-serif italic text-muted text-sm mt-1">
           No claimed team in this league.{" "}
@@ -321,10 +346,10 @@ function MyTeamSection({
     : null;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr] gap-6 pt-3 pb-4">
+    <div className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr] gap-6 pt-1 pb-1">
       <article>
         <Eyebrow>★ Lead · Your Team</Eyebrow>
-        <h1 className="font-serif font-bold text-3xl text-ink leading-[1.05] mt-1 mb-2 tracking-tight">
+        <h1 className="font-serif font-bold text-3xl text-ink leading-[1.05] mt-2 mb-2 tracking-tight">
           {myName} sit {myRank ? ordinal(myRank) : "—"} in the power table
           {won ? ", keep winning." : "."}
         </h1>
@@ -558,6 +583,8 @@ function TopPerformers({
 
 // ---------- League Table ----------
 
+const LEAGUE_TABLE_GRID = "grid-cols-[18px_1fr_52px_52px_52px_44px]";
+
 function LeagueTable({
   rosters,
   users,
@@ -567,17 +594,47 @@ function LeagueTable({
   users: TeamUser[];
   myRosterId: number | null;
 }) {
-  const sorted = useMemo(
-    () =>
-      [...rosters].sort((a, b) => {
-        const aw = a.record.wins ?? 0;
-        const bw = b.record.wins ?? 0;
-        if (bw !== aw) return bw - aw;
-        const apf = a.pointsFor;
-        const bpf = b.pointsFor;
-        return bpf - apf;
-      }),
-    [rosters],
+  // Canonical W–L rank, computed once and used for the leftmost "#" column
+  // regardless of the active sort.
+  const rankByRosterId = useMemo(() => {
+    const sorted = [...rosters].sort((a, b) => {
+      const aw = a.record.wins ?? 0;
+      const bw = b.record.wins ?? 0;
+      if (bw !== aw) return bw - aw;
+      return b.pointsFor - a.pointsFor;
+    });
+    return new Map(sorted.map((r, i) => [r.rosterId, i + 1]));
+  }, [rosters]);
+
+  const sortColumns = useMemo<SortableColumn<Roster>[]>(
+    () => [
+      {
+        id: "rank",
+        sortValue: (r) => rankByRosterId.get(r.rosterId) ?? Infinity,
+        defaultDir: "asc",
+      },
+      {
+        id: "team",
+        sortValue: (r) => teamName(r, users).toLowerCase(),
+        defaultDir: "asc",
+      },
+      {
+        id: "wl",
+        sortValue: (r) => (r.record.wins ?? 0) + (r.record.ties ?? 0) * 0.5,
+        defaultDir: "desc",
+      },
+      { id: "pf", sortValue: (r) => r.pointsFor, defaultDir: "desc" },
+      { id: "pa", sortValue: (r) => r.pointsAgainst, defaultDir: "asc" },
+      { id: "pts", sortValue: (r) => r.pointsFor, defaultDir: "desc" },
+    ],
+    [rankByRosterId, users],
+  );
+
+  const { sortedRows, sortId, sortDir, handleSort } = useSortedRows(
+    rosters,
+    sortColumns,
+    "rank",
+    "asc",
   );
 
   return (
@@ -587,15 +644,57 @@ function LeagueTable({
         title="League Table"
         rule="W–L · PF · PA"
       />
-      <div className="grid grid-cols-[18px_1fr_52px_52px_52px_44px] text-[9.5px] font-semibold tracking-wider uppercase text-muted font-sans border-b border-line pb-1 mb-0.5">
-        <div>#</div>
-        <div>Team</div>
-        <div className="text-right">W–L</div>
-        <div className="text-right">PF</div>
-        <div className="text-right">PA</div>
-        <div className="text-right">Pts</div>
+      <div
+        className={`grid ${LEAGUE_TABLE_GRID} text-[9.5px] font-semibold tracking-wider uppercase text-muted font-sans border-b border-line pb-1 mb-0.5`}
+      >
+        <SortHeader
+          id="rank"
+          label="#"
+          currentId={sortId}
+          dir={sortDir}
+          onSort={handleSort}
+        />
+        <SortHeader
+          id="team"
+          label="Team"
+          currentId={sortId}
+          dir={sortDir}
+          onSort={handleSort}
+        />
+        <SortHeader
+          id="wl"
+          label="W–L"
+          currentId={sortId}
+          dir={sortDir}
+          onSort={handleSort}
+          align="right"
+        />
+        <SortHeader
+          id="pf"
+          label="PF"
+          currentId={sortId}
+          dir={sortDir}
+          onSort={handleSort}
+          align="right"
+        />
+        <SortHeader
+          id="pa"
+          label="PA"
+          currentId={sortId}
+          dir={sortDir}
+          onSort={handleSort}
+          align="right"
+        />
+        <SortHeader
+          id="pts"
+          label="Pts"
+          currentId={sortId}
+          dir={sortDir}
+          onSort={handleSort}
+          align="right"
+        />
       </div>
-      {sorted.map((r, i) => {
+      {sortedRows.map((r) => {
         const isMine = r.rosterId === myRosterId;
         const name = teamName(r, users);
         const avatar = teamAvatar(r, users);
@@ -603,16 +702,17 @@ function LeagueTable({
         const l = r.record.losses ?? 0;
         const pf = r.pointsFor;
         const pa = r.pointsAgainst;
+        const rank = rankByRosterId.get(r.rosterId) ?? "—";
         return (
           <Link
             key={r.rosterId}
             to={`/teams/${r.rosterId}`}
-            className={`grid grid-cols-[18px_1fr_52px_52px_52px_44px] items-center py-[5px] border-b border-dotted border-line hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${
+            className={`grid ${LEAGUE_TABLE_GRID} items-center py-[5px] border-b border-dotted border-line hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${
               isMine ? "bg-highlight -mx-2 px-2" : ""
             }`}
           >
             <div className="font-serif italic font-semibold text-[13px] text-muted">
-              {i + 1}
+              {rank}
             </div>
             <div className="flex items-center gap-1.5 min-w-0">
               <Avatar avatar={avatar} name={name} size={16} />
@@ -715,7 +815,52 @@ function Scoreboard({
 
 // ---------- Power Rankings ----------
 
-function PowerRankings({ rows }: { rows: PowerRankingRow[] }) {
+function PowerRankings({
+  columns,
+  rows,
+}: {
+  columns: PowerRankingColumn[];
+  rows: PowerRankingRow[];
+}) {
+  const sortColumns = useMemo<SortableColumn<PowerRankingRow>[]>(() => {
+    const base: SortableColumn<PowerRankingRow>[] = [
+      {
+        id: "rank",
+        sortValue: (r) => r.overallRank,
+        defaultDir: "asc",
+      },
+      {
+        id: "team",
+        sortValue: (r) => r.teamName.toLowerCase(),
+        defaultDir: "asc",
+      },
+    ];
+    const algo = columns.map<SortableColumn<PowerRankingRow>>((c) => ({
+      id: c.id,
+      sortValue: (r) =>
+        c.displayMode === "rank"
+          ? -(r.ranks[c.id] ?? Infinity)
+          : (r.scores[c.id] ?? null),
+      defaultDir: "desc",
+    }));
+    return [...base, ...algo];
+  }, [columns]);
+
+  const { sortedRows, sortId, sortDir, handleSort } = useSortedRows(
+    rows,
+    sortColumns,
+    "rank",
+    "asc",
+  );
+
+  // Dynamic grid: 18px rank + 1fr team + N data columns. Inline-style because
+  // the column count varies and Tailwind needs static class strings.
+  const gridStyle = {
+    gridTemplateColumns: `18px 1fr ${columns
+      .map(() => "minmax(40px, 56px)")
+      .join(" ")}`,
+  };
+
   return (
     <section>
       <SectionHead
@@ -723,38 +868,92 @@ function PowerRankings({ rows }: { rows: PowerRankingRow[] }) {
         title="Power Rankings"
         rule="Composite · this week"
       />
-      <div>
-        {rows.map((row) => {
-          const score = row.scores[Object.keys(row.scores)[0] ?? ""] ?? 0;
-          return (
-            <Link
-              key={row.rosterId}
-              to={`/teams/${row.rosterId}`}
-              className="grid grid-cols-[18px_1fr_40px] items-center gap-1.5 py-1 border-b border-dotted border-line hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-            >
-              <div className="font-serif italic font-semibold text-xs text-muted">
-                {row.overallRank}
-              </div>
-              <div className="flex items-center gap-1.5 min-w-0">
-                <Avatar avatar={row.avatar} name={row.teamName} size={14} />
-                <span className="font-serif text-[12.5px] text-ink truncate">
-                  {row.teamName}
-                </span>
-              </div>
-              <div className="text-right font-mono text-[10.5px] text-body">
+      <div
+        className="grid items-baseline gap-1.5 text-[9.5px] font-semibold tracking-wider uppercase text-muted font-sans border-b border-line pb-1 mb-0.5"
+        style={gridStyle}
+      >
+        <SortHeader
+          id="rank"
+          label="#"
+          currentId={sortId}
+          dir={sortDir}
+          onSort={handleSort}
+        />
+        <SortHeader
+          id="team"
+          label="Team"
+          currentId={sortId}
+          dir={sortDir}
+          onSort={handleSort}
+        />
+        {columns.map((c) => (
+          <SortHeader
+            key={c.id}
+            id={c.id}
+            label={c.label}
+            currentId={sortId}
+            dir={sortDir}
+            onSort={handleSort}
+            align="right"
+            className="truncate"
+          />
+        ))}
+      </div>
+      {sortedRows.map((row) => (
+        <Link
+          key={row.rosterId}
+          to={`/teams/${row.rosterId}`}
+          className="grid items-center gap-1.5 py-1 border-b border-dotted border-line hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+          style={gridStyle}
+        >
+          <div className="font-serif italic font-semibold text-xs text-muted">
+            {row.overallRank}
+          </div>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Avatar avatar={row.avatar} name={row.teamName} size={14} />
+            <span className="font-serif text-[12.5px] text-ink truncate">
+              {row.teamName}
+            </span>
+          </div>
+          {columns.map((c) => {
+            if (c.displayMode === "rank") {
+              const rank = row.ranks[c.id];
+              return (
+                <div
+                  key={c.id}
+                  className="text-right font-mono text-[10.5px] text-body tabular-nums"
+                >
+                  {rank != null ? `#${rank}` : "—"}
+                </div>
+              );
+            }
+            const score = row.scores[c.id];
+            return (
+              <div
+                key={c.id}
+                className="text-right font-mono text-[10.5px] text-body tabular-nums"
+              >
                 {score != null ? Number(score).toFixed(2) : "—"}
               </div>
-            </Link>
-          );
-        })}
-      </div>
+            );
+          })}
+        </Link>
+      ))}
     </section>
   );
 }
 
 // ---------- Masthead ----------
 
-function Masthead({ leagueName, week, oldestYear }: { leagueName: string; week: number; oldestYear: string | null }) {
+function Masthead({
+  leagueName,
+  week,
+  oldestYear,
+}: {
+  leagueName: string;
+  week: number;
+  oldestYear: string | null;
+}) {
   const now = new Date();
   const dateStr = now.toLocaleDateString("en-US", {
     weekday: "long",
@@ -764,81 +963,23 @@ function Masthead({ leagueName, week, oldestYear }: { leagueName: string; week: 
   });
   return (
     <div className="px-3 sm:px-7 py-3 border-b-2 border-ink">
-      <div className="flex flex-col items-center sm:flex-row sm:items-baseline sm:justify-between gap-1 sm:gap-0">
-        <div className="hidden sm:block text-[10px] text-muted tracking-wide font-sans">
-          ESTABLISHED {oldestYear}
+      <div className="flex flex-col items-center sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-0">
+        <div className="hidden sm:block text-[11px] text-muted tracking-wide font-sans">
+          VOL. {now.getFullYear() - Number(oldestYear) + 1} · ESTABLISHED{" "}
+          {oldestYear}
         </div>
-        <div className="font-serif font-bold italic text-3xl sm:text-5xl leading-[0.95] tracking-tight text-ink">
-          {leagueName.toUpperCase()}
+        <div className="flex flex-col items-center">
+          <div className="font-serif font-bold italic text-3xl sm:text-6xl leading-[0.95] tracking-tight text-ink">
+            {leagueName}
+          </div>
+          <div className="mt-1 font-serif italic text-[13px] text-muted">
+            [PLATFORM] [# OF TEAMS] [FORMAT]
+          </div>
         </div>
-        <div className="text-[10px] text-muted tracking-wide font-sans text-center sm:text-right">
+        <div className="text-[11px] text-muted tracking-wide font-sans text-center sm:text-right">
           {dateStr.toUpperCase()} · WEEK {week}
         </div>
       </div>
-    </div>
-  );
-}
-
-// ---------- Season selector ----------
-
-function SeasonBar({
-  selectedLeague,
-  familySeasons,
-  myRosterId,
-  claimedTeamName,
-  claimedAvatar,
-}: {
-  selectedLeague: ReturnType<typeof useLeague>["data"];
-  familySeasons: ReturnType<typeof useLeague>["data"][];
-  myRosterId: number | null;
-  claimedTeamName: string | null;
-  claimedAvatar: string | null;
-}) {
-  const dispatch = useAppDispatch();
-  if (!selectedLeague) return null;
-  return (
-    <div className="px-3 sm:px-7 py-2 border-b border-line bg-chrome flex items-center justify-between gap-2 flex-wrap">
-      <div className="flex items-center gap-2 sm:gap-3 font-mono text-[10px] text-muted tracking-wider uppercase min-w-0">
-        <span className="font-serif italic text-ink text-xl sm:text-2xl font-bold tracking-tight normal-case shrink-0">
-          Huddle
-        </span>
-        <span className="hidden sm:inline">·</span>
-        <span className="hidden sm:inline">Home</span>
-        <span className="hidden sm:inline">·</span>
-        <span className="truncate">{selectedLeague.name}</span>
-        {familySeasons.length > 1 && (
-          <>
-            <span>·</span>
-            <select
-              value={selectedLeague.season}
-              onChange={(e) => {
-                const entry = familySeasons.find(
-                  (l) => l?.season === e.target.value,
-                );
-                if (entry) {
-                  dispatch(setSelectedLeague(entry.ref.leagueId));
-                  dispatch(setSelectedYear(entry.season));
-                }
-              }}
-              className="bg-transparent border-none outline-none text-[10px] font-mono text-muted tracking-wider uppercase cursor-pointer"
-            >
-              {familySeasons.map((l) =>
-                l ? (
-                  <option key={l.ref.leagueId} value={l.season}>
-                    {l.season}
-                  </option>
-                ) : null,
-              )}
-            </select>
-          </>
-        )}
-      </div>
-      {claimedTeamName && (
-        <div className="flex items-center gap-1.5 font-mono text-[10px] text-accent tracking-wider uppercase font-semibold">
-          <Avatar avatar={claimedAvatar} name={claimedTeamName} size={16} />★{" "}
-          {claimedTeamName}
-        </div>
-      )}
     </div>
   );
 }
@@ -900,14 +1041,10 @@ export function DashboardPage() {
     () => familySeasons.at(-1)?.season ?? selectedLeague?.season ?? null,
     [familySeasons, selectedLeague],
   );
-  
+
   const currentFamilyLeagueId =
     familySeasons[0]?.ref.leagueId ?? selectedLeagueId;
-  const {
-    teamName: claimedTeamName,
-    avatar: claimedAvatar,
-    rosterId: myRosterId,
-  } = useMyClaimedTeam(currentFamilyLeagueId);
+  const { rosterId: myRosterId } = useMyClaimedTeam(currentFamilyLeagueId);
 
   const syncedLeagues =
     allLeagues?.filter((l) => syncedLeagueIds.includes(l.ref.leagueId)) ?? [];
@@ -920,14 +1057,6 @@ export function DashboardPage() {
         <EmptyState />
       ) : (
         <>
-          <SeasonBar
-            selectedLeague={selectedLeague}
-            familySeasons={familySeasons}
-            myRosterId={myRosterId}
-            claimedTeamName={claimedTeamName}
-            claimedAvatar={claimedAvatar}
-          />
-
           <Ticker
             matchups={matchups}
             rosters={rosters ?? []}
@@ -935,7 +1064,11 @@ export function DashboardPage() {
             week={week}
           />
 
-          <Masthead leagueName={selectedLeague?.name ?? ""} week={week} oldestYear={oldestYear} />
+          <Masthead
+            leagueName={selectedLeague?.name ?? ""}
+            week={week}
+            oldestYear={oldestYear}
+          />
 
           <div className="px-3 sm:px-7 pt-4 pb-6 flex-1">
             <MyTeamSection
@@ -977,7 +1110,10 @@ export function DashboardPage() {
                 matchups={matchups}
                 week={week}
               />
-              <PowerRankings rows={powerData?.rows ?? []} />
+              <PowerRankings
+                columns={powerData?.columns ?? []}
+                rows={powerData?.rows ?? []}
+              />
             </div>
           </div>
         </>

@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,500;1,6..72,600;1,6..72,700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
 /* ---- Register design tokens with Tailwind's theme ---- */
@@ -15,8 +14,9 @@
   --color-highlight: rgba(45, 106, 79, 0.08);
   --color-loss: #a14535;
 
-  --font-family-serif: "Newsreader", Georgia, serif;
-  --font-family-mono: "IBM Plex Mono", "JetBrains Mono", monospace;
+  --font-serif: "Newsreader", Georgia, serif;
+  --font-mono: "IBM Plex Mono", "JetBrains Mono", monospace;
+  --font-serif-display: "DM Serif Display", "Times New Roman", serif;
 }
 
 /* ---- Dark mode overrides (applied via .dark class on root div) ---- */
