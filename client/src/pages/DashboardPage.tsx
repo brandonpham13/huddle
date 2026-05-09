@@ -224,7 +224,7 @@ function MyTeamSection({
   const myRoster = rosters.find((r) => r.rosterId === myRosterId);
   if (!myRosterId || !myRoster) {
     return (
-      <div className="border-t-2 border-ink pt-3 pb-4">
+      <div>
         <Eyebrow>Your Team</Eyebrow>
         <p className="font-serif italic text-muted text-sm mt-1">
           No claimed team in this league.{" "}
@@ -740,7 +740,7 @@ function Masthead({ leagueName, week, oldestYear }: { leagueName: string; week: 
           ESTABLISHED {oldestYear}
         </div>
         <div className="font-serif font-bold italic text-3xl sm:text-5xl leading-[0.95] tracking-tight text-ink">
-          {leagueName.toUpperCase()}
+          {leagueName}
         </div>
         <div className="text-[10px] text-muted tracking-wide font-sans text-center sm:text-right">
           {dateStr.toUpperCase()} · WEEK {week}

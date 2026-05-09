@@ -108,9 +108,9 @@ export function AppShell({ children }: AppShellProps) {
 
           <Link
             to="/"
-            className="font-serif italic text-ink text-xl sm:text-2xl font-bold tracking-tight normal-case shrink-0"
+            className="font-serif italic text-ink text-xl sm:text-2xl font-bold tracking-tight normal-case shrink-0 translate-y-[2px]"
           >
-            Huddle
+            huddle
           </Link>
 
           {uniqueLeagues.length > 0 && selectedLeagueRep && (
