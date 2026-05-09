@@ -16,6 +16,7 @@
 
   --font-serif: "Newsreader", Georgia, serif;
   --font-mono: "IBM Plex Mono", "JetBrains Mono", monospace;
+  --font-serif-display: "DM Serif Display", "Times New Roman", serif;
 }
 
 /* ---- Dark mode overrides (applied via .dark class on root div) ---- */
