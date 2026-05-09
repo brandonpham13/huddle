@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import {
   Home,
   Trophy,
@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
   Users,
+  X,
 } from "lucide-react";
 import { useAppSelector } from "../store/hooks";
 import { useLeagueRosters, useLeagueUsers } from "../hooks/useSleeper";
@@ -25,7 +26,17 @@ const TOP_NAV_ITEMS = [
   { label: "Draft", to: "/draft", icon: ClipboardList, end: false },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+  onOpenAccount?: () => void;
+}
+
+export function Sidebar({
+  mobileOpen = false,
+  onMobileClose,
+  onOpenAccount,
+}: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [teamsOpen, setTeamsOpen] = useState(true);
 
@@ -70,71 +81,97 @@ export function Sidebar() {
       });
   }, [rosters, leagueUsers, myRosterId]);
 
-  return (
-    <aside
-      className={`
-        relative flex flex-col bg-chrome border-r border-line shrink-0 transition-all duration-200
-        ${collapsed ? "w-14" : "w-52"}
-      `}
-    >
-      {/* Collapse toggle */}
-      <button
-        onClick={() => setCollapsed((c) => !c)}
-        className="absolute -right-3 top-6 z-10 flex items-center justify-center w-6 h-6 rounded-full bg-chrome border border-line text-muted hover:text-ink hover:border-ink/30 transition-colors"
-        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      >
-        {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
-      </button>
+  // Mobile drawer always shows labels; desktop honors `collapsed`.
+  const renderCollapsed = collapsed && !mobileOpen;
+  const widthClass = collapsed ? "w-64 md:w-14" : "w-64 md:w-52";
 
-      <nav className="flex flex-col gap-1 p-2 mt-2">
-        {TOP_NAV_ITEMS.map(({ label, to, icon: Icon, end }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
+  return (
+    <>
+      {/* Mobile backdrop */}
+      <div
+        onClick={onMobileClose}
+        className={`md:hidden fixed inset-0 bg-black/40 z-40 transition-opacity ${
+          mobileOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+        aria-hidden="true"
+      />
+
+      <aside
+        className={`
+          flex flex-col bg-chrome border-r border-line shrink-0 transition-transform duration-200
+          fixed inset-y-0 left-0 z-50
+          md:static md:translate-x-0 md:transition-all
+          ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+          ${widthClass}
+        `}
+      >
+        {/* Mobile close button */}
+        <button
+          onClick={onMobileClose}
+          className="md:hidden absolute right-2 top-2 p-1.5 text-muted hover:text-ink"
+          aria-label="Close navigation menu"
+        >
+          <X size={18} />
+        </button>
+
+        {/* Desktop collapse toggle */}
+        <button
+          onClick={() => setCollapsed((c) => !c)}
+          className="hidden md:flex absolute -right-3 top-6 z-10 items-center justify-center w-6 h-6 rounded-full bg-chrome border border-line text-muted hover:text-ink hover:border-ink/30 transition-colors"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
+        </button>
+
+        <nav className="flex flex-col gap-1 p-2 mt-8 md:mt-2">
+          {TOP_NAV_ITEMS.map(({ label, to, icon: Icon, end }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
               ${
                 isActive
                   ? "bg-highlight text-ink"
                   : "text-muted hover:bg-highlight hover:text-ink"
               }
-              ${collapsed ? "justify-center" : ""}
+              ${renderCollapsed ? "justify-center" : ""}
               `
-            }
-          >
-            <Icon size={16} className="shrink-0" />
-            {!collapsed && <span>{label}</span>}
-          </NavLink>
-        ))}
-
-        {/* Teams collapsible */}
-        {selectedLeagueId && (
-          <div className="mt-1">
-            <button
-              onClick={() => !collapsed && setTeamsOpen((o) => !o)}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-muted hover:bg-highlight hover:text-ink transition-colors ${collapsed ? "justify-center" : "justify-between"}`}
+              }
             >
-              <div className="flex items-center gap-3">
-                <Users size={16} className="shrink-0" />
-                {!collapsed && <span>Teams</span>}
-              </div>
-              {!collapsed &&
-                (teamsOpen ? (
-                  <ChevronUp size={12} />
-                ) : (
-                  <ChevronDown size={12} />
-                ))}
-            </button>
+              <Icon size={16} className="shrink-0" />
+              {!renderCollapsed && <span>{label}</span>}
+            </NavLink>
+          ))}
 
-            {!collapsed && teamsOpen && (
-              <div className="mt-0.5 ml-2 flex flex-col gap-0.5">
-                {teams.map((team) => (
-                  <NavLink
-                    key={team.rosterId}
-                    to={`/teams/${team.rosterId}`}
-                    className={({ isActive }) =>
-                      `flex items-center gap-2 pl-5 pr-2 py-1.5 rounded-md text-xs transition-colors truncate
+          {/* Teams collapsible */}
+          {selectedLeagueId && (
+            <div className="mt-1">
+              <button
+                onClick={() => !renderCollapsed && setTeamsOpen((o) => !o)}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-muted hover:bg-highlight hover:text-ink transition-colors ${renderCollapsed ? "justify-center" : "justify-between"}`}
+              >
+                <div className="flex items-center gap-3">
+                  <Users size={16} className="shrink-0" />
+                  {!renderCollapsed && <span>Teams</span>}
+                </div>
+                {!renderCollapsed &&
+                  (teamsOpen ? (
+                    <ChevronUp size={12} />
+                  ) : (
+                    <ChevronDown size={12} />
+                  ))}
+              </button>
+
+              {!renderCollapsed && teamsOpen && (
+                <div className="mt-0.5 ml-2 flex flex-col gap-0.5">
+                  {teams.map((team) => (
+                    <NavLink
+                      key={team.rosterId}
+                      to={`/teams/${team.rosterId}`}
+                      className={({ isActive }) =>
+                        `flex items-center gap-2 pl-5 pr-2 py-1.5 rounded-md text-xs transition-colors truncate
                       ${
                         isActive
                           ? "bg-highlight text-ink"
@@ -142,28 +179,50 @@ export function Sidebar() {
                       }
                       ${team.isMine ? "font-semibold text-ink" : "font-normal"}
                       `
-                    }
-                  >
-                    {team.avatar ? (
-                      <img
-                        src={`https://sleepercdn.com/avatars/thumbs/${team.avatar}`}
-                        alt={team.name}
-                        className="w-4 h-4 rounded-full shrink-0 object-cover"
-                      />
-                    ) : (
-                      <div className="w-4 h-4 rounded-full bg-line shrink-0" />
-                    )}
-                    <span className="truncate">{team.name}</span>
-                  </NavLink>
-                ))}
-                {teams.length === 0 && (
-                  <p className="pl-5 py-1 text-xs text-muted">Loading…</p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </nav>
-    </aside>
+                      }
+                    >
+                      {team.avatar ? (
+                        <img
+                          src={`https://sleepercdn.com/avatars/thumbs/${team.avatar}`}
+                          alt={team.name}
+                          className="w-4 h-4 rounded-full shrink-0 object-cover"
+                        />
+                      ) : (
+                        <div className="w-4 h-4 rounded-full bg-line shrink-0" />
+                      )}
+                      <span className="truncate">{team.name}</span>
+                    </NavLink>
+                  ))}
+                  {teams.length === 0 && (
+                    <p className="pl-5 py-1 text-xs text-muted">Loading…</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </nav>
+
+        {/* Mobile-only secondary actions (mirror items hidden from top nav at sm) */}
+        <div className="md:hidden mt-auto p-2 border-t border-line flex flex-col gap-1">
+          <NavLink
+            to="/leagues"
+            className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-muted hover:bg-highlight hover:text-ink transition-colors"
+          >
+            Leagues
+          </NavLink>
+          {onOpenAccount && (
+            <button
+              onClick={() => {
+                onOpenAccount();
+                onMobileClose?.();
+              }}
+              className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-muted hover:bg-highlight hover:text-ink transition-colors text-left"
+            >
+              Account
+            </button>
+          )}
+        </div>
+      </aside>
+    </>
   );
 }
