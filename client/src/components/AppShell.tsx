@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { useSignOut } from "../hooks/useSignOut";
@@ -6,8 +6,11 @@ import { useAccountModal } from "./AccountModal";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { setSelectedLeague, setSelectedYear } from "../store/slices/authSlice";
 import { useAllSleeperLeagues } from "../hooks/useSleeper";
+import { useMyClaimedTeam } from "../hooks/useMyClaimedTeam";
+import { getFamilySeasons } from "../utils/leagueFamily";
 import { Button } from "./ui/button";
 import { Sidebar } from "./Sidebar";
+import { Avatar } from "./Avatar";
 import { useTheme } from "../context/ThemeContext";
 
 interface AppShellProps {
@@ -57,11 +60,36 @@ export function AppShell({ children }: AppShellProps) {
     }
   };
 
+  const selectedLeague = uniqueLeagues.find(
+    (l) => l.ref.leagueId === selectedLeagueId,
+  );
+
+  const familySeasons = useMemo(
+    () =>
+      selectedLeagueId && allLeagues
+        ? getFamilySeasons(selectedLeagueId, allLeagues)
+        : [],
+    [selectedLeagueId, allLeagues],
+  );
+  const currentFamilyLeagueId =
+    familySeasons[0]?.ref.leagueId ?? selectedLeagueId;
+  const { teamName: claimedTeamName, avatar: claimedAvatar } = useMyClaimedTeam(
+    currentFamilyLeagueId,
+  );
+
+  const handleSeasonChange = (season: string) => {
+    const entry = familySeasons.find((l) => l.season === season);
+    if (entry) {
+      dispatch(setSelectedLeague(entry.ref.leagueId));
+      dispatch(setSelectedYear(entry.season));
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-paper text-ink">
       {/* Top nav */}
-      <nav className="bg-chrome border-b border-line px-3 sm:px-6 py-3 flex items-center justify-between gap-2 shrink-0 z-10">
-        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+      <nav className="bg-chrome border-b border-line px-3 sm:px-7 py-2 flex items-center justify-between gap-2 shrink-0 z-10">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 font-mono text-[10px] text-muted tracking-wider uppercase">
           <button
             onClick={() => setMobileNavOpen(true)}
             className="md:hidden -ml-1 p-1.5 text-muted hover:text-ink transition-colors"
@@ -72,31 +100,51 @@ export function AppShell({ children }: AppShellProps) {
 
           <Link
             to="/"
-            className="text-xl font-bold text-ink font-serif italic shrink-0"
+            className="font-serif italic text-ink text-xl sm:text-2xl font-bold tracking-tight normal-case shrink-0"
           >
             Huddle
           </Link>
 
-          {uniqueLeagues.length > 0 && (
-            <select
-              value={selectedLeagueId ?? ""}
-              onChange={(e) => handleLeagueChange(e.target.value)}
-              className="text-sm border border-line rounded-md px-2 py-1.5 bg-paper text-body focus:outline-none focus:ring-2 focus:ring-accent/40 min-w-0 truncate max-w-[40vw] sm:max-w-none"
-            >
-              <optgroup label="Sleeper">
+          {uniqueLeagues.length > 0 && selectedLeague && (
+            <>
+              <span className="hidden sm:inline">·</span>
+              <select
+                value={selectedLeagueId ?? ""}
+                onChange={(e) => handleLeagueChange(e.target.value)}
+                aria-label="Select league"
+                className="bg-transparent border-none outline-none text-[10px] font-mono text-muted tracking-wider uppercase cursor-pointer hover:text-ink transition-colors min-w-0 max-w-[40vw] sm:max-w-none truncate"
+              >
                 {uniqueLeagues.map((league) => (
                   <option key={league.ref.leagueId} value={league.ref.leagueId}>
                     {league.name}
                   </option>
                 ))}
-              </optgroup>
-            </select>
+              </select>
+            </>
+          )}
+
+          {familySeasons.length > 1 && selectedLeague && (
+            <>
+              <span>·</span>
+              <select
+                value={selectedLeague.season}
+                onChange={(e) => handleSeasonChange(e.target.value)}
+                aria-label="Select season"
+                className="bg-transparent border-none outline-none text-[10px] font-mono text-muted tracking-wider uppercase cursor-pointer hover:text-ink transition-colors"
+              >
+                {familySeasons.map((l) => (
+                  <option key={l.ref.leagueId} value={l.season}>
+                    {l.season}
+                  </option>
+                ))}
+              </select>
+            </>
           )}
 
           {uniqueLeagues.length === 0 && (
             <Link
               to="/leagues"
-              className="text-sm text-accent hover:underline truncate"
+              className="text-[10px] text-accent hover:underline truncate normal-case font-sans tracking-normal"
             >
               Sync a league to get started
             </Link>
@@ -104,6 +152,17 @@ export function AppShell({ children }: AppShellProps) {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          {claimedTeamName && (
+            <div
+              className="flex items-center gap-1.5 font-mono text-[10px] text-accent tracking-wider uppercase font-semibold min-w-0 max-w-[24ch]"
+              title={`Your team: ${claimedTeamName}`}
+            >
+              <Avatar avatar={claimedAvatar} name={claimedTeamName} size={16} />
+              <span className="hidden sm:inline truncate">
+                ★ {claimedTeamName}
+              </span>
+            </div>
+          )}
           <Link
             to="/leagues"
             className="hidden sm:inline text-sm text-muted hover:text-ink transition-colors"

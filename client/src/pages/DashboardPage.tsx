@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { setSelectedLeague, setSelectedYear } from "../store/slices/authSlice";
+import { useAppSelector } from "../store/hooks";
 import {
   useAllSleeperLeagues,
   useLeague,
@@ -15,6 +14,7 @@ import {
 import { usePowerRankings } from "../hooks/usePowerRankings";
 import { getFamilySeasons } from "../utils/leagueFamily";
 import { useMyClaimedTeam } from "../hooks/useMyClaimedTeam";
+import { Avatar } from "../components/Avatar";
 import type { Roster, TeamUser } from "../types/fantasy";
 import type { PowerRankingRow } from "../hooks/usePowerRankings";
 
@@ -38,35 +38,6 @@ function teamAvatar(roster: Roster, users: TeamUser[]): string | null {
     ? users.find((u) => u.userId === roster.ownerId)
     : null;
   return user?.avatar ?? null;
-}
-
-function Avatar({
-  avatar,
-  name,
-  size = 20,
-}: {
-  avatar: string | null;
-  name: string;
-  size?: number;
-}) {
-  if (avatar) {
-    return (
-      <img
-        src={`https://sleepercdn.com/avatars/thumbs/${avatar}`}
-        alt={name}
-        style={{ width: size, height: size }}
-        className="rounded-full object-cover shrink-0"
-      />
-    );
-  }
-  return (
-    <div
-      style={{ width: size, height: size, fontSize: size * 0.42 }}
-      className="rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 font-bold shrink-0 font-serif"
-    >
-      {name.slice(0, 2).toUpperCase()}
-    </div>
-  );
 }
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
@@ -779,70 +750,6 @@ function Masthead({ leagueName, week, oldestYear }: { leagueName: string; week: 
   );
 }
 
-// ---------- Season selector ----------
-
-function SeasonBar({
-  selectedLeague,
-  familySeasons,
-  myRosterId,
-  claimedTeamName,
-  claimedAvatar,
-}: {
-  selectedLeague: ReturnType<typeof useLeague>["data"];
-  familySeasons: ReturnType<typeof useLeague>["data"][];
-  myRosterId: number | null;
-  claimedTeamName: string | null;
-  claimedAvatar: string | null;
-}) {
-  const dispatch = useAppDispatch();
-  if (!selectedLeague) return null;
-  return (
-    <div className="px-3 sm:px-7 py-2 border-b border-line bg-chrome flex items-center justify-between gap-2 flex-wrap">
-      <div className="flex items-center gap-2 sm:gap-3 font-mono text-[10px] text-muted tracking-wider uppercase min-w-0">
-        <span className="font-serif italic text-ink text-xl sm:text-2xl font-bold tracking-tight normal-case shrink-0">
-          Huddle
-        </span>
-        <span className="hidden sm:inline">·</span>
-        <span className="hidden sm:inline">Home</span>
-        <span className="hidden sm:inline">·</span>
-        <span className="truncate">{selectedLeague.name}</span>
-        {familySeasons.length > 1 && (
-          <>
-            <span>·</span>
-            <select
-              value={selectedLeague.season}
-              onChange={(e) => {
-                const entry = familySeasons.find(
-                  (l) => l?.season === e.target.value,
-                );
-                if (entry) {
-                  dispatch(setSelectedLeague(entry.ref.leagueId));
-                  dispatch(setSelectedYear(entry.season));
-                }
-              }}
-              className="bg-transparent border-none outline-none text-[10px] font-mono text-muted tracking-wider uppercase cursor-pointer"
-            >
-              {familySeasons.map((l) =>
-                l ? (
-                  <option key={l.ref.leagueId} value={l.season}>
-                    {l.season}
-                  </option>
-                ) : null,
-              )}
-            </select>
-          </>
-        )}
-      </div>
-      {claimedTeamName && (
-        <div className="flex items-center gap-1.5 font-mono text-[10px] text-accent tracking-wider uppercase font-semibold">
-          <Avatar avatar={claimedAvatar} name={claimedTeamName} size={16} />★{" "}
-          {claimedTeamName}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ---------- Empty state ----------
 
 function EmptyState() {
@@ -903,11 +810,7 @@ export function DashboardPage() {
   
   const currentFamilyLeagueId =
     familySeasons[0]?.ref.leagueId ?? selectedLeagueId;
-  const {
-    teamName: claimedTeamName,
-    avatar: claimedAvatar,
-    rosterId: myRosterId,
-  } = useMyClaimedTeam(currentFamilyLeagueId);
+  const { rosterId: myRosterId } = useMyClaimedTeam(currentFamilyLeagueId);
 
   const syncedLeagues =
     allLeagues?.filter((l) => syncedLeagueIds.includes(l.ref.leagueId)) ?? [];
@@ -920,14 +823,6 @@ export function DashboardPage() {
         <EmptyState />
       ) : (
         <>
-          <SeasonBar
-            selectedLeague={selectedLeague}
-            familySeasons={familySeasons}
-            myRosterId={myRosterId}
-            claimedTeamName={claimedTeamName}
-            claimedAvatar={claimedAvatar}
-          />
-
           <Ticker
             matchups={matchups}
             rosters={rosters ?? []}
