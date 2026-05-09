@@ -346,10 +346,10 @@ function MyTeamSection({
     : null;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr] gap-6 pt-3 pb-4">
+    <div className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr] gap-6 pt-1 pb-1">
       <article>
         <Eyebrow>★ Lead · Your Team</Eyebrow>
-        <h1 className="font-serif font-bold text-3xl text-ink leading-[1.05] mt-1 mb-2 tracking-tight">
+        <h1 className="font-serif font-bold text-3xl text-ink leading-[1.05] mt-2 mb-2 tracking-tight">
           {myName} sit {myRank ? ordinal(myRank) : "—"} in the power table
           {won ? ", keep winning." : "."}
         </h1>
