@@ -41,8 +41,11 @@ export function Scoreboard({
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5">
         {pairs.map(({ a, b }, i) => {
-          const rA = rosters.find((r) => r.rosterId === a.rosterId)!;
-          const rB = rosters.find((r) => r.rosterId === b.rosterId)!;
+          const rA = rosters.find((r) => r.rosterId === a.rosterId);
+          const rB = rosters.find((r) => r.rosterId === b.rosterId);
+          // Rosters / matchups can populate at different times during a season
+          // switch; skip pairs we can't fully resolve yet.
+          if (!rA || !rB) return null;
           const aWon = a.points > b.points;
           return (
             <div key={i} className="py-1.5 border-b border-dotted border-line">

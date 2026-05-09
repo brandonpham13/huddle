@@ -64,7 +64,8 @@ export function TopPerformers({
       />
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 divide-x divide-line">
         {top.map((p, i) => {
-          const roster = rosters.find((r) => r.rosterId === p.rosterId)!;
+          const roster = rosters.find((r) => r.rosterId === p.rosterId);
+          if (!roster) return null;
           const tName = teamName(roster, users);
           const tAvatar = teamAvatar(roster, users);
           return (
