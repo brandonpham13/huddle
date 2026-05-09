@@ -321,7 +321,7 @@ function MyTeamSection({
     : null;
 
   return (
-    <div className="grid grid-cols-[1.4fr_1fr] gap-6 border-t-2 border-ink pt-3 pb-4">
+    <div className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr] gap-6 border-t-2 border-ink pt-3 pb-4">
       <article>
         <Eyebrow>★ Lead · Your Team</Eyebrow>
         <h1 className="font-serif font-bold text-3xl text-ink leading-[1.05] mt-1 mb-2 tracking-tight">
@@ -340,7 +340,7 @@ function MyTeamSection({
           {myRank && <Stat label="Power Rank" value={ordinal(myRank)} accent />}
         </div>
 
-        <p className="font-serif text-[13.5px] leading-relaxed text-body mt-3 columns-2 gap-5">
+        <p className="font-serif text-[13.5px] leading-relaxed text-body mt-3 sm:columns-2 gap-5">
           With a {myRecord[0]}–{myRecord[1]} record, <strong>{myName}</strong>{" "}
           heads into week {nextWeek} ranked {myRank ? ordinal(myRank) : "—"} in
           the power standings.{" "}
@@ -353,7 +353,7 @@ function MyTeamSection({
         </p>
       </article>
 
-      <aside className="border-l border-line pl-5">
+      <aside className="sm:border-l sm:border-line sm:pl-5 border-t border-line pt-3 sm:pt-0 sm:border-t-0">
         <Eyebrow>Week {week} · Result</Eyebrow>
         {oppRoster ? (
           <>
@@ -524,7 +524,7 @@ function TopPerformers({
         title="Top Performers"
         rule="Highest fantasy scorers"
       />
-      <div className="grid grid-cols-5 divide-x divide-line">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 divide-x divide-line">
         {top.map((p, i) => {
           const roster = rosters.find((r) => r.rosterId === p.rosterId)!;
           const tName = teamName(roster, users);
@@ -686,7 +686,7 @@ function Scoreboard({
         title="The Scoreboard"
         rule="All games"
       />
-      <div className="grid grid-cols-2 gap-x-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5">
         {pairs.map(({ a, b }, i) => {
           const rA = rosters.find((r) => r.rosterId === a.rosterId)!;
           const rB = rosters.find((r) => r.rosterId === b.rosterId)!;
@@ -763,15 +763,15 @@ function Masthead({ leagueName, week }: { leagueName: string; week: number }) {
     year: "numeric",
   });
   return (
-    <div className="px-7 py-3 border-b-2 border-ink">
-      <div className="flex items-baseline justify-between">
-        <div className="text-[10px] text-muted tracking-wide font-sans">
+    <div className="px-3 sm:px-7 py-3 border-b-2 border-ink">
+      <div className="flex flex-col items-center sm:flex-row sm:items-baseline sm:justify-between gap-1 sm:gap-0">
+        <div className="hidden sm:block text-[10px] text-muted tracking-wide font-sans">
           {leagueName.toUpperCase()}
         </div>
-        <div className="font-serif font-bold italic text-5xl leading-[0.95] tracking-tight text-ink">
+        <div className="font-serif font-bold italic text-3xl sm:text-5xl leading-[0.95] tracking-tight text-ink">
           The Huddle
         </div>
-        <div className="text-[10px] text-muted tracking-wide font-sans text-right">
+        <div className="text-[10px] text-muted tracking-wide font-sans text-center sm:text-right">
           {dateStr.toUpperCase()} · WEEK {week}
         </div>
       </div>
@@ -797,15 +797,15 @@ function SeasonBar({
   const dispatch = useAppDispatch();
   if (!selectedLeague) return null;
   return (
-    <div className="px-7 py-2 border-b border-line bg-chrome flex items-center justify-between">
-      <div className="flex items-center gap-3 font-mono text-[10px] text-muted tracking-wider uppercase">
-        <span className="font-serif italic text-ink text-2xl font-bold tracking-tight normal-case">
+    <div className="px-3 sm:px-7 py-2 border-b border-line bg-chrome flex items-center justify-between gap-2 flex-wrap">
+      <div className="flex items-center gap-2 sm:gap-3 font-mono text-[10px] text-muted tracking-wider uppercase min-w-0">
+        <span className="font-serif italic text-ink text-xl sm:text-2xl font-bold tracking-tight normal-case shrink-0">
           Huddle
         </span>
-        <span>·</span>
-        <span>Home</span>
-        <span>·</span>
-        <span>{selectedLeague.name}</span>
+        <span className="hidden sm:inline">·</span>
+        <span className="hidden sm:inline">Home</span>
+        <span className="hidden sm:inline">·</span>
+        <span className="truncate">{selectedLeague.name}</span>
         {familySeasons.length > 1 && (
           <>
             <span>·</span>
@@ -930,7 +930,7 @@ export function DashboardPage() {
 
           <Masthead leagueName={selectedLeague?.name ?? ""} week={week} />
 
-          <div className="px-7 pt-4 pb-6 flex-1">
+          <div className="px-3 sm:px-7 pt-4 pb-6 flex-1">
             <MyTeamSection
               myRosterId={myRosterId}
               rosters={rosters ?? []}
@@ -958,7 +958,7 @@ export function DashboardPage() {
 
             <div className="h-4" />
 
-            <div className="grid grid-cols-[1.1fr_1fr_0.9fr] gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr_0.9fr] gap-6">
               <LeagueTable
                 rosters={rosters ?? []}
                 users={users ?? []}

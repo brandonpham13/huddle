@@ -1,5 +1,6 @@
-import { type ReactNode, useEffect } from "react";
-import { Link, Outlet } from "react-router-dom";
+import { type ReactNode, useEffect, useState } from "react";
+import { Link, Outlet, useLocation } from "react-router-dom";
+import { Menu } from "lucide-react";
 import { useSignOut } from "../hooks/useSignOut";
 import { useAccountModal } from "./AccountModal";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -18,6 +19,13 @@ export function AppShell({ children }: AppShellProps) {
   const { signOut } = useSignOut();
   const { open: openAccountModal } = useAccountModal();
   const { theme, toggle } = useTheme();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const location = useLocation();
+
+  // Auto-close mobile nav on route change
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname]);
 
   const syncedLeagueIds = useAppSelector(
     (state) => state.auth.user?.syncedLeagueIds ?? [],
@@ -52,9 +60,20 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="min-h-screen flex flex-col bg-paper text-ink">
       {/* Top nav */}
-      <nav className="bg-chrome border-b border-line px-6 py-3 flex items-center justify-between shrink-0 z-10">
-        <div className="flex items-center gap-4">
-          <Link to="/" className="text-xl font-bold text-ink font-serif italic">
+      <nav className="bg-chrome border-b border-line px-3 sm:px-6 py-3 flex items-center justify-between gap-2 shrink-0 z-10">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          <button
+            onClick={() => setMobileNavOpen(true)}
+            className="md:hidden -ml-1 p-1.5 text-muted hover:text-ink transition-colors"
+            aria-label="Open navigation menu"
+          >
+            <Menu size={20} />
+          </button>
+
+          <Link
+            to="/"
+            className="text-xl font-bold text-ink font-serif italic shrink-0"
+          >
             Huddle
           </Link>
 
@@ -62,7 +81,7 @@ export function AppShell({ children }: AppShellProps) {
             <select
               value={selectedLeagueId ?? ""}
               onChange={(e) => handleLeagueChange(e.target.value)}
-              className="text-sm border border-line rounded-md px-2 py-1.5 bg-paper text-body focus:outline-none focus:ring-2 focus:ring-accent/40"
+              className="text-sm border border-line rounded-md px-2 py-1.5 bg-paper text-body focus:outline-none focus:ring-2 focus:ring-accent/40 min-w-0 truncate max-w-[40vw] sm:max-w-none"
             >
               <optgroup label="Sleeper">
                 {uniqueLeagues.map((league) => (
@@ -75,22 +94,25 @@ export function AppShell({ children }: AppShellProps) {
           )}
 
           {uniqueLeagues.length === 0 && (
-            <Link to="/leagues" className="text-sm text-accent hover:underline">
+            <Link
+              to="/leagues"
+              className="text-sm text-accent hover:underline truncate"
+            >
               Sync a league to get started
             </Link>
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
           <Link
             to="/leagues"
-            className="text-sm text-muted hover:text-ink transition-colors"
+            className="hidden sm:inline text-sm text-muted hover:text-ink transition-colors"
           >
             Leagues
           </Link>
           <button
             onClick={openAccountModal}
-            className="text-sm text-muted hover:text-ink transition-colors"
+            className="hidden sm:inline text-sm text-muted hover:text-ink transition-colors"
           >
             Account
           </button>
@@ -111,7 +133,11 @@ export function AppShell({ children }: AppShellProps) {
 
       {/* Body: sidebar + page content */}
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
+        <Sidebar
+          mobileOpen={mobileNavOpen}
+          onMobileClose={() => setMobileNavOpen(false)}
+          onOpenAccount={openAccountModal}
+        />
         <main className="flex-1 overflow-auto">{children ?? <Outlet />}</main>
       </div>
     </div>
