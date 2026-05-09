@@ -42,7 +42,7 @@ export function TeamPage() {
 
   if (!roster) {
     return (
-      <div className="p-6 text-gray-500">
+      <div className="p-6 text-muted">
         {rosters ? "Team not found." : "Loading…"}
       </div>
     );
@@ -59,27 +59,27 @@ export function TeamPage() {
             className="w-14 h-14 rounded-full object-cover"
           />
         ) : (
-          <div className="w-14 h-14 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-lg font-bold">
+          <div className="w-14 h-14 rounded-full bg-line flex items-center justify-center text-muted text-lg font-bold">
             {teamName?.charAt(0) ?? "?"}
           </div>
         )}
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-ink flex items-center gap-2">
             {teamName}
             {isMyTeam && (
-              <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+              <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-highlight text-accent">
                 Your team
               </span>
             )}
           </h1>
           {user && (
-            <p className="text-sm text-gray-500 mt-0.5">{user.displayName}</p>
+            <p className="text-sm text-muted mt-0.5">{user.displayName}</p>
           )}
         </div>
       </div>
 
       {/* Placeholder for future widgets */}
-      <div className="rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-400 text-sm">
+      <div className="rounded-lg border border-dashed border-line p-8 text-center text-muted text-sm">
         Team dashboard — widgets coming soon
       </div>
     </div>

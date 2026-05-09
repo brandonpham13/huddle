@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ClerkProvider } from "@clerk/clerk-react";
 import { TooltipProvider } from "../components/ui/tooltip";
+import { ThemeProvider } from "../context/ThemeContext";
 import { store } from "../store";
 
 const queryClient = new QueryClient({
@@ -34,13 +35,15 @@ export function AppProviders({ children }: AppProvidersProps) {
   }
 
   return (
-    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
-      <Provider store={store}>
-        <QueryClientProvider client={queryClient}>
-          <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
-          <ReactQueryDevtools initialIsOpen={false} />
-        </QueryClientProvider>
-      </Provider>
-    </ClerkProvider>
+    <ThemeProvider>
+      <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
+        <Provider store={store}>
+          <QueryClientProvider client={queryClient}>
+            <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
+            <ReactQueryDevtools initialIsOpen={false} />
+          </QueryClientProvider>
+        </Provider>
+      </ClerkProvider>
+    </ThemeProvider>
   );
 }

@@ -7,9 +7,9 @@ import { setSelectedLeague, setSelectedYear } from "../store/slices/authSlice";
 import { useAllSleeperLeagues } from "../hooks/useSleeper";
 import { Button } from "./ui/button";
 import { Sidebar } from "./Sidebar";
+import { useTheme } from "../context/ThemeContext";
 
 interface AppShellProps {
-  /** Pass children when not using React Router's <Outlet /> */
   children?: ReactNode;
 }
 
@@ -17,6 +17,7 @@ export function AppShell({ children }: AppShellProps) {
   const dispatch = useAppDispatch();
   const { signOut } = useSignOut();
   const { open: openAccountModal } = useAccountModal();
+  const { theme, toggle } = useTheme();
 
   const syncedLeagueIds = useAppSelector(
     (state) => state.auth.user?.syncedLeagueIds ?? [],
@@ -28,13 +29,10 @@ export function AppShell({ children }: AppShellProps) {
   const syncedLeagues =
     allLeagues?.filter((l) => syncedLeagueIds.includes(l.ref.leagueId)) ?? [];
 
-  // One entry per league family (deduplicated by name, keeping most recent season
-  // since Sleeper returns newest first). The in-page season selector handles year nav.
   const uniqueLeagues = syncedLeagues.filter(
     (l, i, arr) => arr.findIndex((x) => x.name === l.name) === i,
   );
 
-  // Auto-select the first league once leagues load and nothing is selected yet
   useEffect(() => {
     if (!selectedLeagueId && uniqueLeagues.length > 0) {
       const first = uniqueLeagues[0]!;
@@ -52,20 +50,19 @@ export function AppShell({ children }: AppShellProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-paper text-ink">
       {/* Top nav */}
-      <nav className="bg-white border-b px-6 py-3 flex items-center justify-between shrink-0 z-10">
+      <nav className="bg-chrome border-b border-line px-6 py-3 flex items-center justify-between shrink-0 z-10">
         <div className="flex items-center gap-4">
-          <Link to="/" className="text-xl font-bold text-gray-900">
+          <Link to="/" className="text-xl font-bold text-ink font-serif italic">
             Huddle
           </Link>
 
-          {/* League dropdown */}
           {uniqueLeagues.length > 0 && (
             <select
               value={selectedLeagueId ?? ""}
               onChange={(e) => handleLeagueChange(e.target.value)}
-              className="text-sm border rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300"
+              className="text-sm border border-line rounded-md px-2 py-1.5 bg-paper text-body focus:outline-none focus:ring-2 focus:ring-accent/40"
             >
               <optgroup label="Sleeper">
                 {uniqueLeagues.map((league) => (
@@ -78,10 +75,7 @@ export function AppShell({ children }: AppShellProps) {
           )}
 
           {uniqueLeagues.length === 0 && (
-            <Link
-              to="/leagues"
-              className="text-sm text-blue-600 hover:underline"
-            >
+            <Link to="/leagues" className="text-sm text-accent hover:underline">
               Sync a league to get started
             </Link>
           )}
@@ -90,15 +84,24 @@ export function AppShell({ children }: AppShellProps) {
         <div className="flex items-center gap-4">
           <Link
             to="/leagues"
-            className="text-sm text-gray-600 hover:text-gray-900"
+            className="text-sm text-muted hover:text-ink transition-colors"
           >
             Leagues
           </Link>
           <button
             onClick={openAccountModal}
-            className="text-sm text-gray-600 hover:text-gray-900"
+            className="text-sm text-muted hover:text-ink transition-colors"
           >
             Account
+          </button>
+          <button
+            onClick={toggle}
+            className="w-7 h-7 flex items-center justify-center rounded-full border border-line text-muted hover:text-ink transition-colors text-sm"
+            title={
+              theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
+            }
+          >
+            {theme === "dark" ? "☀" : "☽"}
           </button>
           <Button variant="outline" size="sm" onClick={signOut}>
             Sign out

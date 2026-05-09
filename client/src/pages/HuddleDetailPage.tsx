@@ -56,24 +56,26 @@ export function HuddleDetailPage() {
   const { data: rosters } = useLeagueRosters(leagueId);
   const { data: leagueUsers } = useLeagueUsers(leagueId);
 
-  if (!huddleId) return <div className="p-6 text-gray-500">No huddle id.</div>;
+  if (!huddleId) return <div className="p-6 text-muted">No huddle id.</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b px-6 py-4 flex items-center gap-4">
+    <div className="min-h-screen bg-paper text-ink">
+      <nav className="bg-chrome border-b border-line px-6 py-4 flex items-center gap-4">
         <Link
           to="/leagues"
-          className="text-sm text-gray-600 hover:text-gray-900"
+          className="text-sm text-muted hover:text-ink transition-colors"
         >
           ← Leagues
         </Link>
-        <h1 className="text-xl font-bold">{detail?.huddle.name ?? "Group"}</h1>
+        <h1 className="text-xl font-bold text-ink">
+          {detail?.huddle.name ?? "Group"}
+        </h1>
       </nav>
 
       <main className="p-6 max-w-3xl mx-auto space-y-4">
         {huddleQuery.isLoading && (
           <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900" />
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-ink" />
           </div>
         )}
         {huddleQuery.isError && (
