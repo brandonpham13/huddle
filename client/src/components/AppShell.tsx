@@ -7,7 +7,7 @@ import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { setSelectedLeague, setSelectedYear } from "../store/slices/authSlice";
 import { useAllSleeperLeagues } from "../hooks/useSleeper";
 import { useMyClaimedTeam } from "../hooks/useMyClaimedTeam";
-import { getFamilySeasons } from "../utils/leagueFamily";
+import { buildFamilyRootMap, getFamilySeasons } from "../utils/leagueFamily";
 import { Button } from "./ui/button";
 import { Sidebar } from "./Sidebar";
 import { Avatar } from "./Avatar";
@@ -37,12 +37,35 @@ export function AppShell({ children }: AppShellProps) {
     (state) => state.auth.selectedLeagueId,
   );
   const { data: allLeagues } = useAllSleeperLeagues();
-  const syncedLeagues =
-    allLeagues?.filter((l) => syncedLeagueIds.includes(l.ref.leagueId)) ?? [];
 
-  const uniqueLeagues = syncedLeagues.filter(
-    (l, i, arr) => arr.findIndex((x) => x.name === l.name) === i,
+  const familyRootMap = useMemo(
+    () => (allLeagues ? buildFamilyRootMap(allLeagues) : null),
+    [allLeagues],
   );
+
+  const syncedLeagues = useMemo(
+    () =>
+      allLeagues?.filter((l) => syncedLeagueIds.includes(l.ref.leagueId)) ?? [],
+    [allLeagues, syncedLeagueIds],
+  );
+
+  // One entry per league family, picking the most recent season as the
+  // representative (so renames in past seasons don't create duplicate entries).
+  const uniqueLeagues = useMemo(() => {
+    if (!familyRootMap) return syncedLeagues;
+    const sorted = [...syncedLeagues].sort(
+      (a, b) => Number(b.season) - Number(a.season),
+    );
+    const seen = new Set<string>();
+    const result: typeof syncedLeagues = [];
+    for (const l of sorted) {
+      const root = familyRootMap.get(l.ref.leagueId) ?? l.ref.leagueId;
+      if (seen.has(root)) continue;
+      seen.add(root);
+      result.push(l);
+    }
+    return result;
+  }, [syncedLeagues, familyRootMap]);
 
   useEffect(() => {
     if (!selectedLeagueId && uniqueLeagues.length > 0) {
@@ -75,11 +98,19 @@ export function AppShell({ children }: AppShellProps) {
   const currentFamilyLeagueId =
     familySeasons[0]?.ref.leagueId ?? selectedLeagueId;
 
-  // For the league dropdown, find the family-representative entry that exists in
-  // uniqueLeagues (deduped by name). When an older season is selected the raw
-  // selectedLeagueId may not be in uniqueLeagues, so match by name instead.
-  const selectedLeagueRep = selectedLeague
-    ? uniqueLeagues.find((l) => l.name === selectedLeague.name)
+  // The league dropdown shows one entry per family (latest season's name).
+  // Match by family root so older-season selections still resolve, even when
+  // the league was renamed between seasons.
+  const selectedRoot =
+    selectedLeagueId && familyRootMap
+      ? (familyRootMap.get(selectedLeagueId) ?? selectedLeagueId)
+      : null;
+  const selectedLeagueRep = selectedRoot
+    ? uniqueLeagues.find(
+        (l) =>
+          (familyRootMap?.get(l.ref.leagueId) ?? l.ref.leagueId) ===
+          selectedRoot,
+      )
     : undefined;
   const { teamName: claimedTeamName, avatar: claimedAvatar } = useMyClaimedTeam(
     currentFamilyLeagueId,
