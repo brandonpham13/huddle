@@ -60,7 +60,8 @@ export function AppShell({ children }: AppShellProps) {
     }
   };
 
-  const selectedLeague = uniqueLeagues.find(
+  // The actual selected league entry (may be an older season not in uniqueLeagues).
+  const selectedLeague = allLeagues?.find(
     (l) => l.ref.leagueId === selectedLeagueId,
   );
 
@@ -73,6 +74,13 @@ export function AppShell({ children }: AppShellProps) {
   );
   const currentFamilyLeagueId =
     familySeasons[0]?.ref.leagueId ?? selectedLeagueId;
+
+  // For the league dropdown, find the family-representative entry that exists in
+  // uniqueLeagues (deduped by name). When an older season is selected the raw
+  // selectedLeagueId may not be in uniqueLeagues, so match by name instead.
+  const selectedLeagueRep = selectedLeague
+    ? uniqueLeagues.find((l) => l.name === selectedLeague.name)
+    : undefined;
   const { teamName: claimedTeamName, avatar: claimedAvatar } = useMyClaimedTeam(
     currentFamilyLeagueId,
   );
@@ -105,11 +113,11 @@ export function AppShell({ children }: AppShellProps) {
             Huddle
           </Link>
 
-          {uniqueLeagues.length > 0 && selectedLeague && (
+          {uniqueLeagues.length > 0 && selectedLeagueRep && (
             <>
               <span className="hidden sm:inline">·</span>
               <select
-                value={selectedLeagueId ?? ""}
+                value={selectedLeagueRep.ref.leagueId}
                 onChange={(e) => handleLeagueChange(e.target.value)}
                 aria-label="Select league"
                 className="bg-transparent border-none outline-none text-[10px] font-mono text-muted tracking-wider uppercase cursor-pointer hover:text-ink transition-colors min-w-0 max-w-[40vw] sm:max-w-none truncate"
