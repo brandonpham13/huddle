@@ -4,7 +4,7 @@ export interface WidgetDefinition {
   id: string;
   name: string;
   description: string;
-  component: LazyExoticComponent<() => JSX.Element>;
+  component: LazyExoticComponent<() => JSX.Element | null>;
   /**
    * Grid layout on a 12-column grid.
    * w: 4 = 1/3, 6 = 1/2, 8 = 2/3, 12 = full width
