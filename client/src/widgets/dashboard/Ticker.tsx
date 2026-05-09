@@ -115,14 +115,14 @@ function TickerTeam({
     <span className="inline-flex items-center gap-1.5">
       <Avatar avatar={avatar} name={name} size={16} />
       <span
-        className={`font-serif text-sm ${won ? "font-bold italic text-ink" : "font-medium text-body"}`}
+        className={`font-serif text-sm leading-none translate-y-px ${won ? "font-bold italic text-ink" : "font-medium text-body"}`}
       >
         {name}
       </span>
       <span
         className={`font-mono text-xs tabular-nums ${won ? "font-bold text-accent" : "text-muted"}`}
       >
-        {pts.toFixed(1)}
+        {pts.toFixed(2)}
       </span>
     </span>
   );

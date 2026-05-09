@@ -117,7 +117,7 @@ export function MatchupResult({
     <div className="flex items-center gap-2.5 py-0.5">
       <Avatar avatar={avatar} name={name} size={big ? 24 : 18} />
       <span
-        className={`flex-1 font-serif truncate ${
+        className={`flex-1 font-serif truncate leading-none translate-y-px ${
           won ? "font-bold text-ink" : "font-medium text-body"
         } ${big ? "text-[15px]" : "text-[13px]"}`}
       >
@@ -128,7 +128,7 @@ export function MatchupResult({
           won ? "font-bold text-ink" : "font-medium text-body"
         } ${big ? "text-[19px]" : "text-sm"}`}
       >
-        {pts.toFixed(1)}
+        {pts.toFixed(2)}
       </span>
     </div>
   );
