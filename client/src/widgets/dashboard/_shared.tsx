@@ -37,7 +37,7 @@ export function SectionHead({
 }: {
   kicker: string;
   title: string;
-  rule: string;
+  rule: React.ReactNode;
 }) {
   return (
     <div className="border-t-2 border-ink pt-1.5 mb-3">
@@ -48,7 +48,11 @@ export function SectionHead({
             {title}
           </h2>
         </div>
-        <span className="font-serif italic text-xs text-muted">{rule}</span>
+        {typeof rule === "string" ? (
+          <span className="font-serif italic text-xs text-muted">{rule}</span>
+        ) : (
+          rule
+        )}
       </div>
     </div>
   );

@@ -65,6 +65,17 @@ export function DashboardPage() {
   const season = selectedLeague?.season ?? nflState?.season ?? "2024";
   const nextWeek = isLeagueCurrent && week < 18 ? week + 1 : week;
 
+  const leagueSettings = selectedLeague?.settings ?? {};
+  const playoffWeekStart =
+    typeof leagueSettings["playoff_week_start"] === "number"
+      ? (leagueSettings["playoff_week_start"] as number)
+      : null;
+  const lastScoredLeg =
+    typeof leagueSettings["last_scored_leg"] === "number"
+      ? (leagueSettings["last_scored_leg"] as number)
+      : null;
+  const lastWeek = lastScoredLeg ?? (playoffWeekStart ? playoffWeekStart + 2 : 17);
+
   const { data: rosters } = useLeagueRosters(selectedLeagueId);
   const { data: users } = useLeagueUsers(selectedLeagueId);
   const { data: matchups } = useLeagueMatchups(selectedLeagueId, week);
@@ -153,8 +164,10 @@ export function DashboardPage() {
               <Scoreboard
                 rosters={rosters ?? []}
                 users={users ?? []}
-                matchups={matchups}
-                week={week}
+                leagueId={selectedLeagueId!}
+                currentWeek={week}
+                playoffWeekStart={playoffWeekStart}
+                lastWeek={lastWeek}
               />
               <PowerRankings
                 columns={powerData?.columns ?? []}

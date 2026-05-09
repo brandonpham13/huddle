@@ -17,6 +17,7 @@ export interface League {
   sport: string;
   avatar: string | null;
   previousLeagueRef: LeagueRef | null;
+  settings: Record<string, unknown>;
 }
 
 export interface Roster {
