@@ -1,3 +1,36 @@
+/**
+ * AppShell — the persistent chrome that wraps every authenticated route.
+ *
+ * Mounted by `App.tsx` around the `<Outlet />` for the protected routes.
+ * Every page (DashboardPage, LeaguesPage, TeamPage, HuddleDetailPage, ...)
+ * renders inside this shell, which is responsible for:
+ *
+ *   - The top nav bar (wordmark + league dropdown + season dropdown +
+ *     claimed-team badge + right-side actions).
+ *   - The left Sidebar (becomes a slide-in drawer below md).
+ *   - The mobile hamburger button + drawer open/close state.
+ *
+ * The nav adopts the "season bar" newspaper-breadcrumb style (mono
+ * uppercase, serif italic wordmark). The league + season dropdowns share
+ * styling and both let the user switch context. League selection is
+ * persisted to localStorage by the Redux store subscriber (see
+ * `store/index.ts`), so refreshing keeps your last view.
+ *
+ * Two pieces of "domain logic" live here that aren't obvious from a quick
+ * read:
+ *
+ *   1. League dedup by family root. `uniqueLeagues` collapses sibling
+ *      seasons of the same league into one entry (the newest), so the
+ *      dropdown shows "My League" once instead of one row per year.
+ *      Cross-season renames are handled by deduping on family root from
+ *      `buildFamilyRootMap`, not on display name.
+ *
+ *   2. Selecting an older season. The user picks a past season from the
+ *      season dropdown — at that point `selectedLeagueId` is *not* in
+ *      `uniqueLeagues` (which only has newest entries). We look the
+ *      selection up by family root via `selectedLeagueRep` so the league
+ *      dropdown still highlights the correct family.
+ */
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";

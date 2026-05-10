@@ -1,3 +1,22 @@
+/**
+ * TopPerformers — the "Stars" strip showing the week's 5 highest-scoring
+ * rostered players across the league.
+ *
+ * Data inputs (from DashboardPage):
+ *   - `playerStats`: Sleeper's per-player stat dump for `(season, week)`,
+ *     keyed by player_id. Contains both individual players (NFL ID strings)
+ *     and team defense entries ("TEAM_BUF"); we filter the latter out.
+ *   - `players`: the global NFL player dictionary, used to resolve names
+ *     and positions from the stat-line player_id.
+ *   - `rosters`: the league's rosters, used to figure out which roster owns
+ *     each player so we can label the strip with the team name.
+ *
+ * The list collapses to nothing when no player scored > 0 (preseason, an
+ * unscored week, etc.) — handled by the `if (top.length === 0) return null`.
+ *
+ * Mobile: `grid-cols-2 sm:grid-cols-3 md:grid-cols-5` so the strip wraps
+ * onto multiple rows on small screens instead of overflowing.
+ */
 import { useMemo } from "react";
 import { Avatar } from "../../components/Avatar";
 import type { Roster, TeamUser } from "../../types/fantasy";

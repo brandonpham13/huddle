@@ -1,10 +1,40 @@
+/**
+ * Sort state hook for the dashboard's hand-rolled tables.
+ *
+ * The dashboard tables (LeagueTable, PowerRankings) use a CSS grid layout
+ * for their bespoke newspaper styling, so they can't drop into the generic
+ * `<SortableTable>` `<table>` component. This hook gives them just the
+ * sort *state* (active column + direction + sort comparator) while leaving
+ * the rendering entirely up to the caller.
+ *
+ * Pair this with `<SortHeader>` from `widgets/dashboard/_shared.tsx` for
+ * the clickable header cell. The orchestrator looks like:
+ *
+ *   ```tsx
+ *   const cols: SortableColumn<Row>[] = [
+ *     { id: "name", sortValue: r => r.name.toLowerCase(), defaultDir: "asc" },
+ *     { id: "pts",  sortValue: r => r.points,             defaultDir: "desc" },
+ *   ];
+ *   const { sortedRows, sortId, sortDir, handleSort } =
+ *     useSortedRows(rows, cols, "pts", "desc");
+ *
+ *   // header:
+ *   <SortHeader id="pts" label="PTS" currentId={sortId} dir={sortDir} onSort={handleSort} />
+ *
+ *   // body:
+ *   sortedRows.map(row => ...)
+ *   ```
+ */
 import { useMemo, useState } from "react";
 
 export type SortDir = "asc" | "desc";
 
+/** Column descriptor: how to extract the sort key + which direction to default to. */
 export interface SortableColumn<T> {
   id: string;
+  /** Comparator key. Return null/undefined to sink the row to the bottom. */
   sortValue?: (row: T) => number | string | null | undefined;
+  /** Direction applied the first time the user clicks this column header. */
   defaultDir?: SortDir;
 }
 

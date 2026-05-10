@@ -4,6 +4,17 @@ interface AvatarProps {
   size?: number;
 }
 
+/**
+ * Avatar — small circular team/player image with a fallback initials chip.
+ *
+ * `avatar` is a Sleeper avatar hash (the part that goes into the
+ * `sleepercdn.com/avatars/thumbs/<hash>` URL). When it's null we render a
+ * grey circle with the first two characters of `name` instead, which keeps
+ * the table layouts stable even before avatars load.
+ *
+ * Used by every dashboard widget plus the claimed-team badge in the top
+ * nav (AppShell).
+ */
 export function Avatar({ avatar, name, size = 20 }: AvatarProps) {
   if (avatar) {
     return (

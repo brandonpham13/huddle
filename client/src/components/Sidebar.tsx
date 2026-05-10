@@ -1,3 +1,30 @@
+/**
+ * Sidebar — left-rail nav, owned by `AppShell` (passed `mobileOpen` props).
+ *
+ * Two display modes wired up via Tailwind responsive classes:
+ *
+ *   - Desktop (md+): inline, always-visible aside. The user can toggle a
+ *     "collapsed" state via the chevron handle that hangs off the right
+ *     edge — collapsed mode hides labels and shrinks the rail to icon-only.
+ *
+ *   - Mobile (<md): slide-in drawer triggered by AppShell's hamburger
+ *     button. We render the same component but apply `fixed` + a translate
+ *     transform to slide it in from the left. A backdrop covers the rest
+ *     of the screen and dismisses on tap.
+ *
+ * The drawer always shows labels regardless of the desktop `collapsed`
+ * state (see `renderCollapsed`) — there's plenty of horizontal room in the
+ * 16rem drawer.
+ *
+ * The "Teams" disclosure is a per-league list of every roster, with the
+ * user's claimed team pinned to the top. The list is keyed off the
+ * currently-selected league (from Redux) and shares its data with the
+ * dashboard via TanStack Query's cache.
+ *
+ * The mobile-only footer at the bottom mirrors the items hidden from
+ * AppShell's top nav at `<sm` (Leagues link, Account button), so the user
+ * still has reach to them when those labels are clipped from the top bar.
+ */
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import {

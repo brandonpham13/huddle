@@ -1,3 +1,21 @@
+/**
+ * DashboardPage — the home / "/" route, rendered inside AppShell.
+ *
+ * Plays the **orchestrator** role for the newspaper-style dashboard:
+ *   1. Pulls the currently-selected league out of Redux (`auth.selectedLeagueId`).
+ *   2. Fetches every shared piece of data the dashboard needs in one place
+ *      (rosters, users, matchups, players, stats, power rankings, NFL state,
+ *      league families) using the TanStack Query hooks in `hooks/useSleeper.ts`
+ *      and friends.
+ *   3. Derives a "display week" appropriate for the selected league (see the
+ *      `isLeagueCurrent` block) so each widget receives consistent values.
+ *   4. Composes the widgets from `widgets/dashboard/*` and passes the data
+ *      down as props — there's no lazy loading or registry, just plain props.
+ *
+ * If you're adding a new dashboard section, see PLAYBOOK.md ("Adding a new
+ * section to the Dashboard"). Most of the time you'll create a new file
+ * under `widgets/dashboard/`, then plumb its props through this orchestrator.
+ */
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useAppSelector } from "../store/hooks";
@@ -22,6 +40,10 @@ import { LeagueTable } from "../widgets/dashboard/LeagueTable";
 import { Scoreboard } from "../widgets/dashboard/Scoreboard";
 import { PowerRankings } from "../widgets/dashboard/PowerRankings";
 
+/**
+ * Shown when the user has no leagues synced yet (or hasn't picked one).
+ * "Syncing" happens on the /leagues page, which is wired up in App.tsx.
+ */
 function EmptyState() {
   return (
     <div className="flex-1 flex items-center justify-center">
@@ -36,6 +58,13 @@ function EmptyState() {
 }
 
 export function DashboardPage() {
+  // -----------------------------------------------------------------------
+  // Step 1: Read selection state out of Redux.
+  //
+  // `syncedLeagueIds` is the set of Sleeper leagues the user has connected
+  // (managed on /leagues). `selectedLeagueId` is the currently-active one,
+  // persisted to localStorage by the store subscriber in `store/index.ts`.
+  // -----------------------------------------------------------------------
   const syncedLeagueIds = useAppSelector(
     (state) => state.auth.user?.syncedLeagueIds ?? [],
   );
@@ -43,6 +72,15 @@ export function DashboardPage() {
     (state) => state.auth.selectedLeagueId,
   );
 
+  // -----------------------------------------------------------------------
+  // Step 2: Fetch the global / per-league reference data.
+  //
+  // All of these are TanStack Query hooks, which means they're cached
+  // across re-renders and shared with any other component that calls them
+  // (Sidebar, AppShell, etc.). See `hooks/useSleeper.ts` for the actual
+  // queries — they hit the `/api/provider/sleeper/...` endpoints on our
+  // Express backend, which proxies + normalizes the Sleeper public API.
+  // -----------------------------------------------------------------------
   const { data: allLeagues } = useAllSleeperLeagues();
   const { data: selectedLeague } = useLeague(selectedLeagueId);
   const { data: nflState } = useNFLState();
@@ -86,6 +124,15 @@ export function DashboardPage() {
     ? 0
     : (lastScoredLeg ?? (playoffWeekStart ? playoffWeekStart + 2 : 17));
 
+  // -----------------------------------------------------------------------
+  // Step 4: Per-league data fetches keyed off `(selectedLeagueId, week)`.
+  //
+  // TanStack Query keys these by their args, so swapping leagues or weeks
+  // automatically refetches without us having to manage cache invalidation.
+  // `nextMatchups` uses week=0 as a "disabled" sentinel — the hook returns
+  // undefined in that case (see useLeagueMatchups), which keeps the
+  // "Next week preview" card empty for past-season leagues.
+  // -----------------------------------------------------------------------
   const { data: rosters } = useLeagueRosters(selectedLeagueId);
   const { data: users } = useLeagueUsers(selectedLeagueId);
   const { data: matchups } = useLeagueMatchups(selectedLeagueId, week);
@@ -96,6 +143,18 @@ export function DashboardPage() {
   const { data: playerStats } = usePlayerStats(season, week);
   const { data: powerData } = usePowerRankings(selectedLeagueId);
 
+  // -----------------------------------------------------------------------
+  // Step 5: Derive the "league family" (same league across multiple seasons).
+  //
+  // Sleeper assigns each league season its own leagueId, but links them via
+  // `previousLeagueRef`. `getFamilySeasons` walks that chain to return every
+  // season belonging to the selected league's family, sorted newest-first.
+  // We use this for:
+  //   - the season dropdown in AppShell's nav
+  //   - the masthead "ESTABLISHED <year>" eyebrow
+  //   - resolving the user's claimed team (claims live on the newest season
+  //     in the family, not on whichever season is currently selected)
+  // -----------------------------------------------------------------------
   const familySeasons = useMemo(
     () =>
       selectedLeagueId && allLeagues
@@ -104,20 +163,44 @@ export function DashboardPage() {
     [selectedLeagueId, allLeagues],
   );
 
+  // Bottom-most entry in `familySeasons` (which is sorted newest-first) is
+  // the founding year of the league. Used by Masthead's "ESTABLISHED" line.
   const oldestYear = useMemo(
     () => familySeasons.at(-1)?.season ?? selectedLeague?.season ?? null,
     [familySeasons, selectedLeague],
   );
 
+  // The newest season's leagueId for this family. Claims (huddle membership)
+  // are stored against the newest season, so claim lookup needs this even
+  // when the user is currently viewing an older season.
   const currentFamilyLeagueId =
     familySeasons[0]?.ref.leagueId ?? selectedLeagueId;
   const { rosterId: myRosterId } = useMyClaimedTeam(currentFamilyLeagueId);
 
+  // List of leagues the user has actually synced (vs. the broader allLeagues
+  // which also contains family siblings the user may not have explicitly
+  // added). `hasLeague` gates the empty-state.
   const syncedLeagues =
     allLeagues?.filter((l) => syncedLeagueIds.includes(l.ref.leagueId)) ?? [];
 
   const hasLeague = !!selectedLeagueId && syncedLeagues.length > 0;
 
+  // -----------------------------------------------------------------------
+  // Step 6: Render. The newspaper layout, top-to-bottom:
+  //
+  //   ┌─────────────────────────────────────────┐
+  //   │ <Ticker>  scrolling marquee, full bleed │
+  //   ├─────────────────────────────────────────┤
+  //   │ <Masthead>  league name + "Established" │
+  //   ├─────────────────────────────────────────┤
+  //   │ <MyTeamSection>  hero, claimed team     │
+  //   │ <TopPerformers>  5-up player grid       │
+  //   │ <LeagueTable>  <Scoreboard>  <PowerRk>  │ ← 3-col on lg+
+  //   └─────────────────────────────────────────┘
+  //
+  // Each widget owns its own internal layout; this orchestrator only
+  // controls page padding (px-3 sm:px-7) and inter-section spacing.
+  // -----------------------------------------------------------------------
   return (
     <div className="min-h-full bg-paper text-ink font-sans flex flex-col">
       {!hasLeague ? (

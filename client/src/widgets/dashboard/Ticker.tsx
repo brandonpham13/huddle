@@ -1,3 +1,20 @@
+/**
+ * Ticker — the scrolling marquee at the top of the dashboard, above the
+ * masthead, showing every matchup pair for the current display week.
+ *
+ * Wiring:
+ *   - Receives `matchups`, `rosters`, `users`, `week` from `DashboardPage`.
+ *   - Renders nothing when there are no matchups (offseason or pre-draft
+ *     leagues — `DashboardPage` defaults the display week to 17 so this
+ *     usually has data for any in-season or completed league).
+ *
+ * Implementation note:
+ *   The horizontal animation uses a pure-CSS keyframe (`@keyframes ticker`)
+ *   that translates the inner container -50% over 60s. We duplicate the pair
+ *   list (`[...pairs, ...pairs]`) so when the first copy slides off the
+ *   left edge the second copy is exactly where the first started — gives a
+ *   seamless loop without any JS scheduling.
+ */
 import { Avatar } from "../../components/Avatar";
 import { useLeagueMatchups } from "../../hooks/useSleeper";
 import type { Roster, TeamUser } from "../../types/fantasy";

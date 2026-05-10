@@ -1,5 +1,22 @@
+/**
+ * `auth` slice — the single source of truth for "who is signed in and
+ * what are they currently looking at" across the app.
+ *
+ * Source of data:
+ *   - `user.*`            ← mirrored from Clerk (`unsafeMetadata`) by
+ *                            `AuthGuard` on every Clerk user update
+ *   - `selectedLeagueId`  ← set by the league dropdown in AppShell;
+ *                            persisted to localStorage by store/index.ts
+ *   - `selectedYear`      ← set alongside selectedLeagueId so /leagues knows
+ *                            which season's leagues to fetch
+ *
+ * Anything that needs to react synchronously to these values (sidebar,
+ * dashboard, route guards) reads them with `useAppSelector`. Async
+ * dependent data is fetched separately through TanStack Query hooks.
+ */
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
+/** Shape mirroring Clerk's user + the extra Sleeper bits we store on it. */
 interface User {
   id: string;
   username: string | null;
@@ -13,6 +30,7 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   selectedLeagueId: string | null;
+  /** Year tied to selectedLeagueId. Used for fetching season-scoped data. */
   selectedYear: string;
 }
 

@@ -1,3 +1,27 @@
+/**
+ * LeagueTable — the "Standings" widget in the bottom-left of the dashboard.
+ *
+ * Columns: # · Team · W–L · PF · PA · Pts. Every header is clickable to
+ * re-sort. The leftmost "#" column always shows the canonical W–L rank
+ * (precomputed in `rankByRosterId`) so it stays meaningful regardless of
+ * which other column the user is currently sorting by.
+ *
+ * Sort plumbing:
+ *   - `useSortedRows` (from `components/sortable.ts`) owns the active sort
+ *     state and produces `sortedRows`.
+ *   - `SortHeader` (from `_shared.tsx`) renders each clickable header cell
+ *     and shows the active arrow indicator.
+ *
+ * Layout: tightened on mobile via the `LEAGUE_TABLE_GRID` constant so the
+ * team-name column doesn't get crushed below 375px.
+ *
+ * Why hand-rolled instead of `<SortableTable>`?
+ *   The newspaper styling (dotted row borders, tiny font sizes, "You" pill
+ *   for the user's row, link-clickable rows) doesn't survive the generic
+ *   `<table>` styling baked into SortableTable. The reusable bits we *do*
+ *   share are the sort *state* (useSortedRows) and the header *element*
+ *   (SortHeader).
+ */
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Avatar } from "../../components/Avatar";
