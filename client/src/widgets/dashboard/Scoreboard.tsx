@@ -50,9 +50,7 @@ export function Scoreboard({
   const playoffRound = isPlayoffWeek ? viewWeek - playoffWeekStart! + 1 : 0;
   const maxBracketRound = useMemo(
     () =>
-      winnersBracket
-        ? Math.max(0, ...winnersBracket.map((m) => m.round))
-        : 0,
+      winnersBracket ? Math.max(0, ...winnersBracket.map((m) => m.round)) : 0,
     [winnersBracket],
   );
   const isFinalRound = playoffRound > 0 && playoffRound === maxBracketRound;
@@ -103,7 +101,13 @@ export function Scoreboard({
       }
     }
     return map;
-  }, [winnersBracket, isPlayoffWeek, playoffRound, isFinalRound, maxBracketRound]);
+  }, [
+    winnersBracket,
+    isPlayoffWeek,
+    playoffRound,
+    isFinalRound,
+    maxBracketRound,
+  ]);
 
   const pairs = useMemo(() => {
     type M = NonNullable<typeof matchups>[number];
@@ -196,7 +200,10 @@ export function Scoreboard({
                   ? "border-l-2 border-l-muted pl-2"
                   : "";
 
-          const tagLabel: Record<MatchupTag, { text: string; cls: string } | null> = {
+          const tagLabel: Record<
+            MatchupTag,
+            { text: string; cls: string } | null
+          > = {
             championship: { text: "Championship", cls: "text-amber-600" },
             "3rd_place": { text: "3rd Place Game", cls: "text-muted" },
             playoff: { text: "Playoff", cls: "text-accent" },

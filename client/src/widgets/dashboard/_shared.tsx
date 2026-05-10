@@ -41,15 +41,17 @@ export function SectionHead({
 }) {
   return (
     <div className="border-t-2 border-ink pt-1.5 mb-3">
-      <div className="flex items-baseline justify-between">
-        <div>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <div className="min-w-0">
           <Eyebrow>{kicker}</Eyebrow>
           <h2 className="font-serif font-bold italic text-xl text-ink leading-tight mt-0.5">
             {title}
           </h2>
         </div>
         {typeof rule === "string" ? (
-          <span className="font-serif italic text-xs text-muted">{rule}</span>
+          <span className="font-serif italic text-xs text-muted shrink-0">
+            {rule}
+          </span>
         ) : (
           rule
         )}

@@ -5,7 +5,10 @@ import { useSortedRows, type SortableColumn } from "../../components/sortable";
 import type { Roster, TeamUser } from "../../types/fantasy";
 import { SectionHead, SortHeader, teamAvatar, teamName } from "./_shared";
 
-const LEAGUE_TABLE_GRID = "grid-cols-[18px_1fr_52px_52px_52px_44px]";
+// Narrower fixed columns on mobile so the team column has room to breathe;
+// expand to comfortable widths at sm+.
+const LEAGUE_TABLE_GRID =
+  "grid-cols-[16px_1fr_42px_42px_42px_36px] sm:grid-cols-[18px_1fr_52px_52px_52px_44px]";
 
 export function LeagueTable({
   rosters,
