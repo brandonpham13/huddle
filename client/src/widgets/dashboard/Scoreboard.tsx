@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useLeagueMatchups, useWinnersBracket } from "../../hooks/useSleeper";
 import type { Roster, TeamUser } from "../../types/fantasy";
 import { MatchupResult, SectionHead, teamAvatar, teamName } from "./_shared";
@@ -146,8 +147,11 @@ export function Scoreboard({
     return result;
   }, [matchups, isPlayoffWeek, bracketTagByRosterKey]);
 
-  const canPrev = viewWeek > 1;
-  const canNext = viewWeek < lastWeek;
+  // No weeks have been scored yet (preseason / fresh league). Lock the nav
+  // and let the empty-state message do the talking.
+  const hasAnyData = lastWeek > 0;
+  const canPrev = hasAnyData && viewWeek > 1;
+  const canNext = hasAnyData && viewWeek < lastWeek;
   const label = weekLabel(viewWeek, playoffWeekStart, lastWeek);
 
   const navButtons = (
@@ -156,19 +160,19 @@ export function Scoreboard({
         type="button"
         disabled={!canPrev}
         onClick={() => setViewWeek((w) => w - 1)}
-        className="px-1.5 py-0.5 text-xs font-serif font-semibold rounded border border-line enabled:hover:bg-ink/5 disabled:opacity-25 transition-colors"
+        className="p-1 rounded border border-line enabled:hover:bg-ink/5 disabled:opacity-25 transition-colors"
         aria-label="Previous week"
       >
-        ◀
+        <ChevronLeft size={14} />
       </button>
       <button
         type="button"
         disabled={!canNext}
         onClick={() => setViewWeek((w) => w + 1)}
-        className="px-1.5 py-0.5 text-xs font-serif font-semibold rounded border border-line enabled:hover:bg-ink/5 disabled:opacity-25 transition-colors"
+        className="p-1 rounded border border-line enabled:hover:bg-ink/5 disabled:opacity-25 transition-colors"
         aria-label="Next week"
       >
-        ▶
+        <ChevronRight size={14} />
       </button>
     </div>
   );
