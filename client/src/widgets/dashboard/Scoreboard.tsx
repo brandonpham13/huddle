@@ -98,7 +98,9 @@ export function Scoreboard({
         else if (is3rdPlace) map.set(key, "3rd_place");
         else map.set(key, "consolation");
       } else {
-        map.set(key, "playoff");
+        const hasLoserSource =
+          bm.team1_from?.loser_of != null || bm.team2_from?.loser_of != null;
+        map.set(key, hasLoserSource ? "consolation" : "playoff");
       }
     }
     return map;
