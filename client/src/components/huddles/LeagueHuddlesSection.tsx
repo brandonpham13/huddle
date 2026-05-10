@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { ChevronRight } from "lucide-react";
 import { Button } from "../ui/button";
 import { useHuddlesForLeague } from "../../hooks/useHuddles";
 import { CreateHuddleModal } from "./CreateHuddleModal";
@@ -42,9 +43,10 @@ export function LeagueHuddlesSection({ leagueId }: { leagueId: string }) {
               <span className="truncate">{h.name}</span>
               <Link
                 to={`/huddles/${h.id}`}
-                className="text-xs font-medium text-blue-600 hover:underline shrink-0"
+                className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-600 hover:underline shrink-0"
               >
-                Open →
+                Open
+                <ChevronRight size={12} />
               </Link>
             </div>
           ))}

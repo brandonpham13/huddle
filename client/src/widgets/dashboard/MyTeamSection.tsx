@@ -109,7 +109,7 @@ export function MyTeamSection({
           differential
         </p>
 
-        <div className="flex gap-5 py-2.5 border-t border-b border-line">
+        <div className="flex flex-wrap gap-x-5 gap-y-2 py-2.5 border-t border-b border-line">
           <Stat label="Record" value={`${myRecord[0]}-${myRecord[1]}`} />
           <Stat label="Points For" value={myPf.toFixed(1)} />
           <Stat label="Points Against" value={myPa.toFixed(1)} />

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
+import { ChevronLeft } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -63,9 +64,10 @@ export function HuddleDetailPage() {
       <nav className="bg-chrome border-b border-line px-6 py-4 flex items-center gap-4">
         <Link
           to="/leagues"
-          className="text-sm text-muted hover:text-ink transition-colors"
+          className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink transition-colors"
         >
-          ← Leagues
+          <ChevronLeft size={14} />
+          Leagues
         </Link>
         <h1 className="text-xl font-bold text-ink">
           {detail?.huddle.name ?? "Group"}

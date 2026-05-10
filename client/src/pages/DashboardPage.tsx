@@ -48,9 +48,43 @@ export function DashboardPage() {
   const { data: nflState } = useNFLState();
   const { data: players } = useNFLPlayers();
 
-  const week = nflState?.display_week ?? nflState?.week ?? 1;
-  const season = nflState?.season ?? selectedLeague?.season ?? "2024";
-  const nextWeek = week < 18 ? week + 1 : week;
+  // Scope display week + season to the selected league. The live NFL state's
+  // current week is only meaningful when the selected league is for the
+  // currently-active regular season; otherwise fall back to the regular-season
+  // finale (week 17) so Ticker / Scoreboard / Top Performers show real data
+  // instead of an empty preseason or wrong-year window.
+  const isLeagueCurrent =
+    !!selectedLeague?.season &&
+    !!nflState?.season &&
+    selectedLeague.season === nflState.season &&
+    nflState.season_type === "regular";
+
+  const week = isLeagueCurrent
+    ? (nflState!.display_week ?? nflState!.week ?? 1)
+    : 17;
+  const season = selectedLeague?.season ?? nflState?.season ?? "2024";
+  const nextWeek = isLeagueCurrent && week < 18 ? week + 1 : week;
+
+  const leagueSettings = selectedLeague?.settings ?? {};
+  const playoffWeekStart =
+    typeof leagueSettings["playoff_week_start"] === "number"
+      ? (leagueSettings["playoff_week_start"] as number)
+      : null;
+  const lastScoredLeg =
+    typeof leagueSettings["last_scored_leg"] === "number"
+      ? (leagueSettings["last_scored_leg"] as number)
+      : null;
+
+  // Sleeper omits last_scored_leg for pre-draft / drafting leagues, so falling
+  // back to playoff_week_start would (incorrectly) advertise weeks 17/18 as
+  // navigable. Pin to 0 when the league hasn't kicked off so Scoreboard locks
+  // its prev/next nav.
+  const leagueStatus = selectedLeague?.status;
+  const isLeagueUnstarted =
+    leagueStatus === "pre_draft" || leagueStatus === "drafting";
+  const lastWeek = isLeagueUnstarted
+    ? 0
+    : (lastScoredLeg ?? (playoffWeekStart ? playoffWeekStart + 2 : 17));
 
   const { data: rosters } = useLeagueRosters(selectedLeagueId);
   const { data: users } = useLeagueUsers(selectedLeagueId);
@@ -140,8 +174,10 @@ export function DashboardPage() {
               <Scoreboard
                 rosters={rosters ?? []}
                 users={users ?? []}
-                matchups={matchups}
-                week={week}
+                leagueId={selectedLeagueId!}
+                currentWeek={isLeagueUnstarted ? 1 : week}
+                playoffWeekStart={playoffWeekStart}
+                lastWeek={lastWeek}
               />
               <PowerRankings
                 columns={powerData?.columns ?? []}

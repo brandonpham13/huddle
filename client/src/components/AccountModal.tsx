@@ -8,6 +8,7 @@ import {
 } from "react";
 import { Link } from "react-router-dom";
 import { UserProfile, useAuth, useUser } from "@clerk/clerk-react";
+import { ChevronRight } from "lucide-react";
 import { Plug, X } from "lucide-react";
 import axios from "axios";
 import { useQueryClient } from "@tanstack/react-query";
@@ -236,9 +237,10 @@ function IntegrationsPage() {
         {sleeperUsername && (
           <Link
             to="/leagues"
-            className="text-sm text-blue-600 hover:underline inline-block"
+            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
           >
-            Manage synced leagues →
+            Manage synced leagues
+            <ChevronRight size={14} />
           </Link>
         )}
       </div>

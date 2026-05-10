@@ -37,18 +37,22 @@ export function SectionHead({
 }: {
   kicker: string;
   title: string;
-  rule: string;
+  rule: React.ReactNode;
 }) {
   return (
     <div className="border-t-2 border-ink pt-1.5 mb-3">
-      <div className="flex items-baseline justify-between">
-        <div>
-          <Eyebrow>{kicker}</Eyebrow>
-          <h2 className="font-serif font-bold italic text-xl text-ink leading-tight mt-0.5">
-            {title}
-          </h2>
-        </div>
-        <span className="font-serif italic text-xs text-muted">{rule}</span>
+      <Eyebrow>{kicker}</Eyebrow>
+      <div className="flex items-center justify-between gap-x-3 mt-0.5">
+        <h2 className="font-serif font-bold italic text-xl text-ink leading-tight min-w-0">
+          {title}
+        </h2>
+        {typeof rule === "string" ? (
+          <span className="font-serif italic text-xs text-muted shrink-0">
+            {rule}
+          </span>
+        ) : (
+          rule
+        )}
       </div>
     </div>
   );
@@ -117,7 +121,7 @@ export function MatchupResult({
     <div className="flex items-center gap-2.5 py-0.5">
       <Avatar avatar={avatar} name={name} size={big ? 24 : 18} />
       <span
-        className={`flex-1 font-serif truncate ${
+        className={`flex-1 font-serif truncate leading-none translate-y-px ${
           won ? "font-bold text-ink" : "font-medium text-body"
         } ${big ? "text-[15px]" : "text-[13px]"}`}
       >
@@ -128,7 +132,7 @@ export function MatchupResult({
           won ? "font-bold text-ink" : "font-medium text-body"
         } ${big ? "text-[19px]" : "text-sm"}`}
       >
-        {pts.toFixed(1)}
+        {pts.toFixed(2)}
       </span>
     </div>
   );

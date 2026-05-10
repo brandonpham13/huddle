@@ -42,11 +42,14 @@ export function PowerRankings({
     "asc",
   );
 
-  // Dynamic grid: 18px rank + 1fr team + N data columns. Inline-style because
-  // the column count varies and Tailwind needs static class strings.
+  // Dynamic grid: rank + team + N data columns. Inline-style because the
+  // column count varies and Tailwind needs static class strings. Team col uses
+  // minmax so it shrinks to a sane minimum and the wrapper's overflow-x-auto
+  // takes over once we run out of horizontal room (e.g., many algo columns
+  // inside a narrow lg/3-col layout).
   const gridStyle = {
-    gridTemplateColumns: `18px 1fr ${columns
-      .map(() => "minmax(40px, 56px)")
+    gridTemplateColumns: `16px minmax(80px, 1fr) ${columns
+      .map(() => "minmax(36px, 56px)")
       .join(" ")}`,
   };
 
@@ -57,77 +60,79 @@ export function PowerRankings({
         title="Power Rankings"
         rule="Composite · this week"
       />
-      <div
-        className="grid items-baseline gap-1.5 text-[9.5px] font-semibold tracking-wider uppercase text-muted font-sans border-b border-line pb-1 mb-0.5"
-        style={gridStyle}
-      >
-        <SortHeader
-          id="rank"
-          label="#"
-          currentId={sortId}
-          dir={sortDir}
-          onSort={handleSort}
-        />
-        <SortHeader
-          id="team"
-          label="Team"
-          currentId={sortId}
-          dir={sortDir}
-          onSort={handleSort}
-        />
-        {columns.map((c) => (
+      <div className="overflow-x-auto">
+        <div
+          className="grid items-baseline gap-1.5 text-[9.5px] font-semibold tracking-wider uppercase text-muted font-sans border-b border-line pb-1 mb-0.5"
+          style={gridStyle}
+        >
           <SortHeader
-            key={c.id}
-            id={c.id}
-            label={c.label}
+            id="rank"
+            label="#"
             currentId={sortId}
             dir={sortDir}
             onSort={handleSort}
-            align="right"
-            className="truncate"
           />
-        ))}
-      </div>
-      {sortedRows.map((row) => (
-        <Link
-          key={row.rosterId}
-          to={`/teams/${row.rosterId}`}
-          className="grid items-center gap-1.5 py-1 border-b border-dotted border-line hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-          style={gridStyle}
-        >
-          <div className="font-serif italic font-semibold text-xs text-muted">
-            {row.overallRank}
-          </div>
-          <div className="flex items-center gap-1.5 min-w-0">
-            <Avatar avatar={row.avatar} name={row.teamName} size={14} />
-            <span className="font-serif text-[12.5px] text-ink truncate">
-              {row.teamName}
-            </span>
-          </div>
-          {columns.map((c) => {
-            if (c.displayMode === "rank") {
-              const rank = row.ranks[c.id];
+          <SortHeader
+            id="team"
+            label="Team"
+            currentId={sortId}
+            dir={sortDir}
+            onSort={handleSort}
+          />
+          {columns.map((c) => (
+            <SortHeader
+              key={c.id}
+              id={c.id}
+              label={c.label}
+              currentId={sortId}
+              dir={sortDir}
+              onSort={handleSort}
+              align="right"
+              className="truncate"
+            />
+          ))}
+        </div>
+        {sortedRows.map((row) => (
+          <Link
+            key={row.rosterId}
+            to={`/teams/${row.rosterId}`}
+            className="grid items-center gap-1.5 py-1 border-b border-dotted border-line hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+            style={gridStyle}
+          >
+            <div className="font-serif italic font-semibold text-xs text-muted">
+              {row.overallRank}
+            </div>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Avatar avatar={row.avatar} name={row.teamName} size={14} />
+              <span className="font-serif text-[12.5px] text-ink truncate">
+                {row.teamName}
+              </span>
+            </div>
+            {columns.map((c) => {
+              if (c.displayMode === "rank") {
+                const rank = row.ranks[c.id];
+                return (
+                  <div
+                    key={c.id}
+                    className="text-right font-mono text-[10.5px] text-body tabular-nums"
+                  >
+                    {rank != null ? `#${rank}` : "—"}
+                  </div>
+                );
+              }
+              const score = row.scores[c.id];
               return (
                 <div
                   key={c.id}
                   className="text-right font-mono text-[10.5px] text-body tabular-nums"
                 >
-                  {rank != null ? `#${rank}` : "—"}
+                  {score != null ? Number(score).toFixed(2) : "—"}
                 </div>
               );
-            }
-            const score = row.scores[c.id];
-            return (
-              <div
-                key={c.id}
-                className="text-right font-mono text-[10.5px] text-body tabular-nums"
-              >
-                {score != null ? Number(score).toFixed(2) : "—"}
-              </div>
-            );
-          })}
-        </Link>
-      ))}
+            })}
+          </Link>
+        ))}
+      </div>
     </section>
   );
 }

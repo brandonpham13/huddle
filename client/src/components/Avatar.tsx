@@ -11,7 +11,7 @@ export function Avatar({ avatar, name, size = 20 }: AvatarProps) {
         src={`https://sleepercdn.com/avatars/thumbs/${avatar}`}
         alt={name}
         style={{ width: size, height: size }}
-        className="rounded-full object-cover shrink-0"
+        className="block rounded-full object-cover shrink-0"
       />
     );
   }
