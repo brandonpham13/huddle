@@ -35,6 +35,8 @@ export function LeagueTable({
     () => [
       {
         id: "rank",
+        // Sort by precomputed canonical rank so clicking "#" returns to the
+        // standings order even after the user has explored other sorts.
         sortValue: (r) => rankByRosterId.get(r.rosterId) ?? Infinity,
         defaultDir: "asc",
       },
@@ -45,10 +47,14 @@ export function LeagueTable({
       },
       {
         id: "wl",
+        // Treat ties as half a win so a 9-3-1 team sorts ahead of 9-4-0
+        // without needing a separate tiebreak step.
         sortValue: (r) => (r.record.wins ?? 0) + (r.record.ties ?? 0) * 0.5,
         defaultDir: "desc",
       },
       { id: "pf", sortValue: (r) => r.pointsFor, defaultDir: "desc" },
+      // PA is "lower is better" so default to asc — the smallest number ranks
+      // first when the user clicks the header.
       { id: "pa", sortValue: (r) => r.pointsAgainst, defaultDir: "asc" },
       { id: "pts", sortValue: (r) => r.pointsFor, defaultDir: "desc" },
     ],

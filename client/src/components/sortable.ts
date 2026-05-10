@@ -19,8 +19,12 @@ export function useSortedRows<T>(
 
   const handleSort = (id: string) => {
     if (sortId === id) {
+      // Repeat clicks on the same column flip direction so the user can
+      // toggle without having to reach for a second control.
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
+      // First click on a new column jumps to that column's preferred
+      // initial direction (e.g. "name" → asc, "points" → desc).
       const col = columns.find((c) => c.id === id);
       setSortId(id);
       setSortDir(col?.defaultDir ?? "desc");
@@ -35,6 +39,9 @@ export function useSortedRows<T>(
     return [...rows].sort((a, b) => {
       const av = col.sortValue!(a) ?? null;
       const bv = col.sortValue!(b) ?? null;
+      // Null/undefined values always sink to the bottom regardless of
+      // direction — sorting "missing data" mixed with real numbers is
+      // never useful.
       if (av === null && bv === null) return 0;
       if (av === null) return 1;
       if (bv === null) return -1;

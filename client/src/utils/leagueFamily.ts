@@ -13,6 +13,10 @@ export function buildFamilyRootMap(leagues: League[]): Map<string, string> {
     }
   }
   const cache = new Map<string, string>();
+  // Walk the parent chain memoized via `cache`. The `visited` set guards
+  // against pathological data where a previousLeagueRef cycle could send us
+  // into infinite recursion — if we ever revisit an id we treat it as the
+  // root for that branch rather than throwing.
   function getRoot(id: string, visited = new Set<string>()): string {
     if (cache.has(id)) return cache.get(id)!;
     if (visited.has(id)) return id;

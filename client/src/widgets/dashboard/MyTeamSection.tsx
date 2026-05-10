@@ -57,6 +57,9 @@ export function MyTeamSection({
   const myRank =
     powerRows.find((r) => r.rosterId === myRosterId)?.overallRank ?? null;
 
+  // Sleeper returns matchups as a flat list of per-roster entries; teams in
+  // the same game share a matchupId. Bucket them so we can find the
+  // opponent for the user's team without scanning the whole array twice.
   const byMatchup = new Map<number, typeof matchups>();
   for (const m of matchups ?? []) {
     if (!m.matchupId) continue;
@@ -77,6 +80,10 @@ export function MyTeamSection({
   const oppPts = oppEntry?.points ?? 0;
   const won = myPts > oppPts;
 
+  // Same trick as above for the upcoming week so we can show "Next · vs X".
+  // Will be a no-op (empty maps, null nextOppRoster) for past-season leagues
+  // since DashboardPage pins nextWeek to the current week — the JSX falls
+  // through to the "Schedule TBD" branch.
   const nextByMatchup = new Map<number, typeof nextMatchups>();
   for (const m of nextMatchups ?? []) {
     if (!m.matchupId) continue;

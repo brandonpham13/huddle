@@ -24,6 +24,10 @@ export function PowerRankings({
         defaultDir: "asc",
       },
     ];
+    // Build a sort entry per server-supplied algorithm column. Rank-mode
+    // columns negate their value so a single "desc" comparator still puts
+    // rank 1 (best) at the top — saves us from special-casing direction
+    // per column type elsewhere.
     const algo = columns.map<SortableColumn<PowerRankingRow>>((c) => ({
       id: c.id,
       sortValue: (r) =>
