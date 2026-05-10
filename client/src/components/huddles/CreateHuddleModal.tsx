@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ChevronRight } from "lucide-react";
 import { Button } from "../ui/button";
 import { useCreateHuddle } from "../../hooks/useHuddles";
 import {
@@ -86,8 +87,10 @@ export function CreateHuddleModal({
                 onClose();
                 navigate(`/huddles/${created.id}`);
               }}
+              className="inline-flex items-center gap-1"
             >
-              Go to huddle →
+              Go to huddle
+              <ChevronRight size={14} />
             </Button>
           </div>
         </div>

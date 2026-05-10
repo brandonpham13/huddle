@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { ChevronLeft } from "lucide-react";
 import { useAccountModal } from "../components/AccountModal";
 import { useAppSelector } from "../store/hooks";
 import { useAllSleeperLeagues, useSyncLeagues } from "../hooks/useSleeper";
@@ -105,9 +106,10 @@ export function LeaguesPage() {
       <nav className="bg-chrome border-b border-line px-6 py-4 flex items-center gap-4">
         <Link
           to="/"
-          className="text-sm text-muted hover:text-ink transition-colors"
+          className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink transition-colors"
         >
-          ← Dashboard
+          <ChevronLeft size={14} />
+          Dashboard
         </Link>
         <h1 className="text-xl font-bold text-ink">My Leagues</h1>
       </nav>

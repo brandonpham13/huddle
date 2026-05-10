@@ -74,7 +74,17 @@ export function DashboardPage() {
     typeof leagueSettings["last_scored_leg"] === "number"
       ? (leagueSettings["last_scored_leg"] as number)
       : null;
-  const lastWeek = lastScoredLeg ?? (playoffWeekStart ? playoffWeekStart + 2 : 17);
+
+  // Sleeper omits last_scored_leg for pre-draft / drafting leagues, so falling
+  // back to playoff_week_start would (incorrectly) advertise weeks 17/18 as
+  // navigable. Pin to 0 when the league hasn't kicked off so Scoreboard locks
+  // its prev/next nav.
+  const leagueStatus = selectedLeague?.status;
+  const isLeagueUnstarted =
+    leagueStatus === "pre_draft" || leagueStatus === "drafting";
+  const lastWeek = isLeagueUnstarted
+    ? 0
+    : (lastScoredLeg ?? (playoffWeekStart ? playoffWeekStart + 2 : 17));
 
   const { data: rosters } = useLeagueRosters(selectedLeagueId);
   const { data: users } = useLeagueUsers(selectedLeagueId);
