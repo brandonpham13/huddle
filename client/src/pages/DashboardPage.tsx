@@ -175,7 +175,7 @@ export function DashboardPage() {
                 rosters={rosters ?? []}
                 users={users ?? []}
                 leagueId={selectedLeagueId!}
-                currentWeek={week}
+                currentWeek={isLeagueUnstarted ? 1 : week}
                 playoffWeekStart={playoffWeekStart}
                 lastWeek={lastWeek}
               />
