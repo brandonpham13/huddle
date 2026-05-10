@@ -1,6 +1,10 @@
 import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "./slices/authSlice";
 
+// Persisted slice of the Redux state. We deliberately persist only the
+// user's league/season picks — auth state itself is owned by Clerk and would
+// be stale after a token refresh, and rosters/matchups belong to TanStack
+// Query's own cache.
 const STORAGE_KEY = "huddle:selection";
 
 interface PersistedSelection {
@@ -18,6 +22,8 @@ function loadPersistedSelection(): PersistedSelection {
       selectedYear: parsed.selectedYear,
     };
   } catch {
+    // Corrupted JSON or localStorage thrown (private mode / SSR). Fall back
+    // to "no persistence" rather than blocking the app from booting.
     return { selectedLeagueId: null };
   }
 }
@@ -39,6 +45,10 @@ export const store = configureStore({
   },
 });
 
+// Subscribe instead of using a middleware so we don't pay the serialization
+// cost on every action — only when the persisted slice actually changes. The
+// `lastPersisted` guard keeps us from re-writing the same string after
+// unrelated auth-slice updates (e.g. setUser).
 let lastPersisted = JSON.stringify({
   selectedLeagueId: persisted.selectedLeagueId,
   selectedYear: persisted.selectedYear,

@@ -67,6 +67,9 @@ export function AppShell({ children }: AppShellProps) {
     return result;
   }, [syncedLeagues, familyRootMap]);
 
+  // Auto-select on first load when nothing is persisted yet. We only fire
+  // when selectedLeagueId is null so we don't clobber a league/season the
+  // user explicitly picked (which the store hydrated from localStorage).
   useEffect(() => {
     if (!selectedLeagueId && uniqueLeagues.length > 0) {
       const first = uniqueLeagues[0]!;

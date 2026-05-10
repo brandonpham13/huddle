@@ -29,6 +29,8 @@ export function TopPerformers({
   const top = useMemo(() => {
     if (!playerStats || !players) return [];
 
+    // Reverse-index Sleeper's per-roster `players` arrays so we can answer
+    // "which roster owns this player?" in O(1) while filtering stats.
     const playerToRoster = new Map<string, number>();
     for (const r of rosters) {
       for (const pid of r.players ?? []) {
@@ -36,21 +38,26 @@ export function TopPerformers({
       }
     }
 
-    return Object.entries(playerStats)
-      .filter(([pid]) => !pid.startsWith("TEAM_") && playerToRoster.has(pid))
-      .map(([pid, stats]) => ({
-        playerId: pid,
-        name:
-          players[pid]?.fullName ??
-          (`${players[pid]?.firstName ?? ""} ${players[pid]?.lastName ?? ""}`.trim() ||
-            pid),
-        position: players[pid]?.position ?? "—",
-        pts: Number(stats.pts_ppr ?? 0),
-        rosterId: playerToRoster.get(pid)!,
-      }))
-      .filter((p) => p.pts > 0)
-      .sort((a, b) => b.pts - a.pts)
-      .slice(0, 5);
+    return (
+      Object.entries(playerStats)
+        // Sleeper mixes in defense entries keyed like "TEAM_BUF". Drop them
+        // so the leaderboard only shows individual players, and skip anyone
+        // not currently rostered in this league.
+        .filter(([pid]) => !pid.startsWith("TEAM_") && playerToRoster.has(pid))
+        .map(([pid, stats]) => ({
+          playerId: pid,
+          name:
+            players[pid]?.fullName ??
+            (`${players[pid]?.firstName ?? ""} ${players[pid]?.lastName ?? ""}`.trim() ||
+              pid),
+          position: players[pid]?.position ?? "—",
+          pts: Number(stats.pts_ppr ?? 0),
+          rosterId: playerToRoster.get(pid)!,
+        }))
+        .filter((p) => p.pts > 0)
+        .sort((a, b) => b.pts - a.pts)
+        .slice(0, 5)
+    );
   }, [playerStats, players, rosters]);
 
   if (top.length === 0) return null;

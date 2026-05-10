@@ -64,7 +64,9 @@ export function Sidebar({
     if (!rosters) return [];
     return [...rosters]
       .sort((a, b) => {
-        // Claimed team first
+        // Pin the user's claimed team to the top of the Teams list — it's the
+        // one they navigate to most often. Everything else falls back to the
+        // numeric rosterId order Sleeper assigns.
         if (a.rosterId === myRosterId) return -1;
         if (b.rosterId === myRosterId) return 1;
         return a.rosterId - b.rosterId;
@@ -81,8 +83,13 @@ export function Sidebar({
       });
   }, [rosters, leagueUsers, myRosterId]);
 
-  // Mobile drawer always shows labels; desktop honors `collapsed`.
+  // The desktop "collapsed" state hides labels to save horizontal space, but
+  // when the same component is rendered as the mobile drawer there's plenty
+  // of width — force the expanded look so the user isn't staring at icon-only
+  // nav inside the drawer.
   const renderCollapsed = collapsed && !mobileOpen;
+  // Drawer is always 16rem wide; the desktop layout collapses between 14 and
+  // 52 px depending on user preference.
   const widthClass = collapsed ? "w-64 md:w-14" : "w-64 md:w-52";
 
   return (

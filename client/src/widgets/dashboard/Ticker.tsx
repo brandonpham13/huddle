@@ -52,7 +52,10 @@ export function Ticker({
     });
   }
 
-  const items = [...pairs, ...pairs]; // duplicate for seamless loop
+  // Duplicate the pair list and translate -50% over the animation period.
+  // When the first copy reaches -50% the second copy is in the position
+  // the first started at, giving an unbroken loop without a JS scheduler.
+  const items = [...pairs, ...pairs];
 
   return (
     <div className="relative overflow-hidden bg-chrome border-b border-line">
