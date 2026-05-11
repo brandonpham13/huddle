@@ -27,6 +27,7 @@
  * before Redux has hydrated.
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import axios from "axios";
 import { useAuth } from "@clerk/clerk-react";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -372,4 +373,69 @@ export function useSyncLeagues() {
       queryClient.invalidateQueries({ queryKey: ["sleeper-leagues"] });
     },
   });
+}
+
+// ---- Season matchup log for a specific roster ----
+//
+// Fetches all weekly matchup entries up to `lastWeek` for `leagueId` and
+// filters down to the row for `rosterId`. Returns a week-by-week array of
+// { week, pf, pa, result } suitable for the season trail sparkline on
+// TeamPage. Matches are resolved by pairing entries with the same matchupId.
+//
+// Fetches are done in parallel (one query per week) — TanStack Query dedupes
+// these with the matchup queries already in flight from DashboardPage.
+
+export interface TeamWeekResult {
+  week: number;
+  pf: number;
+  pa: number;
+  result: "W" | "L" | "T" | null;
+}
+
+// Sleeper seasons can extend into playoff weeks; 22 covers all known formats.
+// This constant must never change at runtime — it fixes the number of useQuery
+// calls so the hook count stays stable across renders (rules of hooks).
+const MAX_SEASON_WEEKS = 22;
+
+export function useTeamSeasonLog(
+  leagueId: string | null,
+  rosterId: number | null,
+  lastWeek: number,
+) {
+  // Always call exactly MAX_SEASON_WEEKS useQuery hooks regardless of lastWeek.
+  // Calling hooks inside a variable-length loop violates rules of hooks and
+  // causes React to crash when lastWeek changes between renders (e.g. when the
+  // user switches seasons from the nav). The enabled flag gates actual fetches.
+  const results = Array.from({ length: MAX_SEASON_WEEKS }, (_, i) => i + 1).map((week) =>
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useQuery({
+      queryKey: ["sleeper-matchups", leagueId, week],
+      queryFn: async () => {
+        const res = await axios.get<{ matchups: Matchup[] }>(
+          base(`/league/${leagueId}/matchups/${week}`),
+        );
+        return res.data.matchups;
+      },
+      enabled: !!leagueId && !!rosterId && week <= lastWeek,
+      staleTime: 2 * 60 * 1000,
+    }),
+  );
+
+  return useMemo<TeamWeekResult[]>(() => {
+    if (!rosterId || lastWeek <= 0) return [];
+    return Array.from({ length: lastWeek }, (_, i) => i + 1).flatMap((week) => {
+      const matchups = results[week - 1]?.data;
+      if (!matchups) return [];
+      const mine = matchups.find((m) => m.rosterId === rosterId);
+      if (!mine || mine.matchupId === null) return [];
+      const opp = matchups.find(
+        (m) => m.matchupId === mine.matchupId && m.rosterId !== rosterId,
+      );
+      const pa = opp?.points ?? 0;
+      const result: "W" | "L" | "T" =
+        mine.points > pa ? "W" : mine.points < pa ? "L" : "T";
+      return [{ week, pf: mine.points, pa, result }];
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rosterId, lastWeek, ...results.map((r) => r.data)]);
 }
