@@ -145,35 +145,35 @@ function Masthead({
 
   return (
     <div className="px-6 pt-5 pb-4 border-b-2 border-ink">
-      <div className="flex items-end justify-between gap-6">
-        {/* Left: crest + name */}
-        <div className="flex items-center gap-5">
-          {/* Team crest */}
+      {/* On mobile: stack crest+name then stats. On md+: side-by-side. */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-6">
+        {/* Crest + name */}
+        <div className="flex items-center gap-4 md:gap-5">
           <div className="relative shrink-0">
             {sleeperAvatarUrl(avatar) ? (
               <img
                 src={sleeperAvatarUrl(avatar)!}
                 alt={teamName}
-                className="w-20 h-20 rounded object-cover ring-2 ring-accent"
+                className="w-16 h-16 md:w-20 md:h-20 rounded object-cover ring-2 ring-accent"
               />
             ) : (
-              <div className="w-20 h-20 bg-accent flex items-center justify-center rounded ring-2 ring-accent">
-                <span className="font-serif italic font-bold text-4xl text-white leading-none tracking-tight">
+              <div className="w-16 h-16 md:w-20 md:h-20 bg-accent flex items-center justify-center rounded ring-2 ring-accent">
+                <span className="font-serif italic font-bold text-3xl md:text-4xl text-white leading-none tracking-tight">
                   {initials}
                 </span>
               </div>
             )}
           </div>
 
-          <div>
+          <div className="min-w-0">
             <Eyebrow>
-              {ownerName ? `Manager · ${ownerName} · ` : ""}
               {season} Season
+              {ownerName && ` · ${ownerName}`}
               {isMyTeam && (
                 <span className="ml-2 text-accent font-bold">★ Your Team</span>
               )}
             </Eyebrow>
-            <h1 className="font-serif font-bold italic text-[42px] leading-[0.96] tracking-tight text-ink mt-1 mb-1">
+            <h1 className="font-serif font-bold italic text-[32px] md:text-[42px] leading-[0.96] tracking-tight text-ink mt-1 mb-1">
               {teamName}
             </h1>
             <div className="font-serif italic text-xs text-muted">
@@ -183,8 +183,8 @@ function Masthead({
           </div>
         </div>
 
-        {/* Right: key stats */}
-        <div className="flex gap-5 shrink-0 text-right">
+        {/* Key stats — wrap on mobile, fixed row on md+ */}
+        <div className="flex flex-wrap gap-x-5 gap-y-3 md:shrink-0 md:text-right">
           <Stat label="Record" value={wl} />
           <Stat label="Streak" value={streak ?? "—"} accent />
           <Stat
@@ -448,9 +448,9 @@ function SeasonHistory({
         title="Season by Season"
         rule="Finish · seed · postseason"
       />
-      <div className="mt-2">
+      <div className="mt-2 overflow-x-auto">
         {/* Header */}
-        <div className="grid grid-cols-[52px_70px_80px_80px_60px_1fr_50px] gap-0 items-baseline pb-1 border-b border-line text-[9.5px] font-semibold tracking-wider uppercase text-muted font-sans">
+        <div className="grid grid-cols-[44px_60px_62px_62px_46px_1fr_44px] min-w-0 gap-0 items-baseline pb-1 border-b border-line text-[9.5px] font-semibold tracking-wider uppercase text-muted font-sans">
           <div>Year</div>
           <div>Record</div>
           <div className="text-right">PF</div>
@@ -468,7 +468,7 @@ function SeasonHistory({
           familySeasons.map((league) => (
             <div
               key={league.ref.leagueId}
-              className="grid grid-cols-[52px_70px_80px_80px_60px_1fr_50px] gap-0 items-center py-2 border-b border-dotted border-line"
+              className="grid grid-cols-[44px_60px_62px_62px_46px_1fr_44px] min-w-0 gap-0 items-center py-2 border-b border-dotted border-line"
             >
               <div className="font-serif italic font-bold text-[17px] text-ink leading-none">
                 {league.season}
