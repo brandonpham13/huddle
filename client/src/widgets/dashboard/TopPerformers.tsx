@@ -52,6 +52,7 @@ export function TopPerformers({
           firstName: string;
           lastName: string;
           position: string;
+          team?: string | null;
         }
       >
     | undefined;
@@ -60,15 +61,25 @@ export function TopPerformers({
   const [selectedPos, setSelectedPos] = useState<Position>("ALL");
 
   // Reverse-index rosters once so per-player lookup is O(1).
-  const playerToRoster = useMemo(() => {
-    const map = new Map<string, number>();
+  // DEF players are stored in rosters by numeric ID (e.g. "4046") but appear
+  // in the stats map as "TEAM_BUF". We build a second mapping from the
+  // TEAM_XXX key → rosterId using the player dictionary's team field so the
+  // DEF filter can match stats entries to their owning roster.
+  const { playerToRoster, defTeamToRoster } = useMemo(() => {
+    const playerToRoster = new Map<string, number>();
+    const defTeamToRoster = new Map<string, number>(); // "TEAM_BUF" -> rosterId
     for (const r of rosters) {
       for (const pid of r.players ?? []) {
-        map.set(pid, r.rosterId);
+        playerToRoster.set(pid, r.rosterId);
+        // If this player is a DEF, also register the TEAM_XXX stats key.
+        const team = players?.[pid]?.team;
+        if (players?.[pid]?.position === "DEF" && team) {
+          defTeamToRoster.set(`TEAM_${team}`, r.rosterId);
+        }
       }
     }
-    return map;
-  }, [rosters]);
+    return { playerToRoster, defTeamToRoster };
+  }, [rosters, players]);
 
   const top = useMemo(() => {
     if (!playerStats || !players) return [];
@@ -78,7 +89,7 @@ export function TopPerformers({
         .filter(([pid]) => {
           const isDef = pid.startsWith("TEAM_");
           // DEF tab: only team-defense entries that are rostered.
-          if (selectedPos === "DEF") return isDef && playerToRoster.has(pid);
+          if (selectedPos === "DEF") return isDef && defTeamToRoster.has(pid);
           // ALL tab: individual players only (no team defenses), must be rostered.
           if (selectedPos === "ALL")
             return !isDef && playerToRoster.has(pid);
@@ -99,19 +110,23 @@ export function TopPerformers({
               (`${players[pid]?.firstName ?? ""} ${players[pid]?.lastName ?? ""}`.trim() ||
               pid));
           const position = isDef ? "DEF" : (players[pid]?.position ?? "—");
+          // DEF entries use the defTeamToRoster map; individual players use playerToRoster.
+          const rosterId = isDef
+            ? defTeamToRoster.get(pid)!
+            : playerToRoster.get(pid)!;
           return {
             playerId: pid,
             name,
             position,
             pts: Number(stats.pts_ppr ?? 0),
-            rosterId: playerToRoster.get(pid)!,
+            rosterId,
           };
         })
         .filter((p) => p.pts > 0)
         .sort((a, b) => b.pts - a.pts)
         .slice(0, 5)
     );
-  }, [playerStats, players, playerToRoster, selectedPos]);
+  }, [playerStats, players, playerToRoster, defTeamToRoster, selectedPos]);
 
   if (!playerStats || !players) return null;
   if (top.length === 0 && selectedPos === "ALL") return null;
