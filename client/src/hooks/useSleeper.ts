@@ -392,16 +392,21 @@ export interface TeamWeekResult {
   result: "W" | "L" | "T" | null;
 }
 
+// Sleeper seasons can extend into playoff weeks; 22 covers all known formats.
+// This constant must never change at runtime — it fixes the number of useQuery
+// calls so the hook count stays stable across renders (rules of hooks).
+const MAX_SEASON_WEEKS = 22;
+
 export function useTeamSeasonLog(
   leagueId: string | null,
   rosterId: number | null,
   lastWeek: number,
 ) {
-  // Build one query per week, enabled only when we have both IDs and at least
-  // one week of data. TanStack Query will share cache with useLeagueMatchups.
-  const weekNumbers = lastWeek > 0 ? Array.from({ length: lastWeek }, (_, i) => i + 1) : [];
-
-  const results = weekNumbers.map((week) =>
+  // Always call exactly MAX_SEASON_WEEKS useQuery hooks regardless of lastWeek.
+  // Calling hooks inside a variable-length loop violates rules of hooks and
+  // causes React to crash when lastWeek changes between renders (e.g. when the
+  // user switches seasons from the nav). The enabled flag gates actual fetches.
+  const results = Array.from({ length: MAX_SEASON_WEEKS }, (_, i) => i + 1).map((week) =>
     // eslint-disable-next-line react-hooks/rules-of-hooks
     useQuery({
       queryKey: ["sleeper-matchups", leagueId, week],
@@ -411,15 +416,15 @@ export function useTeamSeasonLog(
         );
         return res.data.matchups;
       },
-      enabled: !!leagueId && !!rosterId && week >= 1,
+      enabled: !!leagueId && !!rosterId && week <= lastWeek,
       staleTime: 2 * 60 * 1000,
     }),
   );
 
   return useMemo<TeamWeekResult[]>(() => {
-    if (!rosterId) return [];
-    return weekNumbers.flatMap((week, i) => {
-      const matchups = results[i]?.data;
+    if (!rosterId || lastWeek <= 0) return [];
+    return Array.from({ length: lastWeek }, (_, i) => i + 1).flatMap((week) => {
+      const matchups = results[week - 1]?.data;
       if (!matchups) return [];
       const mine = matchups.find((m) => m.rosterId === rosterId);
       if (!mine || mine.matchupId === null) return [];
@@ -432,5 +437,5 @@ export function useTeamSeasonLog(
       return [{ week, pf: mine.points, pa, result }];
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rosterId, ...results.map((r) => r.data)]);
+  }, [rosterId, lastWeek, ...results.map((r) => r.data)]);
 }
