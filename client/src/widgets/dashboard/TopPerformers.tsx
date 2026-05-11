@@ -1,26 +1,38 @@
 /**
- * TopPerformers — the "Stars" strip showing the week's 5 highest-scoring
+ * TopPerformers — the "Stars" strip showing the week's highest-scoring
  * rostered players across the league.
+ *
+ * Default view ("ALL") shows the top 5 scorers across all positions.
+ * The position selector lets users filter to QB, RB, WR, TE, DEF, or K —
+ * each showing the top 5 for that position.
+ *
+ * DEF entries are keyed like "TEAM_BUF" in Sleeper's stat dump. For the
+ * ALL / individual-position views we drop them; when the user selects "DEF"
+ * we flip the filter to include only those entries and resolve the team name
+ * from the player ID (e.g. "TEAM_BUF" → "BUF").
  *
  * Data inputs (from DashboardPage):
  *   - `playerStats`: Sleeper's per-player stat dump for `(season, week)`,
- *     keyed by player_id. Contains both individual players (NFL ID strings)
- *     and team defense entries ("TEAM_BUF"); we filter the latter out.
+ *     keyed by player_id.
  *   - `players`: the global NFL player dictionary, used to resolve names
  *     and positions from the stat-line player_id.
- *   - `rosters`: the league's rosters, used to figure out which roster owns
- *     each player so we can label the strip with the team name.
+ *   - `rosters`: the league's rosters, used to label each card with the
+ *     owning team name/avatar.
  *
- * The list collapses to nothing when no player scored > 0 (preseason, an
- * unscored week, etc.) — handled by the `if (top.length === 0) return null`.
+ * The section collapses to nothing when no player scored > 0 (preseason, an
+ * unscored week, etc.) — handled by `if (top.length === 0) return null`.
  *
  * Mobile: `grid-cols-2 sm:grid-cols-3 md:grid-cols-5` so the strip wraps
  * onto multiple rows on small screens instead of overflowing.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Avatar } from "../../components/Avatar";
 import type { Roster, TeamUser } from "../../types/fantasy";
 import { SectionHead, teamAvatar, teamName } from "./_shared";
+
+// Positions available in the selector. "ALL" is the default view.
+const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "DEF", "K"] as const;
+type Position = (typeof POSITIONS)[number];
 
 export function TopPerformers({
   rosters,
@@ -45,41 +57,64 @@ export function TopPerformers({
     | undefined;
   week: number;
 }) {
+  const [selectedPos, setSelectedPos] = useState<Position>("ALL");
+
+  // Reverse-index rosters once so per-player lookup is O(1).
+  const playerToRoster = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of rosters) {
+      for (const pid of r.players ?? []) {
+        map.set(pid, r.rosterId);
+      }
+    }
+    return map;
+  }, [rosters]);
+
   const top = useMemo(() => {
     if (!playerStats || !players) return [];
 
-    // Reverse-index Sleeper's per-roster `players` arrays so we can answer
-    // "which roster owns this player?" in O(1) while filtering stats.
-    const playerToRoster = new Map<string, number>();
-    for (const r of rosters) {
-      for (const pid of r.players ?? []) {
-        playerToRoster.set(pid, r.rosterId);
-      }
-    }
-
     return (
       Object.entries(playerStats)
-        // Sleeper mixes in defense entries keyed like "TEAM_BUF". Drop them
-        // so the leaderboard only shows individual players, and skip anyone
-        // not currently rostered in this league.
-        .filter(([pid]) => !pid.startsWith("TEAM_") && playerToRoster.has(pid))
-        .map(([pid, stats]) => ({
-          playerId: pid,
-          name:
-            players[pid]?.fullName ??
-            (`${players[pid]?.firstName ?? ""} ${players[pid]?.lastName ?? ""}`.trim() ||
-              pid),
-          position: players[pid]?.position ?? "—",
-          pts: Number(stats.pts_ppr ?? 0),
-          rosterId: playerToRoster.get(pid)!,
-        }))
+        .filter(([pid]) => {
+          const isDef = pid.startsWith("TEAM_");
+          // DEF tab: only team-defense entries that are rostered.
+          if (selectedPos === "DEF") return isDef && playerToRoster.has(pid);
+          // ALL tab: individual players only (no team defenses), must be rostered.
+          if (selectedPos === "ALL")
+            return !isDef && playerToRoster.has(pid);
+          // Position tab: match position and must be rostered.
+          return (
+            !isDef &&
+            playerToRoster.has(pid) &&
+            players[pid]?.position === selectedPos
+          );
+        })
+        .map(([pid, stats]) => {
+          const isDef = pid.startsWith("TEAM_");
+          // For DEF entries the player dictionary won't have a record —
+          // derive a display name from the key (e.g. "TEAM_BUF" → "BUF DEF").
+          const name = isDef
+            ? `${pid.replace("TEAM_", "")} DEF`
+            : (players[pid]?.fullName ??
+              (`${players[pid]?.firstName ?? ""} ${players[pid]?.lastName ?? ""}`.trim() ||
+              pid));
+          const position = isDef ? "DEF" : (players[pid]?.position ?? "—");
+          return {
+            playerId: pid,
+            name,
+            position,
+            pts: Number(stats.pts_ppr ?? 0),
+            rosterId: playerToRoster.get(pid)!,
+          };
+        })
         .filter((p) => p.pts > 0)
         .sort((a, b) => b.pts - a.pts)
         .slice(0, 5)
     );
-  }, [playerStats, players, rosters]);
+  }, [playerStats, players, playerToRoster, selectedPos]);
 
-  if (top.length === 0) return null;
+  if (!playerStats || !players) return null;
+  if (top.length === 0 && selectedPos === "ALL") return null;
 
   return (
     <section>
@@ -88,35 +123,59 @@ export function TopPerformers({
         title="Top Performers"
         rule="Highest fantasy scorers"
       />
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 divide-x divide-line">
-        {top.map((p, i) => {
-          const roster = rosters.find((r) => r.rosterId === p.rosterId);
-          if (!roster) return null;
-          const tName = teamName(roster, users);
-          const tAvatar = teamAvatar(roster, users);
-          return (
-            <div key={i} className="px-3 py-2">
-              <div className="flex items-center gap-1.5 mb-1">
-                <Avatar avatar={tAvatar} name={tName} size={12} />
-                <span className="text-[9px] font-semibold tracking-wider uppercase text-muted font-sans truncate">
-                  {tName}
-                </span>
-              </div>
-              <div className="font-serif font-bold text-[15px] text-ink leading-tight">
-                {p.name}
-              </div>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-lg text-accent tabular-nums">
-                  {p.pts.toFixed(1)}
-                </span>
-                <span className="text-[9px] uppercase tracking-wider text-muted font-sans">
-                  {p.position} · pts
-                </span>
-              </div>
-            </div>
-          );
-        })}
+
+      {/* Position selector */}
+      <div className="flex gap-1 mb-3 flex-wrap">
+        {POSITIONS.map((pos) => (
+          <button
+            key={pos}
+            onClick={() => setSelectedPos(pos)}
+            className={`px-2 py-0.5 text-[9.5px] font-semibold tracking-wider uppercase font-sans rounded transition-colors ${
+              selectedPos === pos
+                ? "bg-accent text-white"
+                : "bg-black/5 dark:bg-white/10 text-muted hover:bg-black/10 dark:hover:bg-white/15"
+            }`}
+          >
+            {pos}
+          </button>
+        ))}
       </div>
+
+      {top.length === 0 ? (
+        <p className="text-[11px] text-muted font-sans py-2">
+          No scored players for this position yet.
+        </p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 divide-x divide-line">
+          {top.map((p, i) => {
+            const roster = rosters.find((r) => r.rosterId === p.rosterId);
+            if (!roster) return null;
+            const tName = teamName(roster, users);
+            const tAvatar = teamAvatar(roster, users);
+            return (
+              <div key={i} className="px-3 py-2">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Avatar avatar={tAvatar} name={tName} size={12} />
+                  <span className="text-[9px] font-semibold tracking-wider uppercase text-muted font-sans truncate">
+                    {tName}
+                  </span>
+                </div>
+                <div className="font-serif font-bold text-[15px] text-ink leading-tight">
+                  {p.name}
+                </div>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="font-mono font-bold text-lg text-accent tabular-nums">
+                    {p.pts.toFixed(1)}
+                  </span>
+                  <span className="text-[9px] uppercase tracking-wider text-muted font-sans">
+                    {p.position} · pts
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }
