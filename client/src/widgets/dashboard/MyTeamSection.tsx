@@ -1,3 +1,28 @@
+/**
+ * MyTeamSection — the "Lead" hero card for the user's claimed team.
+ *
+ * Layout (sm+):
+ *   ┌─────────────────────────── two-column grid ──────────────────────────┐
+ *   │ Headline · stats line · prose recap            │ This-week result     │
+ *   │   (with 4-Stat row across the middle)          │ Next-week preview    │
+ *   └──────────────────────────────────────────────────────────────────────┘
+ *
+ * If the user has no approved claim in this league, the whole component
+ * collapses to a small "Join a huddle" prompt.
+ *
+ * Data wiring (all passed down from DashboardPage):
+ *   - `myRosterId` comes from `useMyClaimedTeam` against the newest season
+ *     in the league family — so it survives the user switching to a past
+ *     season in the season dropdown.
+ *   - `matchups` is the current week's pairs; `nextMatchups` is the week
+ *     after. Past-season leagues get the same week for both, which keeps
+ *     the "Next week preview" card empty (intentional).
+ *   - `powerRows` is used to surface the user's current power rank in the
+ *     headline + stats.
+ *
+ * `Stat` is a private helper component for the four big numbers across the
+ * middle of the article.
+ */
 import { Link } from "react-router-dom";
 import { useLeagueMatchups } from "../../hooks/useSleeper";
 import type { Roster, TeamUser } from "../../types/fantasy";
@@ -57,6 +82,9 @@ export function MyTeamSection({
   const myRank =
     powerRows.find((r) => r.rosterId === myRosterId)?.overallRank ?? null;
 
+  // Sleeper returns matchups as a flat list of per-roster entries; teams in
+  // the same game share a matchupId. Bucket them so we can find the
+  // opponent for the user's team without scanning the whole array twice.
   const byMatchup = new Map<number, typeof matchups>();
   for (const m of matchups ?? []) {
     if (!m.matchupId) continue;
@@ -77,6 +105,10 @@ export function MyTeamSection({
   const oppPts = oppEntry?.points ?? 0;
   const won = myPts > oppPts;
 
+  // Same trick as above for the upcoming week so we can show "Next · vs X".
+  // Will be a no-op (empty maps, null nextOppRoster) for past-season leagues
+  // since DashboardPage pins nextWeek to the current week — the JSX falls
+  // through to the "Schedule TBD" branch.
   const nextByMatchup = new Map<number, typeof nextMatchups>();
   for (const m of nextMatchups ?? []) {
     if (!m.matchupId) continue;

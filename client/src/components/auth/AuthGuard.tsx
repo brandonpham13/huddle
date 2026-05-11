@@ -1,3 +1,27 @@
+/**
+ * AuthGuard — gates every authenticated route in App.tsx.
+ *
+ * Responsibilities:
+ *   1. Wait for Clerk to finish loading the session (spinner while loading).
+ *   2. Redirect to /sign-in if the user isn't signed in.
+ *   3. Mirror Clerk's user (including the Sleeper metadata we tuck into
+ *      `unsafeMetadata`) into the Redux `auth` slice so the rest of the
+ *      app can read it synchronously via `useAppSelector`.
+ *   4. Hold render until Redux is hydrated — otherwise the first paint
+ *      would fire queries with `sleeperUserId = null` and waste a
+ *      no-op TanStack Query round-trip.
+ *
+ * Why `unsafeMetadata` and not a separate DB?
+ *   Clerk lets us stash arbitrary JSON on the user record and read it back
+ *   without an extra fetch. We use it for the Sleeper handle and the
+ *   user's list of synced leagueIds — the data is small, user-owned, and
+ *   non-sensitive. Anything bigger lives in our Postgres tables.
+ *
+ * IMPORTANT: After mutating `unsafeMetadata` on the server, always call
+ * `await user.reload()` on the client to invalidate Clerk's cache —
+ * otherwise the next `useUser()` read returns stale data and this guard
+ * dispatches the old values into Redux.
+ */
 import { type ReactNode, useEffect } from "react";
 import { useUser, useAuth, RedirectToSignIn } from "@clerk/clerk-react";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
@@ -13,6 +37,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const dispatch = useAppDispatch();
   const reduxUser = useAppSelector((state) => state.auth.user);
 
+  // Keep Redux in lockstep with Clerk's user object. Fires on initial load
+  // and again any time Clerk publishes an updated `user` (e.g. after the
+  // app calls `user.reload()` post-metadata write).
   useEffect(() => {
     if (!isLoaded || !authLoaded) return;
 
@@ -39,7 +66,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   if (!isSignedIn) return <RedirectToSignIn />;
 
-  // Hold render until Redux is hydrated — prevents queries firing with null sleeperUserId
+  // Hold render until Redux is hydrated — prevents queries firing with null sleeperUserId.
+  // Without this we'd briefly mount children with `useAppSelector(...)` returning the
+  // initial state, which would cause every Sleeper hook to fire its `enabled: !!id` guard
+  // twice (once with null, once with the real id once Redux catches up).
   if (!reduxUser) return <Spinner />;
 
   return <>{children}</>;

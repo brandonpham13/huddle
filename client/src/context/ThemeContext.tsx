@@ -1,3 +1,19 @@
+/**
+ * ThemeContext — light/dark mode state.
+ *
+ * Tailwind v4 dark mode is driven by a `.dark` class on an ancestor of the
+ * styled tree. The provider applies that class to a wrapper `<div>` based
+ * on the current `theme` state; CSS variables in `styles/index.css` swap
+ * on the presence of `.dark`, so every `bg-paper` / `text-ink` / etc.
+ * utility flips automatically.
+ *
+ * Initial value resolution order:
+ *   1. `huddle-theme` in localStorage (if the user has flipped it before)
+ *   2. The OS `prefers-color-scheme` media query
+ *
+ * Wired into the global provider stack in `providers/AppProviders.tsx`,
+ * and the toggle is exposed in the top nav via AppShell.
+ */
 import {
   createContext,
   useContext,

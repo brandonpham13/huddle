@@ -1,3 +1,31 @@
+/**
+ * Sleeper data hooks.
+ *
+ * Every hook in this file is a thin TanStack Query wrapper around our own
+ * Express backend, NOT the Sleeper API directly. The server proxies + maps
+ * raw Sleeper shapes into the normalized domain types defined in
+ * `types/fantasy.ts`, so client code never has to think about provider
+ * specifics. Adding a new fantasy provider (ESPN, Yahoo) would mean
+ * implementing the same endpoints on the server — the client would not
+ * change.
+ *
+ * Endpoint convention: `/api/provider/sleeper/...` is hit by every query
+ * below via the `base()` helper. The server file is
+ * `server/src/routes/providerRoutes.ts`.
+ *
+ * Stale-time conventions (rough heuristics):
+ *   - 24h  — global, slow-moving data (NFL player dictionary)
+ *   - 1h   — global, sometimes-updated data (NFL state, draft picks)
+ *   - 10m  — fast-moving game data (player stats during live scoring)
+ *   - 5m   — most league-scoped data (rosters, users, league detail)
+ *   - 2m   — live matchups (scores while games are happening)
+ *
+ * Every hook keys its query by `leagueId` (and where relevant `week` / etc.)
+ * so swapping leagues triggers a refetch automatically. Hooks that take a
+ * nullable `leagueId` use `enabled: !!leagueId` to skip the fetch entirely
+ * until a selection exists — important because Dashboard pages render
+ * before Redux has hydrated.
+ */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { useAuth } from "@clerk/clerk-react";
@@ -18,9 +46,15 @@ import type {
 } from "../types/fantasy";
 
 const PROVIDER = "sleeper";
+/** Build a backend URL for the configured provider. Hides the prefix from callers. */
 const base = (path: string) => `/api/provider/${PROVIDER}${path}`;
 
 // ---- Leagues (current year) ----
+//
+// Returns the user's Sleeper leagues for the year currently selected in
+// Redux. Used by /leagues to populate the "sync" UI. For dashboard-style
+// "what leagues does the user have across all seasons", see
+// `useAllSleeperLeagues` below.
 
 export function useSleeperLeagues() {
   const sleeperUserId = useAppSelector(
@@ -42,6 +76,11 @@ export function useSleeperLeagues() {
 }
 
 // ---- All leagues across all seasons ----
+//
+// Returns *every* league this Sleeper user has been in (any year). The
+// dashboard and AppShell rely on this to build league families — sibling
+// seasons of the same recurring league chained via `previousLeagueRef`.
+// Held longer (10m) since the historical entries rarely change.
 
 export function useAllSleeperLeagues() {
   const sleeperUserId = useAppSelector(
@@ -110,6 +149,16 @@ export function useLeagueUsers(leagueId: string | null) {
 }
 
 // ---- Matchups ----
+//
+// One scoring week's matchups for a league. Sleeper returns these as a
+// flat list of per-roster entries — teams in the same head-to-head game
+// share a `matchupId`. Callers (Scoreboard, Ticker, MyTeamSection)
+// typically bucket by `matchupId` to recover pairs.
+//
+// Pass `week = 0` to disable the fetch entirely — used by callers like
+// MyTeamSection when there's no meaningful "next week" (past-season
+// leagues). 2-minute stale time so live scores feel responsive without
+// hammering the proxy.
 
 export function useLeagueMatchups(leagueId: string | null, week: number) {
   return useQuery({
@@ -126,6 +175,12 @@ export function useLeagueMatchups(leagueId: string | null, week: number) {
 }
 
 // ---- Players ----
+//
+// The full NFL player dictionary, keyed by player_id. ~5MB on the wire, so
+// we cache aggressively (24h staleTime + gcTime). Sleeper's "/players/nfl"
+// endpoint is the authoritative source of names, positions, and team
+// affiliations. Used wherever we need to translate a roster's player_id
+// list into something human-readable.
 
 export function useNFLPlayers() {
   return useQuery({
@@ -142,6 +197,12 @@ export function useNFLPlayers() {
 }
 
 // ---- NFL State (current week/season) ----
+//
+// What Sleeper considers "today" — the live NFL season + week + season
+// type ("pre" / "regular" / "post"). DashboardPage uses this to decide
+// whether the selected league is the active current-season league and
+// pick a sensible default display week. 1h staleTime is fine — the
+// NFL state only ticks forward weekly during the season.
 export function useNFLState() {
   return useQuery({
     queryKey: ["provider-state", PROVIDER],
@@ -210,6 +271,13 @@ export function useTradedPicks(leagueId: string | null) {
 }
 
 // ---- Winners Bracket ----
+//
+// The post-season bracket for places 1 through ~6. Scoreboard uses this to
+// label playoff matchups (Championship / 3rd Place / Playoff). Each entry
+// has `team1_from` / `team2_from` pointers describing which earlier-round
+// matchup fed each slot (e.g. `winner_of: 5`), which is how we identify
+// the championship game versus the 3rd-place consolation in the final
+// round.
 export function useWinnersBracket(leagueId: string | null) {
   return useQuery({
     queryKey: ["provider-winners-bracket", PROVIDER, leagueId],
@@ -225,6 +293,10 @@ export function useWinnersBracket(leagueId: string | null) {
 }
 
 // ---- Losers Bracket ----
+//
+// The post-season consolation/toilet bowl bracket (places ~7-12). Same
+// shape as the winners bracket; Scoreboard uses it to fill in the
+// non-championship playoff weeks so every matchup gets a proper badge.
 export function useLosersBracket(leagueId: string | null) {
   return useQuery({
     queryKey: ["provider-losers-bracket", PROVIDER, leagueId],
@@ -267,6 +339,19 @@ export function useDraftPicks(draftId: string | null) {
   });
 }
 
+/**
+ * Mutation: persist the user's selected synced league IDs to the backend.
+ *
+ * Used by the /leagues page when the user toggles which Sleeper leagues
+ * they want to track. On success we both:
+ *   - update the Redux `auth.user.syncedLeagueIds` so the rest of the app
+ *     (sidebar, dashboard) sees the new selection immediately
+ *   - invalidate the cached `sleeper-leagues` queries so any league lists
+ *     downstream refetch
+ *
+ * Clerk JWT is forwarded via Bearer header — the backend uses it to
+ * identify the user and write to the right row in Postgres.
+ */
 export function useSyncLeagues() {
   const { getToken } = useAuth();
   const dispatch = useAppDispatch();

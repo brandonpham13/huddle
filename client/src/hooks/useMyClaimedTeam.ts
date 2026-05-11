@@ -2,9 +2,26 @@ import { useHuddlesForLeague, useHuddleDetail } from "./useHuddles";
 import { useLeagueRosters, useLeagueUsers } from "./useSleeper";
 
 /**
- * Returns the team name and avatar the current user has an approved claim on
- * within the first huddle for the selected league. Returns null if the user
- * has no approved claim.
+ * Returns the team name + avatar that the current user has an *approved*
+ * claim on for the given league.
+ *
+ * "Claim" is Huddle's concept of "this user owns this roster slot for this
+ * group of friends" — it's how we know which Sleeper roster belongs to
+ * the signed-in user without making them re-enter their team every season.
+ *
+ * Wiring (4 dependent queries combined):
+ *   1. `useHuddlesForLeague` → which huddles exist for this league
+ *   2. `useHuddleDetail`     → the user's claim within the first huddle
+ *   3. `useLeagueRosters`    → look up the roster matching the claim
+ *   4. `useLeagueUsers`      → resolve display name + avatar
+ *
+ * Returns `null` everywhere when there's no approved claim. Callers can
+ * use `isLoading` to distinguish "we don't know yet" from "definitely no
+ * claim".
+ *
+ * Important: pass the **newest** family leagueId (not whichever season the
+ * user happens to be viewing). Claims live against the newest season, so
+ * looking them up against an older season would always return null.
  */
 export function useMyClaimedTeam(leagueId: string | null): {
   teamName: string | null;

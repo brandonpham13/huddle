@@ -1,3 +1,29 @@
+/**
+ * Huddle API client hooks.
+ *
+ * A "huddle" is Huddle's own concept (separate from Sleeper) — a group of
+ * friends sharing a fantasy league, with membership via team **claims**.
+ * Every endpoint in this file lives on our own Express backend at
+ * `/api/huddles/...` (see `server/src/routes/huddleRoutes.ts`); none of
+ * these talk to Sleeper directly.
+ *
+ * Auth: every request forwards the Clerk JWT via `Authorization: Bearer`
+ * (the `authHeader` helper below). The backend verifies + extracts the
+ * user from that token.
+ *
+ * Cache invalidation: mutations call `queryClient.invalidateQueries()` on
+ * the relevant keys after success, so screens auto-refresh without manual
+ * refetches.
+ *
+ * Vocabulary cheat sheet:
+ *   - Huddle              — the group itself (one per league family is typical)
+ *   - Claim               — a user's stake on one Sleeper roster slot
+ *   - Commissioner        — the user(s) who can approve/reject claims and
+ *                           manage the huddle (multiple, via the
+ *                           `huddle_commissioners` table)
+ *   - Invite code         — 6-char code rotated by the commissioner;
+ *                           replaces the old password-based join flow
+ */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-react";
 import axios, { AxiosError } from "axios";
@@ -8,10 +34,16 @@ import type {
   HuddleDetailResponse,
 } from "../types/huddle";
 
+/** Build the Authorization header from a Clerk token (or no-op if anonymous). */
 function authHeader(token: string | null): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+/**
+ * Surface a useful error message from an Axios error response. The backend
+ * sends `{ error: "human readable" }` on 4xx; we fall back to the generic
+ * Axios message and then to the caller-supplied default.
+ */
 function errorMessage(err: unknown, fallback: string): string {
   if (err instanceof AxiosError) {
     const data = err.response?.data as { error?: string } | undefined;

@@ -1,3 +1,15 @@
+/**
+ * Masthead — the newspaper-style title block beneath the Ticker.
+ *
+ * Three columns on `sm+`:
+ *   [VOL. N · ESTABLISHED YYYY]   [LEAGUE NAME (huge serif)]   [Date · Week N]
+ *
+ * On mobile (`<sm`) the three pieces stack and the "VOL." eyebrow hides
+ * to save vertical space (the date row already conveys the week).
+ *
+ * Wiring: `oldestYear` and `week` come from `DashboardPage`'s display-week
+ * derivation; `leagueName` is the selected league's display name.
+ */
 export function Masthead({
   leagueName,
   week,

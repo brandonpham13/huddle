@@ -1,3 +1,20 @@
+/**
+ * Shared atoms and helpers used across every dashboard widget.
+ *
+ * If you're building a new widget under `widgets/dashboard/`, import what you
+ * need from here so the visual language stays consistent (Eyebrow text size,
+ * section header rule, sort arrow style, etc.).
+ *
+ * What's in here:
+ *   - `Eyebrow`         — small uppercase accent label
+ *   - `SectionHead`     — kicker + title + optional right-side rule/controls
+ *   - `SortHeader`      — clickable header cell paired with `useSortedRows`
+ *                         from `components/sortable.ts`
+ *   - `MatchupResult`   — single matchup row (avatar + name + points)
+ *   - `teamName(roster, users)`   — display name resolver
+ *   - `teamAvatar(roster, users)` — avatar URL resolver
+ *   - `ordinal(n)`      — formats 1 → "1st", 2 → "2nd", ...
+ */
 import { Avatar } from "../../components/Avatar";
 import { type SortDir } from "../../components/sortable";
 import type { Roster, TeamUser } from "../../types/fantasy";

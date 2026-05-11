@@ -1,3 +1,22 @@
+/**
+ * AccountModal — the global "Account" overlay accessible from the top nav.
+ *
+ * Architecture:
+ *   - `AccountModalProvider` (mounted high up in App.tsx) owns the
+ *     `isOpen` state and renders the actual modal on top of the page.
+ *   - `useAccountModal()` is the hook any component uses to open/close.
+ *     It throws if you call it outside the provider, which is intentional
+ *     — it's a hard error if a route forgets to wrap its tree.
+ *
+ * The modal embeds Clerk's `<UserProfile>` plus our own integrations
+ * section (currently: connect/disconnect Sleeper account), and provides
+ * a link out to /leagues for league-sync management.
+ *
+ * Why a context instead of route params?
+ *   The "Account" entry point is in AppShell's top nav which is reused on
+ *   every authenticated page, so plumbing open/close state through every
+ *   route would be noisy. Context lets the trigger live anywhere.
+ */
 import {
   createContext,
   useCallback,

@@ -1,3 +1,29 @@
+/**
+ * Scoreboard — the middle widget of the dashboard's bottom row. Shows every
+ * matchup for a week, with prev/next buttons to paginate through the season
+ * and special badging for playoff games (Championship / 3rd Place / Playoff
+ * / Consolation).
+ *
+ * Why this widget self-fetches matchups (and the others don't):
+ *   Scoreboard owns its own `viewWeek` state so the user can scrub through
+ *   the season without dragging the whole dashboard's "current week"
+ *   along — every other widget would re-render. We seed `viewWeek` from
+ *   `currentWeek` (from DashboardPage), then call `useLeagueMatchups`
+ *   directly here for whichever week is being viewed.
+ *
+ * Playoff classification:
+ *   We pull the winners + losers brackets from Sleeper to label each
+ *   matchup. The trickiest part is identifying the championship game
+ *   versus 3rd-place game in the final week — we do that by checking
+ *   whether each team got there via `winner_of` or `loser_of` a
+ *   semifinal matchup. See `bracketTagByRosterKey` below.
+ *
+ * Nav lock:
+ *   When the league hasn't kicked off (`pre_draft` / `drafting`),
+ *   DashboardPage passes `lastWeek = 0`, which makes `hasAnyData = false`
+ *   and disables both prev/next buttons. The empty-state row inside the
+ *   pair grid handles the "No matchups" message.
+ */
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
@@ -101,10 +127,8 @@ function buildPlayoffPath(bracket: PlayoffMatchup[]): {
       if (pathMatchupIds.has(id)) continue;
       pathMatchupIds.add(id);
       const m = byId.get(id);
-      if (m?.team1_from?.winner_of != null)
-        queue.push(m.team1_from.winner_of);
-      if (m?.team2_from?.winner_of != null)
-        queue.push(m.team2_from.winner_of);
+      if (m?.team1_from?.winner_of != null) queue.push(m.team1_from.winner_of);
+      if (m?.team2_from?.winner_of != null) queue.push(m.team2_from.winner_of);
     }
   }
 
@@ -216,7 +240,8 @@ export function Scoreboard({
 
   /** All roster IDs that belong to the winners (playoff) bracket. */
   const winnerRosterIds = useMemo(
-    () => (winnersBracket ? collectRosterIds(winnersBracket) : new Set<number>()),
+    () =>
+      winnersBracket ? collectRosterIds(winnersBracket) : new Set<number>(),
     [winnersBracket],
   );
 
@@ -235,8 +260,7 @@ export function Scoreboard({
   const bracketTagByRosterKey = useMemo(() => {
     if (!winnersBracket || !isPlayoffWeek) return new Map<string, MatchupTag>();
 
-    const { pathMatchupIds, pathRosterIds } =
-      buildPlayoffPath(winnersBracket);
+    const { pathMatchupIds, pathRosterIds } = buildPlayoffPath(winnersBracket);
 
     return classifyBracketRound(
       winnersBracket,
@@ -305,7 +329,13 @@ export function Scoreboard({
     }
 
     return result;
-  }, [matchups, isPlayoffWeek, bracketTagByRosterKey, winnerRosterIds, loserRosterIds]);
+  }, [
+    matchups,
+    isPlayoffWeek,
+    bracketTagByRosterKey,
+    winnerRosterIds,
+    loserRosterIds,
+  ]);
 
   // ---- Navigation ----
 

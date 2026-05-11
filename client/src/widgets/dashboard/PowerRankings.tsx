@@ -1,3 +1,34 @@
+/**
+ * PowerRankings — the "Editorial Index" widget in the bottom-right of the
+ * dashboard. Driven entirely by the server-supplied algorithm registry.
+ *
+ * How the columns get here:
+ *   1. On the server, each algorithm registers itself via
+ *      `registerAlgorithm()` in `server/src/services/powerRankingsService.ts`.
+ *      Adding a new file under `server/src/algorithms/` automatically adds
+ *      a new column here — no client changes needed.
+ *   2. The `/power-rankings` endpoint returns `{ columns, rows }`. The
+ *      `columns` array describes each registered algorithm (id, label,
+ *      description, displayMode); the `rows` array contains, for each
+ *      roster, that algorithm's score + derived rank.
+ *   3. This widget renders one column per `columns` entry, with both
+ *     `score` and `rank` display modes supported (`displayMode` on the
+ *     column controls which field we read and how we format the cell).
+ *
+ * Sorting:
+ *   We use `useSortedRows` + `SortHeader` like LeagueTable. Rank-mode
+ *   columns negate their value so a single descending comparator puts the
+ *   best rank first regardless of column type.
+ *
+ * Layout:
+ *   The grid template is generated at runtime (`gridTemplateColumns`) since
+ *   the column count comes from the server. Wrapped in `overflow-x-auto` so
+ *   adding many algorithm columns to a narrow `lg`-grid third column
+ *   horizontally scrolls instead of overflowing.
+ *
+ * See PLAYBOOK.md → "Adding a column to Power Rankings" for the full
+ * server-side recipe.
+ */
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Avatar } from "../../components/Avatar";
@@ -24,6 +55,10 @@ export function PowerRankings({
         defaultDir: "asc",
       },
     ];
+    // Build a sort entry per server-supplied algorithm column. Rank-mode
+    // columns negate their value so a single "desc" comparator still puts
+    // rank 1 (best) at the top — saves us from special-casing direction
+    // per column type elsewhere.
     const algo = columns.map<SortableColumn<PowerRankingRow>>((c) => ({
       id: c.id,
       sortValue: (r) =>
