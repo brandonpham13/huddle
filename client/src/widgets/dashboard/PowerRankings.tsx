@@ -15,6 +15,11 @@
  *     `score` and `rank` display modes supported (`displayMode` on the
  *     column controls which field we read and how we format the cell).
  *
+ * The leftmost `#` column is always the sequential position in the
+ * current sort order (i + 1) — not a pre-computed float — so it reads
+ * cleanly as ordinal placement regardless of which column the user sorted
+ * by.
+ *
  * Sorting:
  *   We use `useSortedRows` + `SortHeader` like LeagueTable. Rank-mode
  *   columns negate their value so a single descending comparator puts the
@@ -127,15 +132,16 @@ export function PowerRankings({
             />
           ))}
         </div>
-        {sortedRows.map((row) => (
+        {sortedRows.map((row, i) => (
           <Link
             key={row.rosterId}
             to={`/teams/${row.rosterId}`}
             className="grid items-center gap-1.5 py-1 border-b border-dotted border-line hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
             style={gridStyle}
           >
+            {/* Sequential placement (1-based index in the current sorted order) */}
             <div className="font-serif italic font-semibold text-xs text-muted">
-              {row.overallRank}
+              {i + 1}
             </div>
             <div className="flex items-center gap-1.5 min-w-0">
               <Avatar avatar={row.avatar} name={row.teamName} size={14} />
@@ -156,12 +162,20 @@ export function PowerRankings({
                 );
               }
               const score = row.scores[c.id];
+              // Format as integer when the score is a whole number (e.g.
+              // all-play wins), otherwise two decimal places.
+              const formatted =
+                score != null
+                  ? Number.isInteger(score)
+                    ? String(score)
+                    : Number(score).toFixed(2)
+                  : "—";
               return (
                 <div
                   key={c.id}
                   className="text-right font-mono text-[10.5px] text-body tabular-nums"
                 >
-                  {score != null ? Number(score).toFixed(2) : "—"}
+                  {formatted}
                 </div>
               );
             })}
