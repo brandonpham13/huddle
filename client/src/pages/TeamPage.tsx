@@ -218,10 +218,14 @@ function SeasonTrail({
   const max = Math.max(...allPts);
   const min = Math.min(...allPts);
   const range = max - min || 1;
-  const W = 440;
+  // Scale the canvas width to the number of weeks so spacing stays consistent
+  // regardless of how many weeks have been played. 28px per week feels right
+  // at both extremes (3 weeks = 84px canvas, 17 weeks = 476px canvas). The
+  // SVG stretches to fill its container either way via width="100%".
+  const COL = 28;
+  const W = Math.max(log.length * COL, COL);
   const H = 80;
-  const x = (i: number) =>
-    log.length === 1 ? W / 2 : (i / (log.length - 1)) * W;
+  const x = (i: number) => (log.length === 1 ? W / 2 : i * COL);
   const y = (v: number) => H - ((v - min) / range) * (H - 8) - 4;
   const polyline = (key: "pf" | "pa") =>
     log.map((g, i) => `${x(i)},${y(g[key])}`).join(" ");
