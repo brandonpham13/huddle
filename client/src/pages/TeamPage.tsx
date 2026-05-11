@@ -223,9 +223,10 @@ function SeasonTrail({
   // at both extremes (3 weeks = 84px canvas, 17 weeks = 476px canvas). The
   // SVG stretches to fill its container either way via width="100%".
   const COL = 28;
-  const W = Math.max(log.length * COL, COL);
+  const PAD = 4; // left/right margin so the r=3 dot at week 1 isn't clipped
+  const W = Math.max(log.length * COL, COL) + PAD * 2;
   const H = 80;
-  const x = (i: number) => (log.length === 1 ? W / 2 : i * COL);
+  const x = (i: number) => (log.length === 1 ? W / 2 : PAD + i * COL);
   const y = (v: number) => H - ((v - min) / range) * (H - 8) - 4;
   const polyline = (key: "pf" | "pa") =>
     log.map((g, i) => `${x(i)},${y(g[key])}`).join(" ");
