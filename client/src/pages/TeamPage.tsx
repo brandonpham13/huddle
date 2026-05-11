@@ -448,9 +448,9 @@ function SeasonHistory({
         title="Season by Season"
         rule="Finish · seed · postseason"
       />
-      <div className="mt-2">
+      <div className="mt-2 overflow-x-auto">
         {/* Header */}
-        <div className="grid grid-cols-[52px_70px_80px_80px_60px_1fr_50px] gap-0 items-baseline pb-1 border-b border-line text-[9.5px] font-semibold tracking-wider uppercase text-muted font-sans">
+        <div className="grid grid-cols-[44px_60px_62px_62px_46px_1fr_44px] min-w-0 gap-0 items-baseline pb-1 border-b border-line text-[9.5px] font-semibold tracking-wider uppercase text-muted font-sans">
           <div>Year</div>
           <div>Record</div>
           <div className="text-right">PF</div>
@@ -468,7 +468,7 @@ function SeasonHistory({
           familySeasons.map((league) => (
             <div
               key={league.ref.leagueId}
-              className="grid grid-cols-[52px_70px_80px_80px_60px_1fr_50px] gap-0 items-center py-2 border-b border-dotted border-line"
+              className="grid grid-cols-[44px_60px_62px_62px_46px_1fr_44px] min-w-0 gap-0 items-center py-2 border-b border-dotted border-line"
             >
               <div className="font-serif italic font-bold text-[17px] text-ink leading-none">
                 {league.season}
