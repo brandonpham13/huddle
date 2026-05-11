@@ -1,3 +1,5 @@
+import { sleeperAvatarUrl } from "../utils/sleeperNormalize";
+
 interface AvatarProps {
   avatar: string | null;
   name: string;
@@ -7,19 +9,20 @@ interface AvatarProps {
 /**
  * Avatar — small circular team/player image with a fallback initials chip.
  *
- * `avatar` is a Sleeper avatar hash (the part that goes into the
- * `sleepercdn.com/avatars/thumbs/<hash>` URL). When it's null we render a
- * grey circle with the first two characters of `name` instead, which keeps
- * the table layouts stable even before avatars load.
+ * `avatar` is a provider avatar token (resolved to a URL via the appropriate
+ * normalize utility). When it's null we render a grey circle with the first
+ * two characters of `name` instead, which keeps table layouts stable even
+ * before avatars load.
  *
  * Used by every dashboard widget plus the claimed-team badge in the top
  * nav (AppShell).
  */
 export function Avatar({ avatar, name, size = 20 }: AvatarProps) {
-  if (avatar) {
+  const src = sleeperAvatarUrl(avatar);
+  if (src) {
     return (
       <img
-        src={`https://sleepercdn.com/avatars/thumbs/${avatar}`}
+        src={src}
         alt={name}
         style={{ width: size, height: size }}
         className="block rounded-full object-cover shrink-0"

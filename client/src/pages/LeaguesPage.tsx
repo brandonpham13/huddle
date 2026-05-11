@@ -5,6 +5,7 @@ import { useAccountModal } from "../components/AccountModal";
 import { useAppSelector } from "../store/hooks";
 import { useAllSleeperLeagues, useSyncLeagues } from "../hooks/useSleeper";
 import { buildFamilyRootMap } from "../utils/leagueFamily";
+import { sleeperAvatarUrl } from "../utils/sleeperNormalize";
 import {
   Card,
   CardContent,
@@ -193,9 +194,9 @@ export function LeaguesPage() {
                           }`}
                         >
                           <div className="flex items-center gap-3">
-                            {league.avatar ? (
+                            {sleeperAvatarUrl(league.avatar) ? (
                               <img
-                                src={`https://sleepercdn.com/avatars/thumbs/${league.avatar}`}
+                                src={sleeperAvatarUrl(league.avatar)!}
                                 alt={league.name}
                                 className="w-10 h-10 rounded-full object-cover"
                               />
@@ -284,9 +285,9 @@ export function LeaguesPage() {
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              {league.avatar ? (
+                              {sleeperAvatarUrl(league.avatar) ? (
                                 <img
-                                  src={`https://sleepercdn.com/avatars/thumbs/${league.avatar}`}
+                                  src={sleeperAvatarUrl(league.avatar)!}
                                   alt={league.name}
                                   className="w-10 h-10 rounded-full object-cover"
                                 />

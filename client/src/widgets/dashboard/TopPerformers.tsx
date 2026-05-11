@@ -29,7 +29,7 @@ import { useMemo, useState } from "react";
 import { Avatar } from "../../components/Avatar";
 import type { Roster, TeamUser } from "../../types/fantasy";
 import type { Player } from "../../types/fantasy";
-import { buildDefStatsKeyMap } from "../../utils/sleeperNormalize";
+import { buildDefStatsKeyMap, getFantasyPoints } from "../../utils/sleeperNormalize";
 import { SectionHead, teamAvatar, teamName } from "./_shared";
 
 // Positions available in the selector. "ALL" is the default view.
@@ -105,7 +105,7 @@ export function TopPerformers({
             playerId: pid,
             name,
             position,
-            pts: Number(stats.pts_ppr ?? 0),
+            pts: getFantasyPoints(stats),
             rosterId,
           };
         })
