@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useMemo, useRef } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useAppSelector } from "../store/hooks";
 import { useLeagueRosters, useLeagueUsers } from "../hooks/useSleeper";
 import { useMyClaimedTeam } from "../hooks/useMyClaimedTeam";
@@ -10,10 +10,27 @@ import { sleeperAvatarUrl } from "../utils/sleeperNormalize";
 export function TeamPage() {
   const { rosterId: rosterIdParam } = useParams<{ rosterId: string }>();
   const rosterId = rosterIdParam ? Number(rosterIdParam) : null;
+  const navigate = useNavigate();
 
   const selectedLeagueId = useAppSelector(
     (state) => state.auth.selectedLeagueId,
   );
+
+  // When the league/season changes while the user is on a team page, the
+  // rosterId in the URL belongs to the old league and is no longer valid.
+  // Redirect to the dashboard so the user lands on the right context.
+  const mountedLeagueId = useRef(selectedLeagueId);
+  useEffect(() => {
+    if (
+      mountedLeagueId.current !== null &&
+      selectedLeagueId !== null &&
+      selectedLeagueId !== mountedLeagueId.current
+    ) {
+      navigate("/", { replace: true });
+    }
+    mountedLeagueId.current = selectedLeagueId;
+  }, [selectedLeagueId, navigate]);
+
   const { data: allLeagues } = useAllSleeperLeagues();
   const familySeasons = useMemo(
     () =>
