@@ -3,33 +3,29 @@
  * rostered players across the league.
  *
  * Default view ("ALL") shows the top 5 scorers across all positions.
- * The position selector lets users filter to QB, RB, WR, TE, DEF, or K —
- * each showing the top 5 for that position.
+ * The position selector lets users filter to QB, RB, WR, TE, DEF, or K.
  *
- * DEF entries are keyed like "TEAM_BUF" in Sleeper's stat dump. For the
- * ALL / individual-position views we drop them; when the user selects "DEF"
- * we flip the filter to include only those entries and resolve the team name
- * from the player ID (e.g. "TEAM_BUF" → "BUF").
+ * DEF scoring quirk:
+ *   Sleeper's bulk stats endpoint returns cumulative season totals for TEAM_
+ *   entries, not per-week scores. Per-week DEF points live in the matchup
+ *   data as `playersPoints[numericDefPlayerId]`. The DEF tab sources its
+ *   points from `matchups` rather than `playerStats` for this reason.
  *
  * Data inputs (from DashboardPage):
- *   - `playerStats`: Sleeper's per-player stat dump for `(season, week)`,
- *     keyed by player_id.
- *   - `players`: the global NFL player dictionary, used to resolve names
- *     and positions from the stat-line player_id.
- *   - `rosters`: the league's rosters, used to label each card with the
- *     owning team name/avatar.
- *
- * The section collapses to nothing when no player scored > 0 (preseason, an
- * unscored week, etc.) — handled by `if (top.length === 0) return null`.
- *
- * Mobile: `grid-cols-2 sm:grid-cols-3 md:grid-cols-5` so the strip wraps
- * onto multiple rows on small screens instead of overflowing.
+ *   - `playerStats`: Sleeper's per-player stat dump for (season, week).
+ *   - `matchups`: This week's matchup entries, used for per-week DEF scoring.
+ *   - `players`: The global NFL player dictionary.
+ *   - `rosters`: League rosters, used to label cards with team name/avatar.
  */
 import { useMemo, useState } from "react";
 import { Avatar } from "../../components/Avatar";
-import type { Roster, TeamUser } from "../../types/fantasy";
+import type { Matchup, Roster, TeamUser } from "../../types/fantasy";
 import type { Player } from "../../types/fantasy";
-import { buildDefStatsKeyMap, getFantasyPoints } from "../../utils/sleeperNormalize";
+import {
+  buildDefStatsKeyMap,
+  buildDefWeeklyPointsMap,
+  getFantasyPoints,
+} from "../../utils/sleeperNormalize";
 import { SectionHead, teamAvatar, teamName } from "./_shared";
 
 // Positions available in the selector. "ALL" is the default view.
@@ -40,12 +36,14 @@ export function TopPerformers({
   rosters,
   users,
   playerStats,
+  matchups,
   players,
   week,
 }: {
   rosters: Roster[];
   users: TeamUser[];
   playerStats: Record<string, Record<string, number>> | undefined;
+  matchups: Matchup[] | undefined;
   players: Record<string, Player> | undefined;
   week: number;
 }) {
@@ -61,59 +59,62 @@ export function TopPerformers({
   }, [rosters]);
 
   // DEF → roster map: Sleeper keys team defenses as "TEAM_BUF" in the stats
-  // endpoint but stores them by numeric ID in rosters. Delegate the translation
-  // to sleeperNormalize so this widget stays provider-agnostic.
+  // endpoint but stores them by numeric ID in rosters.
   const defTeamToRoster = useMemo(
     () => buildDefStatsKeyMap(rosters, players),
     [rosters, players],
   );
 
+  // DEF → weekly fantasy points map, sourced from matchup playersPoints
+  // rather than the bulk stats endpoint (which returns season totals for DEFs).
+  const defWeeklyPoints = useMemo(
+    () => buildDefWeeklyPointsMap(matchups ?? [], players, rosters),
+    [matchups, players, rosters],
+  );
+
   const top = useMemo(() => {
     if (!playerStats || !players) return [];
+
+    if (selectedPos === "DEF") {
+      // Source DEF points from matchup data, not playerStats.
+      return Array.from(defTeamToRoster.entries())
+        .map(([teamKey, rosterId]) => ({
+          playerId: teamKey,
+          name: `${teamKey.replace("TEAM_", "")} DEF`,
+          position: "DEF" as const,
+          pts: defWeeklyPoints.get(teamKey) ?? 0,
+          rosterId,
+        }))
+        .filter((p) => p.pts > 0)
+        .sort((a, b) => b.pts - a.pts)
+        .slice(0, 5);
+    }
 
     return (
       Object.entries(playerStats)
         .filter(([pid]) => {
           const isDef = pid.startsWith("TEAM_");
-          // DEF tab: only team-defense entries that are rostered.
-          if (selectedPos === "DEF") return isDef && defTeamToRoster.has(pid);
-          // ALL tab: individual players only (no team defenses), must be rostered.
-          if (selectedPos === "ALL")
-            return !isDef && playerToRoster.has(pid);
-          // Position tab: match position and must be rostered.
+          if (selectedPos === "ALL") return !isDef && playerToRoster.has(pid);
           return (
             !isDef &&
             playerToRoster.has(pid) &&
             players[pid]?.position === selectedPos
           );
         })
-        .map(([pid, stats]) => {
-          const isDef = pid.startsWith("TEAM_");
-          // For DEF entries the player dictionary won't have a record —
-          // derive a display name from the key (e.g. "TEAM_BUF" → "BUF DEF").
-          const name = isDef
-            ? `${pid.replace("TEAM_", "")} DEF`
-            : (players[pid]?.fullName ??
-              (`${players[pid]?.firstName ?? ""} ${players[pid]?.lastName ?? ""}`.trim() ||
-              pid));
-          const position = isDef ? "DEF" : (players[pid]?.position ?? "—");
-          // DEF entries use the defTeamToRoster map; individual players use playerToRoster.
-          const rosterId = isDef
-            ? defTeamToRoster.get(pid)!
-            : playerToRoster.get(pid)!;
-          return {
-            playerId: pid,
-            name,
-            position,
-            pts: getFantasyPoints(stats),
-            rosterId,
-          };
-        })
+        .map(([pid, stats]) => ({
+          playerId: pid,
+          name:
+            players[pid]?.fullName ??
+            (`${players[pid]?.firstName ?? ""} ${players[pid]?.lastName ?? ""}`.trim() || pid),
+          position: players[pid]?.position ?? "—",
+          pts: getFantasyPoints(stats),
+          rosterId: playerToRoster.get(pid)!,
+        }))
         .filter((p) => p.pts > 0)
         .sort((a, b) => b.pts - a.pts)
         .slice(0, 5)
     );
-  }, [playerStats, players, playerToRoster, defTeamToRoster, selectedPos]);
+  }, [playerStats, players, playerToRoster, defTeamToRoster, defWeeklyPoints, selectedPos]);
 
   if (!playerStats || !players) return null;
   if (top.length === 0 && selectedPos === "ALL") return null;

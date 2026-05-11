@@ -51,6 +51,8 @@ export interface Matchup {
   points: number;
   starters: string[];
   players: string[];
+  /** Per-player fantasy points for this roster this week, keyed by player_id */
+  playersPoints: Record<string, number> | null;
 }
 
 export interface Player {

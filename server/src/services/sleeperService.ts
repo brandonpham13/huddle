@@ -64,6 +64,8 @@ export interface SleeperMatchup {
   custom_points: number | null;
   starters: string[];
   players: string[];
+  /** Per-player fantasy points for this roster this week, keyed by player_id */
+  players_points: Record<string, number> | null;
 }
 
 export interface SleeperPlayer {

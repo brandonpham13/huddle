@@ -102,6 +102,7 @@ function toMatchup(s: SleeperMatchup): Matchup {
     points: s.points,
     starters: s.starters,
     players: s.players,
+    playersPoints: s.players_points ?? null,
   };
 }
 

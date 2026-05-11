@@ -60,6 +60,50 @@ export function getFantasyPoints(
   return Number(stats[format] ?? 0);
 }
 
+// ── Defense per-week points ─────────────────────────────────────────────────────
+
+import type { Matchup } from "../types/fantasy";
+
+/**
+ * Build a map from Sleeper's defense stats key ("TEAM_BUF") to the fantasy
+ * points that defense scored in the given week.
+ *
+ * Sleeper's bulk stats endpoint returns cumulative season totals for TEAM_
+ * entries, not per-week scores. The per-week DEF score lives in the matchup
+ * data as `playersPoints[numericPlayerId]`. We use the defTeamToRoster map
+ * (from buildDefStatsKeyMap) to find which roster owns each DEF, then look
+ * up that defense's numeric player ID via the roster's players list.
+ *
+ * @param rosters     - League rosters.
+ * @param matchups    - This week's matchup entries (must include playersPoints).
+ * @param players     - Player dictionary, used to match team abbr → numeric ID.
+ * @returns Map<"TEAM_XXX", weeklyFantasyPoints>
+ */
+export function buildDefWeeklyPointsMap(
+  rosters: Matchup[],
+  players: Record<string, PlayerWithPositionAndTeam> | undefined,
+  allRosters: import("../types/fantasy").Roster[],
+): Map<string, number> {
+  const map = new Map<string, number>();
+  if (!players) return map;
+
+  for (const matchup of rosters) {
+    if (!matchup.playersPoints) continue;
+    // Find all DEF player IDs on this roster by checking the player dictionary.
+    const roster = allRosters.find((r) => r.rosterId === matchup.rosterId);
+    if (!roster) continue;
+    for (const pid of roster.players ?? []) {
+      if (players[pid]?.position === "DEF" && players[pid]?.team) {
+        const teamKey = `TEAM_${players[pid].team}`;
+        const pts = matchup.playersPoints[pid] ?? 0;
+        map.set(teamKey, pts);
+      }
+    }
+  }
+
+  return map;
+}
+
 // ── Defense key mismatch ──────────────────────────────────────────────────────
 
 /**

@@ -242,6 +242,7 @@ export function DashboardPage() {
                   | Record<string, Record<string, number>>
                   | undefined
               }
+              matchups={matchups}
               players={players}
               week={week}
             />
