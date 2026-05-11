@@ -28,6 +28,8 @@
 import { useMemo, useState } from "react";
 import { Avatar } from "../../components/Avatar";
 import type { Roster, TeamUser } from "../../types/fantasy";
+import type { Player } from "../../types/fantasy";
+import { buildDefStatsKeyMap } from "../../utils/sleeperNormalize";
 import { SectionHead, teamAvatar, teamName } from "./_shared";
 
 // Positions available in the selector. "ALL" is the default view.
@@ -44,42 +46,27 @@ export function TopPerformers({
   rosters: Roster[];
   users: TeamUser[];
   playerStats: Record<string, Record<string, number>> | undefined;
-  players:
-    | Record<
-        string,
-        {
-          fullName?: string;
-          firstName: string;
-          lastName: string;
-          position: string;
-          team?: string | null;
-        }
-      >
-    | undefined;
+  players: Record<string, Player> | undefined;
   week: number;
 }) {
   const [selectedPos, setSelectedPos] = useState<Position>("ALL");
 
-  // Reverse-index rosters once so per-player lookup is O(1).
-  // DEF players are stored in rosters by numeric ID (e.g. "4046") but appear
-  // in the stats map as "TEAM_BUF". We build a second mapping from the
-  // TEAM_XXX key → rosterId using the player dictionary's team field so the
-  // DEF filter can match stats entries to their owning roster.
-  const { playerToRoster, defTeamToRoster } = useMemo(() => {
-    const playerToRoster = new Map<string, number>();
-    const defTeamToRoster = new Map<string, number>(); // "TEAM_BUF" -> rosterId
+  // Normal player → roster map.
+  const playerToRoster = useMemo(() => {
+    const map = new Map<string, number>();
     for (const r of rosters) {
-      for (const pid of r.players ?? []) {
-        playerToRoster.set(pid, r.rosterId);
-        // If this player is a DEF, also register the TEAM_XXX stats key.
-        const team = players?.[pid]?.team;
-        if (players?.[pid]?.position === "DEF" && team) {
-          defTeamToRoster.set(`TEAM_${team}`, r.rosterId);
-        }
-      }
+      for (const pid of r.players ?? []) map.set(pid, r.rosterId);
     }
-    return { playerToRoster, defTeamToRoster };
-  }, [rosters, players]);
+    return map;
+  }, [rosters]);
+
+  // DEF → roster map: Sleeper keys team defenses as "TEAM_BUF" in the stats
+  // endpoint but stores them by numeric ID in rosters. Delegate the translation
+  // to sleeperNormalize so this widget stays provider-agnostic.
+  const defTeamToRoster = useMemo(
+    () => buildDefStatsKeyMap(rosters, players),
+    [rosters, players],
+  );
 
   const top = useMemo(() => {
     if (!playerStats || !players) return [];
