@@ -30,9 +30,23 @@ import type { Roster, TeamUser } from "../../types/fantasy";
 import { SectionHead, SortHeader, teamAvatar, teamName } from "./_shared";
 
 // Narrower fixed columns on mobile so the team column has room to breathe;
-// expand to comfortable widths at sm+.
+// expand to comfortable widths at sm+. Six columns: #, Team, W–L, PF, PA, Strk.
 const LEAGUE_TABLE_GRID =
   "grid-cols-[16px_1fr_42px_42px_42px_36px] sm:grid-cols-[18px_1fr_52px_52px_52px_44px]";
+
+/**
+ * Parse a provider streak string ("3W" / "2L") into a signed integer where
+ * positive = win streak, negative = loss streak, 0 = no/unknown streak.
+ * Lets us sort the column with a single numeric comparator (descending puts
+ * the hottest team at the top, the coldest at the bottom).
+ */
+function streakSortValue(streak: string | null): number {
+  if (!streak) return 0;
+  const match = streak.match(/^(\d+)([WL])$/i);
+  if (!match) return 0;
+  const n = Number(match[1]);
+  return match[2].toUpperCase() === "W" ? n : -n;
+}
 
 export function LeagueTable({
   rosters,
@@ -80,7 +94,13 @@ export function LeagueTable({
       // PA is "lower is better" so default to asc — the smallest number ranks
       // first when the user clicks the header.
       { id: "pa", sortValue: (r) => r.pointsAgainst, defaultDir: "asc" },
-      { id: "pts", sortValue: (r) => r.pointsFor, defaultDir: "desc" },
+      {
+        id: "strk",
+        // Desc puts the longest win streak at the top, longest loss streak
+        // at the bottom — matches what "who's hot" means at a glance.
+        sortValue: (r) => streakSortValue(r.streak),
+        defaultDir: "desc",
+      },
     ],
     [rankByRosterId, users],
   );
@@ -141,8 +161,8 @@ export function LeagueTable({
           align="right"
         />
         <SortHeader
-          id="pts"
-          label="Pts"
+          id="strk"
+          label="Strk"
           currentId={sortId}
           dir={sortDir}
           onSort={handleSort}
@@ -193,12 +213,47 @@ export function LeagueTable({
             <div className="text-right font-mono text-[11px] text-muted">
               {pa.toFixed(1)}
             </div>
-            <div className="text-right font-mono text-[11px] text-body">
-              {pf.toFixed(0)}
+            <div className="flex items-center justify-end">
+              <StreakBadge streak={r.streak} />
             </div>
           </Link>
         );
       })}
     </section>
+  );
+}
+
+/**
+ * Colored W#/L# streak badge.
+ *
+ * Reads the Sleeper-supplied streak string ("3W" / "2L") and renders the
+ * count + direction with a tint that matches the result:
+ *   - Wins → green (`text-emerald-600`, slightly brighter in dark mode)
+ *   - Losses → red  (`text-red-600`)
+ *   - Unknown / no streak → muted em-dash so the row keeps its alignment
+ *
+ * We don't add a background — the column is narrow (36/44px) and a tint on
+ * the text is enough contrast to skim. The em-dash branch fires when the
+ * provider hasn't reported a streak (pre-draft / drafting leagues), or
+ * when the value is malformed.
+ */
+function StreakBadge({ streak }: { streak: string | null }) {
+  const match = streak?.match(/^(\d+)([WL])$/i);
+  if (!match) {
+    return <span className="font-mono text-[11px] text-muted">—</span>;
+  }
+  const count = match[1];
+  const isWin = match[2].toUpperCase() === "W";
+  return (
+    <span
+      className={`font-mono text-[11px] font-semibold tabular-nums ${
+        isWin
+          ? "text-emerald-600 dark:text-emerald-400"
+          : "text-red-600 dark:text-red-400"
+      }`}
+    >
+      {isWin ? "W" : "L"}
+      {count}
+    </span>
   );
 }

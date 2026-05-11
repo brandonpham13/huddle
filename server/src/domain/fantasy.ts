@@ -45,6 +45,10 @@ export interface Roster {
   record: { wins: number; losses: number; ties: number };
   pointsFor: number;
   pointsAgainst: number;
+  /** Current W/L streak as Sleeper reports it — e.g. "3W", "2L". Null if
+   *  the provider doesn't expose it (pre-draft / drafting leagues, or
+   *  providers that simply don't track it). */
+  streak: string | null;
 }
 
 export interface TeamUser {
