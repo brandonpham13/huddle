@@ -183,7 +183,7 @@ export function LeagueTable({
             <div className="text-right font-mono text-[11px] text-muted">
               {pa.toFixed(1)}
             </div>
-            <div className="text-right">
+            <div className="flex items-center justify-end">
               <StreakBadge streak={r.streak} />
             </div>
           </Link>
