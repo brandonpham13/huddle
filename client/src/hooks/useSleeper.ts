@@ -27,6 +27,7 @@
  * before Redux has hydrated.
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import axios from "axios";
 import { useAuth } from "@clerk/clerk-react";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -372,4 +373,64 @@ export function useSyncLeagues() {
       queryClient.invalidateQueries({ queryKey: ["sleeper-leagues"] });
     },
   });
+}
+
+// ---- Season matchup log for a specific roster ----
+//
+// Fetches all weekly matchup entries up to `lastWeek` for `leagueId` and
+// filters down to the row for `rosterId`. Returns a week-by-week array of
+// { week, pf, pa, result } suitable for the season trail sparkline on
+// TeamPage. Matches are resolved by pairing entries with the same matchupId.
+//
+// Fetches are done in parallel (one query per week) — TanStack Query dedupes
+// these with the matchup queries already in flight from DashboardPage.
+
+export interface TeamWeekResult {
+  week: number;
+  pf: number;
+  pa: number;
+  result: "W" | "L" | "T" | null;
+}
+
+export function useTeamSeasonLog(
+  leagueId: string | null,
+  rosterId: number | null,
+  lastWeek: number,
+) {
+  // Build one query per week, enabled only when we have both IDs and at least
+  // one week of data. TanStack Query will share cache with useLeagueMatchups.
+  const weekNumbers = lastWeek > 0 ? Array.from({ length: lastWeek }, (_, i) => i + 1) : [];
+
+  const results = weekNumbers.map((week) =>
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useQuery({
+      queryKey: ["sleeper-matchups", leagueId, week],
+      queryFn: async () => {
+        const res = await axios.get<{ matchups: Matchup[] }>(
+          base(`/league/${leagueId}/matchups/${week}`),
+        );
+        return res.data.matchups;
+      },
+      enabled: !!leagueId && !!rosterId && week >= 1,
+      staleTime: 2 * 60 * 1000,
+    }),
+  );
+
+  return useMemo<TeamWeekResult[]>(() => {
+    if (!rosterId) return [];
+    return weekNumbers.flatMap((week, i) => {
+      const matchups = results[i]?.data;
+      if (!matchups) return [];
+      const mine = matchups.find((m) => m.rosterId === rosterId);
+      if (!mine || mine.matchupId === null) return [];
+      const opp = matchups.find(
+        (m) => m.matchupId === mine.matchupId && m.rosterId !== rosterId,
+      );
+      const pa = opp?.points ?? 0;
+      const result: "W" | "L" | "T" =
+        mine.points > pa ? "W" : mine.points < pa ? "L" : "T";
+      return [{ week, pf: mine.points, pa, result }];
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rosterId, ...results.map((r) => r.data)]);
 }
