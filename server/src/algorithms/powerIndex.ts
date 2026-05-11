@@ -3,7 +3,9 @@
  *
  * For each completed week, simulates every team playing every other team.
  * A team earns a win for each opponent they scored more points than that week.
- * The column displays each team's rank; raw win totals are hidden.
+ * The column displays each team's raw all-play win total; the widget derives
+ * placement (1st, 2nd, …) from the sort order so the “#” column always reflects
+ * true sequential position rather than a pre-computed float.
  */
 import { registerAlgorithm } from "../services/powerRankingsService.js";
 import type { PowerRankingInput } from "../services/powerRankingsService.js";
@@ -13,7 +15,7 @@ registerAlgorithm({
   label: "Power Index",
   description:
     "All-play record: simulated wins if each team played every other team every week.",
-  displayMode: "rank",
+  displayMode: "score",
   compute({ rosters, matchupsByWeek }: PowerRankingInput): Map<number, number> {
     const allPlayWins = new Map<number, number>(
       rosters.map((r) => [r.rosterId, 0]),
