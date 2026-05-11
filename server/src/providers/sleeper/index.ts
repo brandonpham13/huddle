@@ -78,6 +78,9 @@ function toRoster(s: SleeperRoster): Roster {
     pointsAgainst:
       (s.settings?.fpts_against ?? 0) +
       (s.settings?.fpts_against_decimal ?? 0) / 100,
+    // Surface Sleeper's "3W" / "2L" streak string when present. The client
+    // (LeagueTable widget) parses this into a colored W#/L# badge.
+    streak: s.metadata?.streak ?? null,
   };
 }
 

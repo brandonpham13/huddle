@@ -30,6 +30,10 @@ export interface Roster {
   record: { wins: number; losses: number; ties: number };
   pointsFor: number;
   pointsAgainst: number;
+  /** Current W/L streak string from the provider — e.g. "3W", "2L".
+   *  Null when the provider doesn't expose it (pre-draft / drafting
+   *  leagues). Parsed for display in `widgets/dashboard/LeagueTable.tsx`. */
+  streak: string | null;
 }
 
 export interface TeamUser {

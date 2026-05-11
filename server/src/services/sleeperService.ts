@@ -40,6 +40,12 @@ export interface SleeperRoster {
     waiver_budget_used?: number;
     total_moves?: number;
   };
+  // Sleeper stores the current W/L streak here as a short string ("3W" /
+  // "2L"). Optional because Sleeper omits it for pre-draft / drafting
+  // leagues, and historical leagues may not always carry it.
+  metadata?: {
+    streak?: string;
+  };
 }
 
 export interface SleeperLeagueUser {
