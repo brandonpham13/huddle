@@ -223,8 +223,12 @@ function SeasonTrail({
   // at both extremes (3 weeks = 84px canvas, 17 weeks = 476px canvas). The
   // SVG stretches to fill its container either way via width="100%".
   const COL = 28;
-  const PAD = 4; // left/right margin so the r=3 dot at week 1 isn't clipped
-  const W = Math.max(log.length * COL, COL) + PAD * 2;
+  // PAD gives equal breathing room on both sides of the first/last dot.
+  // 12px comfortably fits the r=3 dot plus the centered "W1"/"W17" label.
+  const PAD = 12;
+  // Width spans exactly from first to last point with symmetric padding —
+  // (n-1)*COL puts the last column flush against the right pad, not beyond it.
+  const W = Math.max((log.length - 1) * COL, 0) + PAD * 2;
   const H = 80;
   const x = (i: number) => (log.length === 1 ? W / 2 : PAD + i * COL);
   const y = (v: number) => H - ((v - min) / range) * (H - 8) - 4;
