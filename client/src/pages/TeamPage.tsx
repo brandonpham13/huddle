@@ -5,6 +5,7 @@ import { useLeagueRosters, useLeagueUsers } from "../hooks/useSleeper";
 import { useMyClaimedTeam } from "../hooks/useMyClaimedTeam";
 import { useAllSleeperLeagues } from "../hooks/useSleeper";
 import { getFamilySeasons } from "../utils/leagueFamily";
+import { sleeperAvatarUrl } from "../utils/sleeperNormalize";
 
 export function TeamPage() {
   const { rosterId: rosterIdParam } = useParams<{ rosterId: string }>();
@@ -52,9 +53,9 @@ export function TeamPage() {
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       {/* Team header */}
       <div className="flex items-center gap-4">
-        {avatar ? (
+        {sleeperAvatarUrl(avatar) ? (
           <img
-            src={`https://sleepercdn.com/avatars/thumbs/${avatar}`}
+            src={sleeperAvatarUrl(avatar)!}
             alt={teamName ?? ""}
             className="w-14 h-14 rounded-full object-cover"
           />
