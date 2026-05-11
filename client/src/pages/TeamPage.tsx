@@ -12,8 +12,8 @@
  * they render the correct layout with placeholder values so the page is
  * usable as-is.
  */
-import { useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useMemo, useRef } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useAppSelector } from "../store/hooks";
 import {
   useAllSleeperLeagues,
@@ -691,6 +691,17 @@ export function TeamPage() {
   const selectedLeagueId = useAppSelector(
     (state) => state.auth.selectedLeagueId,
   );
+
+  const navigate = useNavigate();
+
+  // Redirect to dashboard when the user switches leagues — the rosterId in
+  // the URL belongs to the old league and is invalid in the new context.
+  const mountedLeagueId = useRef(selectedLeagueId);
+  useEffect(() => {
+    if (mountedLeagueId.current !== selectedLeagueId) {
+      navigate("/", { replace: true });
+    }
+  }, [selectedLeagueId, navigate]);
 
   const { data: allLeagues } = useAllSleeperLeagues();
   const { data: selectedLeague } = useLeague(selectedLeagueId);
