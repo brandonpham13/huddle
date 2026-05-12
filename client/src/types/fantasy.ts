@@ -182,3 +182,80 @@ export interface PlayerStats {
 
 /** Map of playerId -> stats for a given week */
 export type PlayerStatsMap = Record<string, PlayerStats>;
+
+// ─── Team Stats (lifetime + per-season aggregates) ────────────────────────────
+
+/** One row in the Season by Season table. */
+export interface SeasonStat {
+  leagueId: string;
+  season: string;
+  record: { wins: number; losses: number; ties: number };
+  pointsFor: number;
+  pointsAgainst: number;
+  /** Final regular-season standing, 1-indexed. Null if unavailable. */
+  seed: number | null;
+  /** Postseason result for this season. Null = in-progress or unknown. */
+  postseason:
+    | "champion"
+    | "runner_up"
+    | "third"
+    | "made_playoffs"
+    | "missed_playoffs"
+    | null;
+  /** Placeholder — wired to power-rank data in a future pass. */
+  powerRank: number | null;
+}
+
+/** Head-to-head record against one specific opponent. */
+export interface H2HRecord {
+  opponentRosterId: number;
+  opponentOwnerId: string | null;
+  wins: number;
+  losses: number;
+  ties: number;
+}
+
+/** Full lifetime + per-season statistics for one team. */
+export interface TeamStats {
+  careerRecord: { wins: number; losses: number; ties: number };
+  winPct: number;
+  playoffAppearances: number;
+  championships: number;
+  runnerUps: number;
+  thirdPlace: number;
+  avgFinish: number | null;
+
+  avgPointsFor: number;
+  avgPointsAgainst: number;
+  highScore: {
+    points: number;
+    season: string;
+    week: number;
+    opponentRosterId: number | null;
+  } | null;
+  lowScore: {
+    points: number;
+    season: string;
+    week: number;
+    opponentRosterId: number | null;
+  } | null;
+  biggestWin: {
+    margin: number;
+    season: string;
+    week: number;
+    opponentRosterId: number | null;
+  } | null;
+  worstLoss: {
+    margin: number;
+    season: string;
+    week: number;
+    opponentRosterId: number | null;
+  } | null;
+
+  longestWinStreak: number;
+  longestLossStreak: number;
+
+  h2h: H2HRecord[];
+
+  seasons: SeasonStat[];
+}
