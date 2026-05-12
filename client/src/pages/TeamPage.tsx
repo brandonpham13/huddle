@@ -522,14 +522,16 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
                 No head-to-head data available.
               </div>
             ) : (
-              /* Sort by most games played (wins+losses+ties) descending so the
-                 most-common opponents appear first. */
+              /* Sort by win pct descending, break ties by most wins. */
               <div className="mt-2 space-y-1">
                 {[...stats.h2h]
-                  .sort(
-                    (a, b) =>
-                      b.wins + b.losses + b.ties - (a.wins + a.losses + a.ties),
-                  )
+                  .sort((a, b) => {
+                    const aTotal = a.wins + a.losses + a.ties;
+                    const bTotal = b.wins + b.losses + b.ties;
+                    const aPct = aTotal > 0 ? a.wins / aTotal : 0;
+                    const bPct = bTotal > 0 ? b.wins / bTotal : 0;
+                    return bPct !== aPct ? bPct - aPct : b.wins - a.wins;
+                  })
                   .map((rec) => {
                     const wl = `${rec.wins}–${rec.losses}${rec.ties ? `–${rec.ties}` : ""}`;
                     return (
