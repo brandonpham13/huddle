@@ -1,5 +1,5 @@
 /**
- * teamStatsService.ts
+ * teamStatsService.ts — v2
  *
  * Computes lifetime and per-season statistics for a single fantasy team
  * across an entire league family (multiple seasons of the same league).
