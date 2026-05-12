@@ -275,6 +275,9 @@ export interface TeamStats {
     opponentRosterId: number | null;
   } | null;
 
+  // ── Weekly superlatives ───────────────────────────────────────────────────
+  mvpWeeks: number; // regular-season weeks with the top score league-wide
+
   // ── Streaks ──────────────────────────────────────────────────────────────
   longestWinStreak: number;
   longestLossStreak: number;

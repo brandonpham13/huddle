@@ -264,6 +264,7 @@ export interface TeamStats {
     opponentRosterId: number | null;
   } | null;
 
+  mvpWeeks: number;
   longestWinStreak: number;
   longestLossStreak: number;
 

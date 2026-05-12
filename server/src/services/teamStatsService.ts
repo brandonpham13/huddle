@@ -218,6 +218,9 @@ export async function computeTeamStats(
   let biggestWin: TeamStats["biggestWin"] = null;
   let worstLoss: TeamStats["worstLoss"] = null;
 
+  // Weekly superlatives
+  let mvpWeeks = 0;
+
   // Win/loss streak tracking across entire career (chronologically oldest first)
   // We rebuild the streak from the full chronological game list.
   const allGameResults: Array<"W" | "L" | "T"> = [];
@@ -291,6 +294,16 @@ export async function computeTeamStats(
       // Accumulate PF for all rosters (seed computation)
       for (const m of weekMatchups) {
         pfByRoster.set(m.rosterId, (pfByRoster.get(m.rosterId) ?? 0) + m.points);
+      }
+
+      // MVP week: team had the highest score league-wide during regular season
+      const playoffWeekStart =
+        typeof league.settings["playoff_week_start"] === "number"
+          ? (league.settings["playoff_week_start"] as number)
+          : Infinity;
+      if (weekNum < playoffWeekStart) {
+        const weekMax = Math.max(...weekMatchups.map((m) => m.points));
+        if (myEntry.points > 0 && myEntry.points >= weekMax) mvpWeeks++;
       }
 
       // Find the opponent in the same matchup
@@ -474,6 +487,7 @@ export async function computeTeamStats(
     lowScore,
     biggestWin,
     worstLoss,
+    mvpWeeks,
     longestWinStreak,
     longestLossStreak,
     h2h,

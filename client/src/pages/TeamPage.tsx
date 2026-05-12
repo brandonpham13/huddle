@@ -495,6 +495,11 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
               label="Avg PA"
               value={stats ? stats.avgPointsAgainst.toFixed(1) : "—"}
             />
+            <Stat
+              label="MVP Weeks"
+              value={stats ? String(stats.mvpWeeks) : "—"}
+              accent
+            />
           </div>
           <div className="mt-3">
             <Eyebrow>Extremes</Eyebrow>
