@@ -3,28 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { Button } from "../ui/button";
 import { useCreateHuddle } from "../../hooks/useHuddles";
-import {
-  useLeague,
-  useLeagueRosters,
-  useLeagueUsers,
-} from "../../hooks/useSleeper";
 import type { Huddle } from "../../types/huddle";
 
-export function CreateHuddleModal({
-  leagueId,
-  onClose,
-}: {
-  leagueId: string;
-  onClose: () => void;
-}) {
-  const { data: league } = useLeague(leagueId);
-  const { data: rosters } = useLeagueRosters(leagueId);
-  const { data: leagueUsers } = useLeagueUsers(leagueId);
+export function CreateHuddleModal({ onClose }: { onClose: () => void }) {
   const create = useCreateHuddle();
   const navigate = useNavigate();
 
-  const [name, setName] = useState(league?.name ?? "");
-  const [rosterId, setRosterId] = useState<number | null>(null);
+  const [name, setName] = useState("");
   const [created, setCreated] = useState<Huddle | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -32,12 +17,7 @@ export function CreateHuddleModal({
 
   const handleSubmit = () => {
     create.mutate(
-      {
-        leagueProvider: "sleeper",
-        leagueId,
-        name: name.trim(),
-        rosterId: rosterId ?? undefined,
-      },
+      { name: name.trim() },
       { onSuccess: (huddle) => setCreated(huddle) },
     );
   };
@@ -62,9 +42,10 @@ export function CreateHuddleModal({
           onClick={(e) => e.stopPropagation()}
         >
           <div>
-            <h2 className="text-lg font-bold">Huddle created! 🎉</h2>
+            <h2 className="text-lg font-bold">Huddle created!</h2>
             <p className="text-sm text-gray-500 mt-1">
-              Share this invite code with your league members so they can join.
+              Share this invite code with your league members. You can link a
+              Sleeper league from inside the huddle.
             </p>
           </div>
 
@@ -111,7 +92,7 @@ export function CreateHuddleModal({
           <h2 className="text-lg font-bold">Create huddle</h2>
           <p className="text-sm text-gray-500 mt-1">
             You'll be the commissioner. An invite code is generated
-            automatically — share it with your league.
+            automatically. Link a Sleeper league from inside the huddle.
           </p>
         </div>
 
@@ -125,38 +106,8 @@ export function CreateHuddleModal({
             maxLength={80}
             autoFocus
             className="w-full text-sm border rounded-md px-2 py-1.5"
-            placeholder={league?.name ?? "Huddle name"}
+            placeholder="e.g. The Boys"
           />
-        </div>
-
-        <div>
-          <label className="text-xs text-gray-500 block mb-1">
-            Your team (optional)
-          </label>
-          <select
-            value={rosterId ?? ""}
-            onChange={(e) =>
-              setRosterId(e.target.value ? Number(e.target.value) : null)
-            }
-            className="w-full text-sm border rounded-md px-2 py-1.5 bg-white"
-          >
-            <option value="">— Skip; claim later —</option>
-            {(rosters ?? []).map((r) => {
-              const owner = r.ownerId
-                ? leagueUsers?.find((u) => u.userId === r.ownerId)
-                : null;
-              const teamName =
-                owner?.teamName ?? owner?.displayName ?? `Team ${r.rosterId}`;
-              return (
-                <option key={r.rosterId} value={r.rosterId}>
-                  {teamName}
-                </option>
-              );
-            })}
-          </select>
-          <p className="text-[11px] text-gray-400 mt-1">
-            Selecting a team auto-claims it for you.
-          </p>
         </div>
 
         {create.isError && (

@@ -14,7 +14,7 @@ import {
   CardDescription,
 } from "../components/ui/card";
 import { Button } from "../components/ui/button";
-import { LeagueHuddlesSection } from "../components/huddles/LeagueHuddlesSection";
+import { HuddlesSection } from "../components/huddles/LeagueHuddlesSection";
 import type { League } from "../types/fantasy";
 
 function leagueStatusBadge(status: string) {
@@ -116,6 +116,20 @@ export function LeaguesPage() {
       </nav>
 
       <main className="p-6 max-w-2xl mx-auto space-y-4">
+        {/* Huddles are independent of leagues — show them at the top */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Huddles</CardTitle>
+            <CardDescription>
+              A huddle is your group's home base. Create one, invite your league
+              members, then link a Sleeper league from inside the huddle.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <HuddlesSection />
+          </CardContent>
+        </Card>
+
         {!sleeperUsername ? (
           <Card>
             <CardContent className="py-8 text-center">
@@ -314,10 +328,7 @@ export function LeaguesPage() {
                               Remove
                             </button>
                           </div>
-                          <LeagueHuddlesSection
-                            leagueId={league.ref.leagueId}
-                          />
-                        </div>
+                                        </div>
                       ),
                     )}
                   </div>

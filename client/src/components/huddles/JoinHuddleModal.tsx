@@ -3,13 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../ui/button";
 import { useLookupHuddleByCode } from "../../hooks/useHuddles";
 
-export function JoinHuddleModal({
-  leagueId,
-  onClose,
-}: {
-  leagueId: string;
-  onClose: () => void;
-}) {
+export function JoinHuddleModal({ onClose }: { onClose: () => void }) {
   const lookup = useLookupHuddleByCode();
   const navigate = useNavigate();
   const [code, setCode] = useState("");
@@ -18,11 +12,7 @@ export function JoinHuddleModal({
 
   const handleSubmit = () => {
     lookup.mutate(
-      {
-        code: code.trim().toUpperCase(),
-        leagueProvider: "sleeper",
-        leagueId,
-      },
+      { code: code.trim().toUpperCase() },
       {
         onSuccess: (huddle) => {
           onClose();

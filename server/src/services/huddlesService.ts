@@ -111,10 +111,7 @@ export async function listCommissioners(
 // ---- Huddle CRUD ----
 
 export async function createHuddle(opts: {
-  leagueProvider: string;
-  leagueId: string;
   name: unknown;
-  rosterId?: number | null;
   commissionerUserId: string;
 }): Promise<Huddle> {
   const name = validateName(opts.name);
@@ -122,12 +119,7 @@ export async function createHuddle(opts: {
 
   const [created] = await db
     .insert(huddles)
-    .values({
-      leagueProvider: opts.leagueProvider,
-      leagueId: opts.leagueId,
-      name,
-      inviteCode,
-    })
+    .values({ name, inviteCode })
     .returning();
 
   if (!created) fail(500, "Failed to create huddle");
@@ -139,27 +131,16 @@ export async function createHuddle(opts: {
     addedBy: opts.commissionerUserId,
   });
 
-  // Auto-approve commissioner's own team claim if they specified one
-  if (typeof opts.rosterId === "number" && opts.rosterId > 0) {
-    await db.insert(teamClaims).values({
-      huddleId: created!.id,
-      userId: opts.commissionerUserId,
-      rosterId: opts.rosterId,
-      status: "approved",
-      decidedAt: new Date(),
-      decidedBy: opts.commissionerUserId,
-    });
-  }
-
   return created!;
 }
 
-export async function listHuddlesForLeague(
-  leagueProvider: string,
-  leagueId: string,
-  userId: string,
-): Promise<Huddle[]> {
-  // Only show huddles where the user has an approved claim
+export async function listHuddlesForUser(userId: string): Promise<Huddle[]> {
+  // Return all huddles where the user is a commissioner OR has an approved claim
+  const commishRows = await db
+    .select({ huddleId: huddleCommissioners.huddleId })
+    .from(huddleCommissioners)
+    .where(eq(huddleCommissioners.userId, userId));
+
   const claimRows = await db
     .select({ huddleId: teamClaims.huddleId })
     .from(teamClaims)
@@ -167,20 +148,41 @@ export async function listHuddlesForLeague(
       and(eq(teamClaims.userId, userId), eq(teamClaims.status, "approved")),
     );
 
-  const memberHuddleIds = [...new Set(claimRows.map((r) => r.huddleId))];
+  const memberHuddleIds = [
+    ...new Set([
+      ...commishRows.map((r) => r.huddleId),
+      ...claimRows.map((r) => r.huddleId),
+    ]),
+  ];
 
   if (memberHuddleIds.length === 0) return [];
 
   return db
     .select()
     .from(huddles)
-    .where(
-      and(
-        eq(huddles.leagueProvider, leagueProvider),
-        eq(huddles.leagueId, leagueId),
-        inArray(huddles.id, memberHuddleIds),
-      ),
-    );
+    .where(inArray(huddles.id, memberHuddleIds));
+}
+
+export async function linkLeague(opts: {
+  huddleId: string;
+  userId: string;
+  leagueProvider: string;
+  leagueId: string;
+}): Promise<Huddle> {
+  if (!(await isCommissioner(opts.huddleId, opts.userId)))
+    fail(403, "Only a commissioner can link a league");
+
+  const [updated] = await db
+    .update(huddles)
+    .set({
+      leagueProvider: opts.leagueProvider,
+      leagueId: opts.leagueId,
+      updatedAt: new Date(),
+    })
+    .where(eq(huddles.id, opts.huddleId))
+    .returning();
+  if (!updated) fail(500, "Failed to link league");
+  return updated!;
 }
 
 export async function getHuddle(huddleId: string): Promise<Huddle | null> {
@@ -194,19 +196,11 @@ export async function getHuddle(huddleId: string): Promise<Huddle | null> {
 
 export async function getHuddleByInviteCode(
   code: string,
-  leagueProvider: string,
-  leagueId: string,
 ): Promise<Huddle | null> {
   const rows = await db
     .select()
     .from(huddles)
-    .where(
-      and(
-        eq(huddles.inviteCode, code.toUpperCase()),
-        eq(huddles.leagueProvider, leagueProvider),
-        eq(huddles.leagueId, leagueId),
-      ),
-    )
+    .where(eq(huddles.inviteCode, code.toUpperCase()))
     .limit(1);
   return rows[0] ?? null;
 }

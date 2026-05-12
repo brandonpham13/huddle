@@ -1,4 +1,4 @@
-import { useHuddlesForLeague, useHuddleDetail } from "./useHuddles";
+import { useMyHuddles, useHuddleDetail } from "./useHuddles";
 import { useLeagueRosters, useLeagueUsers } from "./useSleeper";
 
 /**
@@ -10,10 +10,10 @@ import { useLeagueRosters, useLeagueUsers } from "./useSleeper";
  * the signed-in user without making them re-enter their team every season.
  *
  * Wiring (4 dependent queries combined):
- *   1. `useHuddlesForLeague` → which huddles exist for this league
- *   2. `useHuddleDetail`     → the user's claim within the first huddle
- *   3. `useLeagueRosters`    → look up the roster matching the claim
- *   4. `useLeagueUsers`      → resolve display name + avatar
+ *   1. `useMyHuddles`       → find the huddle that has this leagueId linked
+ *   2. `useHuddleDetail`    → the user's claim within that huddle
+ *   3. `useLeagueRosters`   → look up the roster matching the claim
+ *   4. `useLeagueUsers`     → resolve display name + avatar
  *
  * Returns `null` everywhere when there's no approved claim. Callers can
  * use `isLoading` to distinguish "we don't know yet" from "definitely no
@@ -29,16 +29,15 @@ export function useMyClaimedTeam(leagueId: string | null): {
   rosterId: number | null;
   isLoading: boolean;
 } {
-  const { data: huddles, isLoading: huddlesLoading } = useHuddlesForLeague(
-    "sleeper",
-    leagueId,
-  );
+  const { data: huddles, isLoading: huddlesLoading } = useMyHuddles();
 
-  // Use the first huddle — most leagues will only have one
-  const firstHuddleId = huddles?.[0]?.id ?? null;
+  // Find the huddle whose linked leagueId matches the one we're looking at
+  const matchingHuddle = leagueId
+    ? (huddles?.find((h) => h.leagueId === leagueId) ?? null)
+    : null;
 
   const { data: huddleDetail, isLoading: detailLoading } =
-    useHuddleDetail(firstHuddleId);
+    useHuddleDetail(matchingHuddle?.id ?? null);
 
   const { data: rosters, isLoading: rostersLoading } =
     useLeagueRosters(leagueId);

@@ -26,8 +26,10 @@ import {
   useRotateInviteCode,
   useSubmitClaim,
   useUpdateHuddle,
+  useLinkLeague,
 } from "../hooks/useHuddles";
 import {
+  useAllSleeperLeagues,
   useLeague,
   useLeagueRosters,
   useLeagueUsers,
@@ -94,7 +96,9 @@ export function HuddleDetailPage() {
               <CardHeader>
                 <CardTitle>{detail.huddle.name}</CardTitle>
                 <CardDescription>
-                  League: {league?.name ?? detail.huddle.leagueId}
+                  {detail.huddle.leagueId
+                    ? `League: ${league?.name ?? detail.huddle.leagueId}`
+                    : "No league linked yet"}
                   {" · "}
                   Commissioners:{" "}
                   {detail.huddle.commissioners
@@ -104,18 +108,36 @@ export function HuddleDetailPage() {
               </CardHeader>
             </Card>
 
-            <RosterTable
-              huddleId={huddleId}
-              rosters={rosters ?? []}
-              leagueUsers={leagueUsers ?? []}
-              claims={detail.claims}
-              myClaim={detail.myClaim}
-              currentUserId={userId ?? null}
-              isCommissioner={isCommissioner}
-              commissionerCount={detail.huddle.commissioners.length}
-            />
+            {/* Commissioners can link a Sleeper league when none is set yet */}
+            {isCommissioner && !detail.huddle.leagueId && (
+              <LinkLeaguePanel huddleId={huddleId} />
+            )}
 
-            {isCommissioner && (
+            {/* Non-commissioners see a prompt when no league is linked */}
+            {!isCommissioner && !detail.huddle.leagueId && (
+              <Card>
+                <CardContent className="py-6 text-center text-sm text-muted-foreground">
+                  The commissioner hasn't linked a Sleeper league yet. Check
+                  back soon.
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Roster table only makes sense once a league is linked */}
+            {detail.huddle.leagueId && (
+              <RosterTable
+                huddleId={huddleId}
+                rosters={rosters ?? []}
+                leagueUsers={leagueUsers ?? []}
+                claims={detail.claims}
+                myClaim={detail.myClaim}
+                currentUserId={userId ?? null}
+                isCommissioner={isCommissioner}
+                commissionerCount={detail.huddle.commissioners.length}
+              />
+            )}
+
+            {isCommissioner && detail.huddle.leagueId && (
               <CommissionerPendingPanel
                 huddleId={huddleId}
                 rosters={rosters ?? []}
@@ -142,8 +164,6 @@ export function HuddleDetailPage() {
               <DangerZone
                 huddleId={huddleId}
                 groupName={detail.huddle.name}
-                leagueProvider={detail.huddle.leagueProvider}
-                leagueId={detail.huddle.leagueId}
               />
             )}
           </>
@@ -714,18 +734,94 @@ function ManageCommissioners({
   );
 }
 
+// ---- Link League panel (commissioner, when no league is set) ----
+
+function LinkLeaguePanel({ huddleId }: { huddleId: string }) {
+  const { data: allLeagues, isLoading } = useAllSleeperLeagues();
+  const linkLeague = useLinkLeague();
+  const [selectedLeagueId, setSelectedLeagueId] = useState("");
+
+  // Deduplicate to the latest season per family (same display approach as AppShell)
+  const options = useMemo(() => {
+    if (!allLeagues) return [];
+    const seen = new Set<string>();
+    const result: typeof allLeagues = [];
+    for (const l of [...allLeagues].sort(
+      (a, b) => Number(b.season) - Number(a.season),
+    )) {
+      if (seen.has(l.ref.leagueId)) continue;
+      seen.add(l.ref.leagueId);
+      result.push(l);
+    }
+    return result;
+  }, [allLeagues]);
+
+  const handleLink = () => {
+    if (!selectedLeagueId) return;
+    linkLeague.mutate({
+      huddleId,
+      leagueProvider: "sleeper",
+      leagueId: selectedLeagueId,
+    });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Link a league</CardTitle>
+        <CardDescription>
+          Choose the Sleeper league this huddle is for. Members will then be
+          able to claim their team rosters.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading && <p className="text-sm text-gray-400">Loading leagues…</p>}
+        {!isLoading && options.length === 0 && (
+          <p className="text-sm text-gray-500">
+            No Sleeper leagues found. Make sure your Sleeper account is
+            connected in Account → Integrations.
+          </p>
+        )}
+        {options.length > 0 && (
+          <div className="space-y-3">
+            <select
+              value={selectedLeagueId}
+              onChange={(e) => setSelectedLeagueId(e.target.value)}
+              className="w-full text-sm border rounded-md px-2 py-1.5 bg-white"
+            >
+              <option value="">— Select a league —</option>
+              {options.map((l) => (
+                <option key={l.ref.leagueId} value={l.ref.leagueId}>
+                  {l.name} ({l.season})
+                </option>
+              ))}
+            </select>
+            <Button
+              disabled={!selectedLeagueId || linkLeague.isPending}
+              onClick={handleLink}
+            >
+              {linkLeague.isPending ? "Linking…" : "Link league"}
+            </Button>
+            {linkLeague.isError && (
+              <p className="text-xs text-red-500">
+                {(linkLeague.error as Error).message}
+              </p>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ---- Danger zone (commissioner-only delete) ----
 
 function DangerZone({
   huddleId,
   groupName,
-  leagueProvider,
-  leagueId,
 }: {
   huddleId: string;
   groupName: string;
-  leagueProvider: string;
-  leagueId: string;
 }) {
   const del = useDeleteHuddle();
   const navigate = useNavigate();
@@ -736,7 +832,7 @@ function DangerZone({
 
   const handleDelete = () => {
     del.mutate(
-      { huddleId, leagueProvider, leagueId },
+      { huddleId },
       {
         onSuccess: () => {
           navigate("/leagues");

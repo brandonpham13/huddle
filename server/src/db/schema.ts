@@ -21,8 +21,8 @@ export const huddles = pgTable(
   "huddles",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    leagueProvider: text("league_provider").notNull(),
-    leagueId: text("league_id").notNull(),
+    leagueProvider: text("league_provider"),
+    leagueId: text("league_id"),
     name: text("name").notNull(),
     inviteCode: text("invite_code").notNull(),
     inviteCodeUpdatedAt: timestamp("invite_code_updated_at", {
@@ -38,7 +38,6 @@ export const huddles = pgTable(
       .notNull(),
   },
   (t) => ({
-    byLeague: index("huddles_league_idx").on(t.leagueProvider, t.leagueId),
     uniqInviteCode: uniqueIndex("huddles_invite_code_uniq").on(t.inviteCode),
   }),
 );

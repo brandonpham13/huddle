@@ -1,28 +1,10 @@
 /**
  * Huddle API client hooks.
  *
- * A "huddle" is Huddle's own concept (separate from Sleeper) — a group of
- * friends sharing a fantasy league, with membership via team **claims**.
- * Every endpoint in this file lives on our own Express backend at
- * `/api/huddles/...` (see `server/src/routes/huddleRoutes.ts`); none of
- * these talk to Sleeper directly.
- *
- * Auth: every request forwards the Clerk JWT via `Authorization: Bearer`
- * (the `authHeader` helper below). The backend verifies + extracts the
- * user from that token.
- *
- * Cache invalidation: mutations call `queryClient.invalidateQueries()` on
- * the relevant keys after success, so screens auto-refresh without manual
- * refetches.
- *
- * Vocabulary cheat sheet:
- *   - Huddle              — the group itself (one per league family is typical)
- *   - Claim               — a user's stake on one Sleeper roster slot
- *   - Commissioner        — the user(s) who can approve/reject claims and
- *                           manage the huddle (multiple, via the
- *                           `huddle_commissioners` table)
- *   - Invite code         — 6-char code rotated by the commissioner;
- *                           replaces the old password-based join flow
+ * A "huddle" is Huddle's own concept — a group of friends sharing a fantasy
+ * league, with membership via team **claims**. Huddles are now created
+ * independently of a league; a commissioner links a league later via the
+ * huddle settings page.
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-react";
@@ -34,16 +16,10 @@ import type {
   HuddleDetailResponse,
 } from "../types/huddle";
 
-/** Build the Authorization header from a Clerk token (or no-op if anonymous). */
 function authHeader(token: string | null): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-/**
- * Surface a useful error message from an Axios error response. The backend
- * sends `{ error: "human readable" }` on 4xx; we fall back to the generic
- * Axios message and then to the caller-supplied default.
- */
 function errorMessage(err: unknown, fallback: string): string {
   if (err instanceof AxiosError) {
     const data = err.response?.data as { error?: string } | undefined;
@@ -54,22 +30,18 @@ function errorMessage(err: unknown, fallback: string): string {
 
 // ---- Queries ----
 
-export function useHuddlesForLeague(
-  leagueProvider: string,
-  leagueId: string | null,
-) {
+/** All huddles the current user belongs to (commissioner or approved claim). */
+export function useMyHuddles() {
   const { getToken } = useAuth();
   return useQuery({
-    queryKey: ["huddles", leagueProvider, leagueId],
+    queryKey: ["huddles"],
     queryFn: async () => {
       const token = await getToken();
       const res = await axios.get<{ huddles: Huddle[] }>("/api/huddles", {
-        params: { leagueProvider, leagueId },
         headers: authHeader(token),
       });
       return res.data.huddles;
     },
-    enabled: !!leagueId,
     staleTime: 30 * 1000,
   });
 }
@@ -117,12 +89,7 @@ export function useCreateHuddle() {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: {
-      leagueProvider: string;
-      leagueId: string;
-      name: string;
-      rosterId?: number;
-    }) => {
+    mutationFn: async (input: { name: string }) => {
       const token = await getToken();
       try {
         const res = await axios.post<{ huddle: Huddle }>(
@@ -135,10 +102,36 @@ export function useCreateHuddle() {
         throw new Error(errorMessage(err, "Failed to create huddle"));
       }
     },
-    onSuccess: (huddle) => {
-      queryClient.invalidateQueries({
-        queryKey: ["huddles", huddle.leagueProvider, huddle.leagueId],
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["huddles"] });
+    },
+  });
+}
+
+export function useLinkLeague() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      huddleId: string;
+      leagueProvider: string;
+      leagueId: string;
+    }) => {
+      const token = await getToken();
+      try {
+        const res = await axios.patch<{ huddle: Huddle }>(
+          `/api/huddles/${input.huddleId}/league`,
+          { leagueProvider: input.leagueProvider, leagueId: input.leagueId },
+          { headers: authHeader(token) },
+        );
+        return res.data.huddle;
+      } catch (err) {
+        throw new Error(errorMessage(err, "Failed to link league"));
+      }
+    },
+    onSuccess: (_huddle, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["huddles"] });
+      queryClient.invalidateQueries({ queryKey: ["huddle", variables.huddleId] });
     },
   });
 }
@@ -156,10 +149,7 @@ export function useSubmitClaim() {
       try {
         const res = await axios.post<{ claim: HuddleClaim }>(
           `/api/huddles/${input.huddleId}/claims`,
-          {
-            rosterId: input.rosterId,
-            message: input.message,
-          },
+          { rosterId: input.rosterId, message: input.message },
           { headers: authHeader(token) },
         );
         return res.data.claim;
@@ -168,12 +158,8 @@ export function useSubmitClaim() {
       }
     },
     onSuccess: (_claim, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["huddle", variables.huddleId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["huddle-claims", variables.huddleId],
-      });
+      queryClient.invalidateQueries({ queryKey: ["huddle", variables.huddleId] });
+      queryClient.invalidateQueries({ queryKey: ["huddle-claims", variables.huddleId] });
     },
   });
 }
@@ -200,12 +186,8 @@ export function useDecideClaim() {
       }
     },
     onSuccess: (_claim, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["huddle", variables.huddleId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["huddle-claims", variables.huddleId],
-      });
+      queryClient.invalidateQueries({ queryKey: ["huddle", variables.huddleId] });
+      queryClient.invalidateQueries({ queryKey: ["huddle-claims", variables.huddleId] });
     },
   });
 }
@@ -229,9 +211,7 @@ export function useUpdateHuddle() {
     },
     onSuccess: (huddle) => {
       queryClient.invalidateQueries({ queryKey: ["huddle", huddle.id] });
-      queryClient.invalidateQueries({
-        queryKey: ["huddles", huddle.leagueProvider, huddle.leagueId],
-      });
+      queryClient.invalidateQueries({ queryKey: ["huddles"] });
     },
   });
 }
@@ -255,9 +235,7 @@ export function useRotateInviteCode() {
     },
     onSuccess: (huddle) => {
       queryClient.invalidateQueries({ queryKey: ["huddle", huddle.id] });
-      queryClient.invalidateQueries({
-        queryKey: ["huddles", huddle.leagueProvider, huddle.leagueId],
-      });
+      queryClient.invalidateQueries({ queryKey: ["huddles"] });
     },
   });
 }
@@ -265,26 +243,16 @@ export function useRotateInviteCode() {
 export function useLookupHuddleByCode() {
   const { getToken } = useAuth();
   return useMutation({
-    mutationFn: async (input: {
-      code: string;
-      leagueProvider: string;
-      leagueId: string;
-    }) => {
+    mutationFn: async (input: { code: string }) => {
       const token = await getToken();
       try {
         const res = await axios.get<{ huddle: Huddle }>("/api/huddles/lookup", {
-          params: {
-            code: input.code.toUpperCase(),
-            leagueProvider: input.leagueProvider,
-            leagueId: input.leagueId,
-          },
+          params: { code: input.code.toUpperCase() },
           headers: authHeader(token),
         });
         return res.data.huddle;
       } catch (err) {
-        throw new Error(
-          errorMessage(err, "No huddle found with that invite code"),
-        );
+        throw new Error(errorMessage(err, "No huddle found with that invite code"));
       }
     },
   });
@@ -294,11 +262,7 @@ export function useDeleteHuddle() {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: {
-      huddleId: string;
-      leagueProvider: string;
-      leagueId: string;
-    }) => {
+    mutationFn: async (input: { huddleId: string }) => {
       const token = await getToken();
       try {
         await axios.delete(`/api/huddles/${input.huddleId}`, {
@@ -308,10 +272,8 @@ export function useDeleteHuddle() {
         throw new Error(errorMessage(err, "Failed to delete huddle"));
       }
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["huddles", variables.leagueProvider, variables.leagueId],
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["huddles"] });
     },
   });
 }
@@ -334,9 +296,7 @@ export function useAddCommissioner() {
       }
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["huddle", variables.huddleId],
-      });
+      queryClient.invalidateQueries({ queryKey: ["huddle", variables.huddleId] });
     },
   });
 }
@@ -357,14 +317,11 @@ export function useRemoveCommissioner() {
       }
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["huddle", variables.huddleId],
-      });
+      queryClient.invalidateQueries({ queryKey: ["huddle", variables.huddleId] });
     },
   });
 }
 
-// Single hook for removing any claim — commissioner uses /force, members use base endpoint
 export function useRemoveClaim() {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();
@@ -385,9 +342,7 @@ export function useRemoveClaim() {
       }
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["huddle", variables.huddleId],
-      });
+      queryClient.invalidateQueries({ queryKey: ["huddle", variables.huddleId] });
     },
   });
 }
