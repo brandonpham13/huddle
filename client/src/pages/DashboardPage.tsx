@@ -147,14 +147,15 @@ export function DashboardPage() {
   );
   const { data: playerStats } = usePlayerStats(season, week);
   const { data: powerData } = usePowerRankings(selectedLeagueId);
-  // weekCount for Max PF: use last_scored_leg if available, otherwise stop at
-  // playoff_week_start - 1 (regular season only). Disable for unstarted leagues.
+  // weekCount for Max PF: regular season only, so always stop at
+  // playoff_week_start - 1 when available. Fall back to last_scored_leg
+  // only for leagues without a defined playoff start (rare).
   const maxPFWeekCount = isLeagueUnstarted
     ? null
-    : lastScoredLeg
-      ? lastScoredLeg
-      : playoffWeekStart
-        ? playoffWeekStart - 1
+    : playoffWeekStart
+      ? playoffWeekStart - 1
+      : lastScoredLeg
+        ? lastScoredLeg
         : null;
   const { data: maxPFData } = useMaxPF(selectedLeagueId, maxPFWeekCount);
 
