@@ -218,6 +218,14 @@ function RosterTable({
     return map;
   }, [claims]);
 
+  const pendingByRoster = useMemo(() => {
+    const map = new Map<number, HuddleClaimSummary>();
+    for (const c of claims) {
+      if (c.status === "pending") map.set(c.rosterId, c);
+    }
+    return map;
+  }, [claims]);
+
   const sorted = useMemo(
     () => [...rosters].sort((a, b) => a.rosterId - b.rosterId),
     [rosters],
@@ -241,8 +249,11 @@ function RosterTable({
         <div className="space-y-2">
           {sorted.map((roster) => {
             const claim = approvedByRoster.get(roster.rosterId);
+            const pendingClaim = pendingByRoster.get(roster.rosterId);
             const teamName = rosterTeamName(roster, leagueUsers);
             const isMyTeam = claim && claim.user?.id === currentUserId;
+            const isMyPendingClaim = pendingClaim?.user?.id === currentUserId ||
+              (myClaim?.rosterId === roster.rosterId && myClaim?.status === "pending");
             const isExpanding = claimingRosterId === roster.rosterId;
             // Last-commish self-unlink guard
             const selfUnlinkBlocked =
@@ -320,6 +331,61 @@ function RosterTable({
                                     onSuccess: () =>
                                       setConfirmRemoveClaimId(null),
                                   },
+                                );
+                              }}
+                            >
+                              Confirm
+                            </Button>
+                          </div>
+                        ) : null}
+                      </>
+                    ) : pendingClaim ? (
+                      // Pending claim — visible to everyone; name shown to commissioner + claimant
+                      <>
+                        <span className="text-xs text-gray-500">
+                          {pendingClaim.user
+                            ? <span className="font-medium text-gray-900">{describeUser(pendingClaim.user)}</span>
+                            : <span className="italic text-gray-400">Pending request</span>
+                          }
+                        </span>
+                        <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+                          Pending
+                        </span>
+                        {/* Claimant can withdraw; commissioner can force-remove */}
+                        {(isMyPendingClaim || isCommissioner) &&
+                          confirmRemoveClaimId !== pendingClaim.id ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
+                            onClick={() => setConfirmRemoveClaimId(pendingClaim.id)}
+                          >
+                            {isMyPendingClaim ? "Withdraw" : "Remove"}
+                          </Button>
+                        ) : (isMyPendingClaim || isCommissioner) &&
+                          confirmRemoveClaimId === pendingClaim.id ? (
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => setConfirmRemoveClaimId(null)}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
+                              disabled={removeClaim.isPending}
+                              onClick={() => {
+                                removeClaim.mutate(
+                                  {
+                                    huddleId,
+                                    claimId: pendingClaim.id,
+                                    isCommissioner,
+                                  },
+                                  { onSuccess: () => setConfirmRemoveClaimId(null) },
                                 );
                               }}
                             >
