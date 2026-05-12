@@ -19,7 +19,7 @@
  */
 import { useState, useMemo } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Megaphone, DollarSign, Award, Plus, Trash2 } from "lucide-react";
+import { Megaphone, DollarSign, Award, Trophy, Plus, Trash2 } from "lucide-react";
 import { useAppSelector } from "../store/hooks";
 import { useLeagueUsers, useLeagueRosters } from "../hooks/useSleeper";
 import {
@@ -519,6 +519,210 @@ function DangerZonePanel({
   );
 }
 
+// ─── Payout structure panel ───────────────────────────────────────────────────
+
+/** Formats an integer cent amount as a dollar string (e.g. 5000 → "$50.00"). */
+function formatDollars(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+/** Parses a dollar string to cents. Returns NaN if invalid. */
+function parseDollars(str: string): number {
+  const n = parseFloat(str.replace(/[^0-9.]/g, ""));
+  if (isNaN(n)) return NaN;
+  return Math.round(n * 100);
+}
+
+interface PayoutRow {
+  // Transient local id for React keys before the entry has a DB id
+  localId: string;
+  label: string;
+  /** Dollar string as the user typed it, e.g. "50.00" */
+  amountStr: string;
+}
+
+const DEFAULT_ENTRIES: PayoutRow[] = [
+  { localId: "default-1", label: "1st Place", amountStr: "" },
+  { localId: "default-2", label: "2nd Place", amountStr: "" },
+  { localId: "default-3", label: "3rd Place", amountStr: "" },
+];
+
+function PayoutStructurePanel({ huddleId }: { huddleId: string }) {
+  const payoutsQuery = usePayouts(huddleId);
+  const setPayoutsMutation = useSetPayouts();
+
+  // Local edit state — null means "use server data"
+  const [rows, setRows] = useState<PayoutRow[] | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  // Derive the canonical server rows once data arrives
+  const serverRows: PayoutRow[] | null = useMemo(() => {
+    if (!payoutsQuery.data) return null;
+    if (payoutsQuery.data.length === 0) return DEFAULT_ENTRIES;
+    return payoutsQuery.data.map((e) => ({
+      localId: e.id,
+      label: e.label,
+      amountStr: (e.amount / 100).toFixed(2),
+    }));
+  }, [payoutsQuery.data]);
+
+  // Show local edits once the user starts typing; otherwise show server state
+  const displayRows = rows ?? serverRows ?? DEFAULT_ENTRIES;
+
+  const totalCents = displayRows.reduce((sum, r) => {
+    const n = parseDollars(r.amountStr);
+    return sum + (isNaN(n) ? 0 : n);
+  }, 0);
+
+  function updateRow(localId: string, patch: Partial<PayoutRow>) {
+    setSaved(false);
+    setRows((prev) =>
+      (prev ?? serverRows ?? DEFAULT_ENTRIES).map((r) =>
+        r.localId === localId ? { ...r, ...patch } : r,
+      ),
+    );
+  }
+
+  function addRow() {
+    setSaved(false);
+    setRows((prev) => [
+      ...(prev ?? serverRows ?? DEFAULT_ENTRIES),
+      { localId: `new-${Date.now()}`, label: "", amountStr: "" },
+    ]);
+  }
+
+  function removeRow(localId: string) {
+    setSaved(false);
+    setRows((prev) =>
+      (prev ?? serverRows ?? DEFAULT_ENTRIES).filter((r) => r.localId !== localId),
+    );
+  }
+
+  function handleSave() {
+    const entries = displayRows.map((r) => ({
+      label: r.label.trim(),
+      amount: parseDollars(r.amountStr),
+    }));
+    const hasBlankLabel = entries.some((e) => !e.label);
+    const hasInvalidAmount = entries.some((e) => isNaN(e.amount) || e.amount < 0);
+    if (hasBlankLabel || hasInvalidAmount) return;
+
+    setPayoutsMutation.mutate(
+      { huddleId, entries },
+      {
+        onSuccess: () => {
+          setSaved(true);
+          setRows(null); // let server state take over
+        },
+      },
+    );
+  }
+
+  if (payoutsQuery.isLoading) {
+    return (
+      <Panel>
+        <PanelHeader title="Payout Structure" />
+        <p className="text-[12.5px] text-muted font-sans">Loading…</p>
+      </Panel>
+    );
+  }
+
+  const hasBlankLabel = displayRows.some((r) => !r.label.trim());
+  const hasInvalidAmount = displayRows.some(
+    (r) =>
+      r.amountStr !== "" &&
+      (isNaN(parseDollars(r.amountStr)) || parseDollars(r.amountStr) < 0),
+  );
+  const canSave = !hasBlankLabel && !hasInvalidAmount && !setPayoutsMutation.isPending;
+
+  return (
+    <Panel>
+      <PanelHeader
+        title="Payout Structure"
+        description="Define how the prize pool is distributed. Each entry has a label and an amount in dollars."
+      />
+
+      {/* Entry rows */}
+      <div className="flex flex-col gap-2">
+        {displayRows.map((row) => (
+          <div key={row.localId} className="flex items-center gap-2">
+            <input
+              type="text"
+              value={row.label}
+              onChange={(e) => updateRow(row.localId, { label: e.target.value })}
+              placeholder="e.g. 1st Place"
+              className="flex-1 text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink placeholder:text-muted/60"
+            />
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] text-muted font-sans pointer-events-none">
+                $
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={row.amountStr}
+                onChange={(e) => updateRow(row.localId, { amountStr: e.target.value })}
+                placeholder="0.00"
+                className="w-28 pl-6 pr-2 py-1.5 text-[13px] font-sans border border-line rounded-md bg-paper text-ink placeholder:text-muted/60"
+              />
+            </div>
+            <button
+              onClick={() => removeRow(row.localId)}
+              className="p-1.5 rounded-md text-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+              title="Remove entry"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Add entry */}
+      <div>
+        <Btn onClick={addRow}>
+          <Plus size={13} className="mr-1" />
+          Add entry
+        </Btn>
+      </div>
+
+      {/* Total pool summary */}
+      {displayRows.length > 0 && (
+        <div className="flex items-center justify-between pt-2 border-t border-line">
+          <span className="text-[11px] font-bold uppercase tracking-widest text-muted font-sans">
+            Total pool
+          </span>
+          <span className="text-[14px] font-semibold font-sans text-ink">
+            {formatDollars(totalCents)}
+          </span>
+        </div>
+      )}
+
+      {/* Save action + feedback */}
+      <div className="flex items-center gap-3">
+        <BtnPrimary onClick={handleSave} disabled={!canSave}>
+          {setPayoutsMutation.isPending ? "Saving…" : "Save"}
+        </BtnPrimary>
+        {saved && !setPayoutsMutation.isPending && (
+          <span className="text-[12px] text-green-600 font-sans">Saved!</span>
+        )}
+        {setPayoutsMutation.isError && (
+          <span className="text-[12px] text-red-600 font-sans">
+            {(setPayoutsMutation.error as Error).message}
+          </span>
+        )}
+        {(hasBlankLabel || hasInvalidAmount) && (
+          <span className="text-[12px] text-amber-600 font-sans">
+            {hasBlankLabel
+              ? "All entries need a label."
+              : "Amounts must be $0 or more."}
+          </span>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
 // ─── Coming-soon stub section ─────────────────────────────────────────────────
 
 function StubSection({
@@ -613,12 +817,16 @@ export function CommissionerPage() {
             description="Set the buy-in amount and mark who has paid. Members can see their own status; only you see the full picture."
             tag="Finance"
           />
-          <StubSection
-            icon={Trophy}
-            title="Payout Structure"
-            description="Define how the prize pool is distributed — 1st, 2nd, 3rd place, most points, best regular-season record, or any split you like."
-            tag="Finance"
-          />
+          {huddle ? (
+            <PayoutStructurePanel huddleId={huddle.id} />
+          ) : (
+            <StubSection
+              icon={DollarSign}
+              title="Payout Structure"
+              description="Define how the prize pool is distributed — 1st, 2nd, 3rd place, most points, best regular-season record, or any split you like."
+              tag="Finance"
+            />
+          )}
           <StubSection
             icon={Award}
             title="Custom Awards"
