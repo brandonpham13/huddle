@@ -431,10 +431,13 @@ export function initProviderRoutes(app: Express) {
       // The current leagueId from the URL is used as the canonical "current" league
       // to resolve the ownerId. The full list is used for multi-season aggregation.
       const leagueIdsParam = req.query["leagueIds"];
-      const leagueIds =
-        typeof leagueIdsParam === "string" && leagueIdsParam.trim()
-          ? leagueIdsParam.split(",").map((s) => s.trim()).filter(Boolean)
-          : [req.params.leagueId];
+      const leagueIds = [
+        ...new Set(
+          typeof leagueIdsParam === "string" && leagueIdsParam.trim()
+            ? leagueIdsParam.split(",").map((s) => s.trim()).filter(Boolean)
+            : [req.params.leagueId]
+        ),
+      ];
 
       try {
         // Resolve the ownerId from the current league's roster list.
