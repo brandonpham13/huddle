@@ -20,7 +20,6 @@ import {
   useHuddleDetail,
   useSubmitClaim,
   useRemoveClaim,
-  usePayouts,
 } from "../hooks/useHuddles";
 import {
   Tooltip,
@@ -402,7 +401,6 @@ export function LeagueSettingsPage() {
   const huddleDetail = useHuddleDetail(huddle?.id ?? null);
   const detail = huddleDetail.data;
   const isCommissioner = !!detail?.huddle.isCommissioner;
-  const { data: payouts } = usePayouts(huddle?.id ?? null);
 
   if (!selectedLeagueId) return <Navigate to="/" replace />;
 

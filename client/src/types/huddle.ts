@@ -66,11 +66,3 @@ export interface HuddleAnnouncement {
   createdAt: string;
   updatedAt: string;
 }
-
-export interface PayoutEntry {
-  id: string;
-  label: string;
-  /** Amount in cents (e.g. 5000 = $50.00) */
-  amount: number;
-  sortOrder: number;
-}
