@@ -90,8 +90,44 @@ export const teamClaims = pgTable(
   }),
 );
 
+// Custom awards granted by commissioners to teams
+export const huddleAwards = pgTable(
+  "huddle_awards",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    huddleId: uuid("huddle_id")
+      .notNull()
+      .references(() => huddles.id, { onDelete: "cascade" }),
+    // Sleeper rosterId of the recipient team
+    rosterId: integer("roster_id").notNull(),
+    // Emoji or short symbol (max 4 chars)
+    glyph: text("glyph").notNull(),
+    // Hex colour string, e.g. "#f59e0b"
+    color: text("color").notNull(),
+    // Display title, e.g. "Sacko" or "Most Improved"
+    title: text("title").notNull(),
+    description: text("description"),
+    // Clerk userId of the commissioner who granted this award
+    grantedBy: text("granted_by").notNull(),
+    // Optional season string, e.g. "2024"
+    season: text("season"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    byHuddle: index("huddle_awards_huddle_idx").on(t.huddleId),
+    byHuddleRoster: index("huddle_awards_huddle_roster_idx").on(t.huddleId, t.rosterId),
+  }),
+);
+
 export type Huddle = typeof huddles.$inferSelect;
 export type NewHuddle = typeof huddles.$inferInsert;
 export type HuddleCommissioner = typeof huddleCommissioners.$inferSelect;
 export type TeamClaim = typeof teamClaims.$inferSelect;
 export type NewTeamClaim = typeof teamClaims.$inferInsert;
+export type HuddleAward = typeof huddleAwards.$inferSelect;
+export type NewHuddleAward = typeof huddleAwards.$inferInsert;

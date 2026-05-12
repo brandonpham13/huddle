@@ -20,6 +20,7 @@ import {
   useHuddleDetail,
   useSubmitClaim,
   useRemoveClaim,
+  useAwards,
 } from "../hooks/useHuddles";
 import {
   Tooltip,
@@ -27,7 +28,7 @@ import {
   TooltipTrigger,
 } from "../components/ui/tooltip";
 import type { Roster, TeamUser } from "../types/fantasy";
-import type { HuddleClaimSummary } from "../types/huddle";
+import type { HuddleAward, HuddleClaimSummary } from "../types/huddle";
 
 // ─── Shared primitives (mirrors CommissionerPage) ─────────────────────────────
 
@@ -131,6 +132,64 @@ function rosterTeamName(roster: Roster, leagueUsers: TeamUser[]): string {
 function describeUser(u: { id: string; username: string | null; email: string | null } | null | undefined): string {
   if (!u) return "Unknown";
   return u.username ?? u.email ?? u.id;
+}
+
+// ─── Awards section ───────────────────────────────────────────────────────────
+
+/** Read-only display of all huddle awards — visible to all members. */
+function AwardsSection({
+  huddleId,
+  rosters,
+  leagueUsers,
+}: {
+  huddleId: string;
+  rosters: Roster[];
+  leagueUsers: TeamUser[];
+}) {
+  const { data: awards } = useAwards(huddleId);
+
+  // Don't render if there are no awards yet
+  if (!awards || awards.length === 0) return null;
+
+  function teamNameForRosterId(id: number): string {
+    const r = rosters.find((x) => x.rosterId === id);
+    if (!r) return `Team ${id}`;
+    return rosterTeamName(r, leagueUsers);
+  }
+
+  return (
+    <Panel>
+      <PanelHeader
+        title="Awards"
+        description="Custom awards granted by your commissioner."
+      />
+      <div className="flex flex-wrap gap-2">
+        {awards.map((a: HuddleAward) => (
+          <div
+            key={a.id}
+            className="flex items-center gap-2 rounded-lg border border-line px-3 py-2 bg-paper"
+          >
+            {/* Coloured glyph */}
+            <span
+              className="text-base leading-none w-7 h-7 flex items-center justify-center rounded-md shrink-0 font-bold"
+              style={{ backgroundColor: a.color + "22", color: a.color }}
+            >
+              {a.glyph}
+            </span>
+            <div className="min-w-0">
+              <p className="text-[12.5px] font-semibold text-ink font-sans leading-tight">
+                {a.title}
+              </p>
+              <p className="text-[10.5px] text-muted font-sans">
+                {teamNameForRosterId(a.rosterId)}
+                {a.season ? ` · ${a.season}` : ""}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
 }
 
 // ─── Teams table ─────────────────────────────────────────────────────────────
@@ -422,6 +481,15 @@ export function LeagueSettingsPage() {
         </div>
 
         <div className="flex flex-col gap-5">
+
+          {/* Awards — read-only, only shown when awards exist */}
+          {huddle && (
+            <AwardsSection
+              huddleId={huddle.id}
+              rosters={rosters ?? []}
+              leagueUsers={leagueUsers ?? []}
+            />
+          )}
 
           {/* Teams table */}
           {huddle && detail ? (

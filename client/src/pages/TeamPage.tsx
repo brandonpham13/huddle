@@ -27,9 +27,11 @@ import {
 import type { TeamStats, SeasonStat, H2HRecord } from "../types/fantasy";
 import { usePowerRankings } from "../hooks/usePowerRankings";
 import { useMyClaimedTeam } from "../hooks/useMyClaimedTeam";
+import { useMyHuddles, useAwards } from "../hooks/useHuddles";
 import { getFamilySeasons } from "../utils/leagueFamily";
 import { sleeperAvatarUrl } from "../utils/sleeperNormalize";
 import { Avatar } from "../components/Avatar";
+import type { HuddleAward } from "../types/huddle";
 
 // ─── Shared atoms ─────────────────────────────────────────────────────────────
 
@@ -965,11 +967,64 @@ function buildTrophies(stats: TeamStats): Trophy[] {
   return trophies;
 }
 
-function TrophyRoom({ stats }: { stats: TeamStats | undefined }) {
+/** Displays custom huddle awards for a specific roster as a horizontal badge strip. */
+function HuddleAwardsStrip({ awards }: { awards: HuddleAward[] }) {
+  if (awards.length === 0) return null;
+  return (
+    <div className="mt-4">
+      <p className="text-[9.5px] font-semibold tracking-[0.18em] uppercase text-muted font-sans mb-2">
+        Commissioner Awards
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {awards.map((a) => (
+          <div
+            key={a.id}
+            className="flex items-center gap-2 rounded-lg border border-line px-3 py-2 bg-paper"
+          >
+            <span
+              className="text-base leading-none w-7 h-7 flex items-center justify-center rounded-md shrink-0 font-bold"
+              style={{ backgroundColor: a.color + "22", color: a.color }}
+            >
+              {a.glyph}
+            </span>
+            <div className="min-w-0">
+              <p className="text-[12.5px] font-semibold text-ink font-sans leading-tight">
+                {a.title}
+              </p>
+              {(a.description || a.season) && (
+                <p className="text-[10.5px] text-muted font-sans">
+                  {a.season ?? ""}
+                  {a.season && a.description ? " · " : ""}
+                  {a.description ?? ""}
+                </p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TrophyRoom({
+  stats,
+  huddleId,
+  rosterId,
+}: {
+  stats: TeamStats | undefined;
+  huddleId: string | null;
+  rosterId: number | null;
+}) {
   // While loading, show placeholder skeleton. Once stats arrive, build real trophies.
-  const awards = stats ? buildTrophies(stats) : null;
-  const display = awards ?? PLACEHOLDER_TROPHIES;
-  const isLoading = awards === null;
+  const trophies = stats ? buildTrophies(stats) : null;
+  const display = trophies ?? PLACEHOLDER_TROPHIES;
+  const isLoading = trophies === null;
+
+  // Fetch custom commissioner awards for this roster
+  const { data: huddleAwards } = useAwards(
+    huddleId,
+    rosterId ?? undefined,
+  );
 
   return (
     <section>
@@ -979,7 +1034,7 @@ function TrophyRoom({ stats }: { stats: TeamStats | undefined }) {
         rule={
           isLoading
             ? "Superlatives · loading…"
-            : `${awards!.length} award${awards!.length !== 1 ? "s" : ""}`
+            : `${trophies!.length} award${trophies!.length !== 1 ? "s" : ""}`
         }
       />
       {isLoading && (
@@ -992,6 +1047,8 @@ function TrophyRoom({ stats }: { stats: TeamStats | undefined }) {
           <TrophyCard key={a.id} trophy={a} />
         ))}
       </div>
+      {/* Custom huddle awards below the auto-generated trophies */}
+      <HuddleAwardsStrip awards={huddleAwards ?? []} />
     </section>
   );
 }
@@ -1036,6 +1093,14 @@ export function TeamPage() {
 
   const { data: rosters } = useLeagueRosters(selectedLeagueId);
   const { data: leagueUsers } = useLeagueUsers(selectedLeagueId);
+
+  // Find the huddle linked to the currently-selected league so we can show custom awards
+  const { data: myHuddles } = useMyHuddles();
+  const linkedHuddle = useMemo(
+    () => myHuddles?.find((h) => h.leagueId === selectedLeagueId) ?? null,
+    [myHuddles, selectedLeagueId],
+  );
+
   const { rosterId: myRosterId } = useMyClaimedTeam(
     allLeagues && selectedLeagueId
       ? (getFamilySeasons(selectedLeagueId, allLeagues)[0]?.ref.leagueId ?? selectedLeagueId)
@@ -1135,7 +1200,11 @@ export function TeamPage() {
           currentRosterId={rosterId}
           stats={teamStats}
         />
-        <TrophyRoom stats={teamStats} />
+        <TrophyRoom
+          stats={teamStats}
+          huddleId={linkedHuddle?.id ?? null}
+          rosterId={rosterId}
+        />
       </div>
     </div>
   );
