@@ -2,10 +2,15 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../ui/button";
 import { useLookupHuddleByCode } from "../../hooks/useHuddles";
+import { useAllSleeperLeagues } from "../../hooks/useSleeper";
+import { useAppDispatch } from "../../store/hooks";
+import { setSelectedLeague, setSelectedYear } from "../../store/slices/authSlice";
 
 export function JoinHuddleModal({ onClose }: { onClose: () => void }) {
   const lookup = useLookupHuddleByCode();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { data: allLeagues } = useAllSleeperLeagues();
   const [code, setCode] = useState("");
 
   const canSubmit = code.trim().length === 6 && !lookup.isPending;
@@ -16,7 +21,17 @@ export function JoinHuddleModal({ onClose }: { onClose: () => void }) {
       {
         onSuccess: (huddle) => {
           onClose();
-          navigate(`/huddles/${huddle.id}`);
+          // If the huddle has a linked league, select it and go to the dashboard.
+          if (huddle.leagueId && allLeagues) {
+            const league = allLeagues.find(
+              (l) => l.ref.leagueId === huddle.leagueId,
+            );
+            if (league) {
+              dispatch(setSelectedLeague(league.ref.leagueId));
+              dispatch(setSelectedYear(league.season));
+            }
+          }
+          navigate("/");
         },
       },
     );

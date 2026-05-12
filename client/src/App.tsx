@@ -31,7 +31,6 @@ import { AccountModalProvider } from "./components/AccountModal";
 import { SignInPage } from "./pages/SignInPage";
 import { SignUpPage } from "./pages/SignUpPage";
 import { LeaguesPage } from "./pages/LeaguesPage";
-import { HuddleDetailPage } from "./pages/HuddleDetailPage";
 import { TeamPage } from "./pages/TeamPage";
 import { LeaguePage } from "./pages/LeaguePage";
 import { SchedulePage } from "./pages/SchedulePage";
@@ -66,7 +65,6 @@ export default function App() {
             <Route path="/schedule" element={<SchedulePage />} />
             <Route path="/draft" element={<DraftPage />} />
             <Route path="/huddles" element={<LeaguesPage />} />
-            <Route path="/huddles/:id" element={<HuddleDetailPage />} />
             <Route path="/teams/:rosterId" element={<TeamPage />} />
             <Route path="/commissioner" element={<CommissionerPage />} />
             <Route path="/league-settings" element={<LeagueSettingsPage />} />

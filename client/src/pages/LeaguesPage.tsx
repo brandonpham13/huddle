@@ -87,11 +87,7 @@ export function LeaguesPage() {
             {huddles!.map((h) => (
               <button
                 key={h.id}
-                onClick={() =>
-                  h.leagueId
-                    ? handleSelectHuddle(h.leagueId)
-                    : navigate(`/huddles/${h.id}`)
-                }
+                onClick={() => h.leagueId && handleSelectHuddle(h.leagueId)}
                 className="flex items-center justify-between px-4 py-3.5 hover:bg-highlight transition-colors text-left w-full"
               >
                 <div className="min-w-0">
