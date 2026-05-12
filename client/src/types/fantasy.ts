@@ -20,6 +20,12 @@ export interface League {
   settings: Record<string, unknown>;
   /** Ordered roster slot types, e.g. ["QB","WR","WR","RB","FLEX","BN",...]. */
   rosterPositions: string[];
+  /**
+   * League scoring settings — maps stat keys to point multipliers.
+   * e.g. { pass_yd: 0.04, pass_td: 4, rec: 1, bonus_rec_te: 0.5 }
+   * Used to compute accurate fantasy points for custom-scoring leagues.
+   */
+  scoringSettings: Record<string, number>;
 }
 
 export interface Roster {

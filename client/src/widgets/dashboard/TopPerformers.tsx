@@ -39,6 +39,7 @@ export function TopPerformers({
   matchups,
   players,
   week,
+  scoringSettings,
 }: {
   rosters: Roster[];
   users: TeamUser[];
@@ -46,6 +47,10 @@ export function TopPerformers({
   matchups: Matchup[] | undefined;
   players: Record<string, Player> | undefined;
   week: number;
+  /** League scoring settings. When provided, player scores are computed from
+   *  raw stats × multipliers for accuracy with custom-scoring leagues.
+   *  Falls back to Sleeper's pre-computed pts_ppr when absent. */
+  scoringSettings?: Record<string, number>;
 }) {
   const [selectedPos, setSelectedPos] = useState<Position>("ALL");
 
@@ -107,14 +112,14 @@ export function TopPerformers({
             players[pid]?.fullName ??
             (`${players[pid]?.firstName ?? ""} ${players[pid]?.lastName ?? ""}`.trim() || pid),
           position: players[pid]?.position ?? "—",
-          pts: getFantasyPoints(stats),
+          pts: getFantasyPoints(stats, scoringSettings),
           rosterId: playerToRoster.get(pid)!,
         }))
         .filter((p) => p.pts > 0)
         .sort((a, b) => b.pts - a.pts)
         .slice(0, 5)
     );
-  }, [playerStats, players, playerToRoster, defTeamToRoster, defWeeklyPoints, selectedPos]);
+  }, [playerStats, players, playerToRoster, defTeamToRoster, defWeeklyPoints, selectedPos, scoringSettings]);
 
   if (!playerStats || !players) return null;
   if (top.length === 0 && selectedPos === "ALL") return null;
