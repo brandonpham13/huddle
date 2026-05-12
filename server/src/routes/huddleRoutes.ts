@@ -25,6 +25,12 @@ import {
   updateHuddle,
   type HuddleMemberStatus,
 } from "../services/huddlesService.js";
+import {
+  getDuesConfig,
+  getDuesPayments,
+  setDuesConfig,
+  setDuesPaid,
+} from "../services/duesService.js";
 
 const clerkSecretKey = process.env["CLERK_SECRET_KEY"];
 if (!clerkSecretKey) {
@@ -551,6 +557,7 @@ export function initHuddleRoutes(app: Express) {
     },
   );
 
+
   // POST /api/huddles/:id/announcements — commissioner only
   app.post(
     "/api/huddles/:id/announcements",
@@ -604,6 +611,83 @@ export function initHuddleRoutes(app: Express) {
           userId: userId!,
         });
         res.status(204).end();
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // GET /api/huddles/:id/dues — auth required, returns { config, payments }
+  app.get(
+    "/api/huddles/:id/dues",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const huddleId = req.params.id!;
+        const [config, payments] = await Promise.all([
+          getDuesConfig(huddleId),
+          getDuesPayments(huddleId),
+        ]);
+        res.json({ config, payments });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // PUT /api/huddles/:id/dues/config — commissioner only
+  app.put(
+    "/api/huddles/:id/dues/config",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        const { amount, season, note } = req.body as {
+          amount?: unknown;
+          season?: string | null;
+          note?: string | null;
+        };
+        if (typeof amount !== "number") {
+          res.status(400).json({ error: "amount (number, cents) required" });
+          return;
+        }
+        const config = await setDuesConfig(req.params.id!, userId!, {
+          amount,
+          season,
+          note,
+        });
+        res.json({ config });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // PUT /api/huddles/:id/dues/payments/:rosterId — commissioner only
+  app.put(
+    "/api/huddles/:id/dues/payments/:rosterId",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        const rosterId = parseInt(req.params.rosterId!, 10);
+        if (isNaN(rosterId)) {
+          res.status(400).json({ error: "Invalid rosterId" });
+          return;
+        }
+        const { paid, note } = req.body as { paid?: boolean; note?: string };
+        if (typeof paid !== "boolean") {
+          res.status(400).json({ error: "paid (boolean) required" });
+          return;
+        }
+        const payment = await setDuesPaid(
+          req.params.id!,
+          userId!,
+          rosterId,
+          paid,
+          note,
+        );
+        res.json({ payment });
       } catch (err) {
         handleError(err, res);
       }
