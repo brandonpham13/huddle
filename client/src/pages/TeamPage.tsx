@@ -411,8 +411,60 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
         rule="Career · all seasons"
       />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Career record pillar */}
+        {/* Streaks + H2H pillar */}
         <div>
+          <Eyebrow>Streaks</Eyebrow>
+          <div className="mt-2 grid grid-cols-2 gap-3">
+            <Stat
+              label="Longest W"
+              value={stats ? String(stats.longestWinStreak) : "—"}
+              accent
+            />
+            <Stat
+              label="Longest L"
+              value={stats ? String(stats.longestLossStreak) : "—"}
+            />
+          </div>
+          <div className="mt-3">
+            <Eyebrow>Rivalries (H2H)</Eyebrow>
+            {!stats ? (
+              <div className="mt-2">
+                <StubBanner label="Head-to-head records vs each opponent" />
+              </div>
+            ) : stats.h2h.length === 0 ? (
+              <div className="mt-2 text-[11px] text-muted font-sans italic">
+                No head-to-head data available.
+              </div>
+            ) : (
+              /* Sort by most games played (wins+losses+ties) descending so the
+                 most-common opponents appear first. */
+              <div className="mt-2 space-y-1">
+                {[...stats.h2h]
+                  .sort(
+                    (a, b) =>
+                      b.wins + b.losses + b.ties - (a.wins + a.losses + a.ties),
+                  )
+                  .map((rec) => {
+                    const wl = `${rec.wins}–${rec.losses}${rec.ties ? `–${rec.ties}` : ""}`;
+                    return (
+                      <div
+                        key={rec.opponentRosterId}
+                        className="flex justify-between items-baseline py-1 border-b border-dotted border-line"
+                      >
+                        <span className="text-[9.5px] uppercase tracking-wider font-sans text-muted font-semibold">
+                          vs {rec.opponentTeamName ?? `#${rec.opponentRosterId}`}
+                        </span>
+                        <span className="font-mono text-xs text-ink">{wl}</span>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Career record pillar */}
+        <div className="border-l border-line pl-5">
           <Eyebrow>Career Record</Eyebrow>
           {/* Large W-L display with win percentage */}
           <div className="mt-2">
@@ -492,58 +544,6 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-
-        {/* Streaks + H2H pillar */}
-        <div className="border-l border-line pl-5">
-          <Eyebrow>Streaks</Eyebrow>
-          <div className="mt-2 grid grid-cols-2 gap-3">
-            <Stat
-              label="Longest W"
-              value={stats ? String(stats.longestWinStreak) : "—"}
-              accent
-            />
-            <Stat
-              label="Longest L"
-              value={stats ? String(stats.longestLossStreak) : "—"}
-            />
-          </div>
-          <div className="mt-3">
-            <Eyebrow>Rivalries (H2H)</Eyebrow>
-            {!stats ? (
-              <div className="mt-2">
-                <StubBanner label="Head-to-head records vs each opponent" />
-              </div>
-            ) : stats.h2h.length === 0 ? (
-              <div className="mt-2 text-[11px] text-muted font-sans italic">
-                No head-to-head data available.
-              </div>
-            ) : (
-              /* Sort by most games played (wins+losses+ties) descending so the
-                 most-common opponents appear first. */
-              <div className="mt-2 space-y-1">
-                {[...stats.h2h]
-                  .sort(
-                    (a, b) =>
-                      b.wins + b.losses + b.ties - (a.wins + a.losses + a.ties),
-                  )
-                  .map((rec) => {
-                    const wl = `${rec.wins}–${rec.losses}${rec.ties ? `–${rec.ties}` : ""}`;
-                    return (
-                      <div
-                        key={rec.opponentRosterId}
-                        className="flex justify-between items-baseline py-1 border-b border-dotted border-line"
-                      >
-                        <span className="text-[9.5px] uppercase tracking-wider font-sans text-muted font-semibold">
-                          vs {rec.opponentTeamName ?? `#${rec.opponentRosterId}`}
-                        </span>
-                        <span className="font-mono text-xs text-ink">{wl}</span>
-                      </div>
-                    );
-                  })}
-              </div>
-            )}
           </div>
         </div>
       </div>
