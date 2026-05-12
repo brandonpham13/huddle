@@ -33,9 +33,9 @@ import { SectionHead, SortHeader, teamAvatar, teamName } from "./_shared";
 // expand to comfortable widths at sm+.
 // Two grid variants: with Max PF column and without (shown when data loads).
 const LEAGUE_TABLE_GRID =
-  "grid-cols-[16px_1fr_42px_42px_42px_36px] sm:grid-cols-[18px_1fr_52px_52px_52px_44px]";
+  "grid-cols-[16px_1fr_48px_48px_48px_40px] sm:grid-cols-[18px_1fr_58px_58px_58px_48px]";
 const LEAGUE_TABLE_GRID_MAXPF =
-  "grid-cols-[16px_1fr_42px_42px_42px_42px_36px] sm:grid-cols-[18px_1fr_52px_52px_52px_52px_44px]";
+  "grid-cols-[16px_1fr_48px_48px_48px_48px_40px] sm:grid-cols-[18px_1fr_58px_58px_58px_58px_48px]";
 
 /**
  * Parse a provider streak string ("3W" / "2L") into a signed integer where
