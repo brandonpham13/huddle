@@ -22,7 +22,9 @@ import {
   useLeagueUsers,
   useNFLState,
   useTeamSeasonLog,
+  useTeamStats,
 } from "../hooks/useSleeper";
+import type { TeamStats, SeasonStat } from "../types/fantasy";
 import { usePowerRankings } from "../hooks/usePowerRankings";
 import { useMyClaimedTeam } from "../hooks/useMyClaimedTeam";
 import { getFamilySeasons } from "../utils/leagueFamily";
@@ -352,7 +354,47 @@ function CurrentSeason({
 
 // ─── Section 3: Lifetime Stats ────────────────────────────────────────────────
 
-function LifetimeStats() {
+/**
+ * Formats a scoring extreme (highScore / lowScore) or margin extreme
+ * (biggestWin / worstLoss) into a concise contextual string like
+ * "Season 2023 · Wk 7" shown underneath the main number.
+ */
+function extremeCtx(e: { season: string; week: number } | null): string {
+  if (!e) return "— · —";
+  return `Season ${e.season} · Wk ${e.week}`;
+}
+
+function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
+  // Career record display string — e.g. "42–18–2"
+  const careerWl = stats
+    ? `${stats.careerRecord.wins}–${stats.careerRecord.losses}${stats.careerRecord.ties ? `–${stats.careerRecord.ties}` : ""}`
+    : "—";
+  const winPctStr = stats ? `${(stats.winPct * 100).toFixed(1)}%` : "—";
+
+  // Extremes rows — keeps the JSX below clean
+  const extremeRows: Array<{ label: string; value: string; ctx: string }> = [
+    {
+      label: "High Score",
+      value: stats?.highScore ? stats.highScore.points.toFixed(2) : "—",
+      ctx: extremeCtx(stats?.highScore ?? null),
+    },
+    {
+      label: "Low Score",
+      value: stats?.lowScore ? stats.lowScore.points.toFixed(2) : "—",
+      ctx: extremeCtx(stats?.lowScore ?? null),
+    },
+    {
+      label: "Biggest Win",
+      value: stats?.biggestWin ? `+${stats.biggestWin.margin.toFixed(2)}` : "—",
+      ctx: extremeCtx(stats?.biggestWin ?? null),
+    },
+    {
+      label: "Worst Loss",
+      value: stats?.worstLoss ? `-${stats.worstLoss.margin.toFixed(2)}` : "—",
+      ctx: extremeCtx(stats?.worstLoss ?? null),
+    },
+  ];
+
   return (
     <section>
       <SectionHead
@@ -364,14 +406,46 @@ function LifetimeStats() {
         {/* Career record pillar */}
         <div>
           <Eyebrow>Career Record</Eyebrow>
+          {/* Large W-L display with win percentage */}
           <div className="mt-2">
-            <StubBanner label="Career W–L, win %, playoff appearances, championships" />
+            <div className="flex items-baseline gap-2">
+              <span className="font-serif font-bold italic text-[42px] leading-none tracking-tight text-ink">
+                {careerWl}
+              </span>
+              {stats && (
+                <span className="font-serif italic text-sm text-muted">
+                  .{String(Math.round(stats.winPct * 1000)).padStart(3, "0")}
+                </span>
+              )}
+            </div>
+            {/* W–L progress bar */}
+            {stats && (() => {
+              const total = stats.careerRecord.wins + stats.careerRecord.losses + stats.careerRecord.ties;
+              const winPct = total > 0 ? stats.careerRecord.wins / total : 0;
+              return (
+                <div className="mt-2">
+                  <div className="h-1.5 w-full bg-muted/30 overflow-hidden">
+                    <div
+                      className="h-full bg-accent transition-all"
+                      style={{ width: `${(winPct * 100).toFixed(1)}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between mt-1 text-[9.5px] font-sans font-semibold tracking-wider uppercase">
+                    <span className="text-accent">{stats.careerRecord.wins} W</span>
+                    <span className="text-muted">{stats.careerRecord.losses} L</span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3">
-            <Stat label="Playoff Apps" value="—" />
-            <Stat label="Championships" value="—" accent />
-            <Stat label="Runner-Ups" value="—" />
-            <Stat label="Avg Finish" value="—" />
+            <Stat label="Playoff Apps" value={stats ? String(stats.playoffAppearances) : "—"} />
+            <Stat label="Championships" value={stats ? String(stats.championships) : "—"} accent />
+            <Stat label="Runner-Ups" value={stats ? String(stats.runnerUps) : "—"} />
+            <Stat
+              label="Avg Finish"
+              value={stats?.avgFinish != null ? `#${stats.avgFinish.toFixed(1)}` : "—"}
+            />
           </div>
         </div>
 
@@ -379,18 +453,20 @@ function LifetimeStats() {
         <div className="border-l border-line pl-5">
           <Eyebrow>Scoring</Eyebrow>
           <div className="mt-2 grid grid-cols-2 gap-3">
-            <Stat label="Avg PF" value="—" accent />
-            <Stat label="Avg PA" value="—" />
+            <Stat
+              label="Avg PF"
+              value={stats ? stats.avgPointsFor.toFixed(1) : "—"}
+              accent
+            />
+            <Stat
+              label="Avg PA"
+              value={stats ? stats.avgPointsAgainst.toFixed(1) : "—"}
+            />
           </div>
           <div className="mt-3">
             <Eyebrow>Extremes</Eyebrow>
             <div className="mt-2 space-y-1">
-              {[
-                { label: "High Score", value: "—", ctx: "— · — · —" },
-                { label: "Low Score", value: "—", ctx: "— · — · —" },
-                { label: "Biggest Win", value: "—", ctx: "— · — · —" },
-                { label: "Worst Loss", value: "—", ctx: "— · — · —" },
-              ].map((row) => (
+              {extremeRows.map((row) => (
                 <div
                   key={row.label}
                   className="flex justify-between items-baseline py-1 border-b border-dotted border-line"
@@ -412,18 +488,55 @@ function LifetimeStats() {
           </div>
         </div>
 
-        {/* Rivalries pillar */}
+        {/* Streaks + H2H pillar */}
         <div className="border-l border-line pl-5">
           <Eyebrow>Streaks</Eyebrow>
           <div className="mt-2 grid grid-cols-2 gap-3">
-            <Stat label="Longest W" value="—" accent />
-            <Stat label="Longest L" value="—" />
+            <Stat
+              label="Longest W"
+              value={stats ? String(stats.longestWinStreak) : "—"}
+              accent
+            />
+            <Stat
+              label="Longest L"
+              value={stats ? String(stats.longestLossStreak) : "—"}
+            />
           </div>
           <div className="mt-3">
             <Eyebrow>Rivalries (H2H)</Eyebrow>
-            <div className="mt-2">
-              <StubBanner label="Head-to-head records vs each opponent" />
-            </div>
+            {!stats ? (
+              <div className="mt-2">
+                <StubBanner label="Head-to-head records vs each opponent" />
+              </div>
+            ) : stats.h2h.length === 0 ? (
+              <div className="mt-2 text-[11px] text-muted font-sans italic">
+                No head-to-head data available.
+              </div>
+            ) : (
+              /* Sort by most games played (wins+losses+ties) descending so the
+                 most-common opponents appear first. */
+              <div className="mt-2 space-y-1">
+                {[...stats.h2h]
+                  .sort(
+                    (a, b) =>
+                      b.wins + b.losses + b.ties - (a.wins + a.losses + a.ties),
+                  )
+                  .map((rec) => {
+                    const wl = `${rec.wins}–${rec.losses}${rec.ties ? `–${rec.ties}` : ""}`;
+                    return (
+                      <div
+                        key={rec.opponentRosterId}
+                        className="flex justify-between items-baseline py-1 border-b border-dotted border-line"
+                      >
+                        <span className="text-[9.5px] uppercase tracking-wider font-sans text-muted font-semibold">
+                          vs {rec.opponentTeamName ?? `#${rec.opponentRosterId}`}
+                        </span>
+                        <span className="font-mono text-xs text-ink">{wl}</span>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -433,14 +546,33 @@ function LifetimeStats() {
 
 // ─── Section 4: Season History ────────────────────────────────────────────────
 
+/** Human-readable label for a postseason result code. */
+function postseasonLabel(p: SeasonStat["postseason"]): string {
+  if (!p) return "—";
+  switch (p) {
+    case "champion": return "Champion 🏆";
+    case "runner_up": return "Runner-Up";
+    case "third": return "3rd Place";
+    case "made_playoffs": return "Playoffs";
+    case "missed_playoffs": return "Missed Playoffs";
+  }
+}
+
 function SeasonHistory({
   familySeasons,
   currentRosterId,
+  stats,
 }: {
   familySeasons: import("../types/fantasy").League[];
   currentRosterId: number | null;
+  stats: TeamStats | undefined;
 }) {
-  // Stub rows from league family — real finish/seed/postseason data TBD
+  // Build a quick lookup: leagueId -> SeasonStat from aggregated stats.
+  // Falls back to undefined if stats haven't loaded yet (renders "—" stubs).
+  const statsByLeague = new Map<string, SeasonStat>(
+    stats?.seasons.map((s) => [s.leagueId, s]) ?? [],
+  );
+
   return (
     <section>
       <SectionHead
@@ -449,8 +581,8 @@ function SeasonHistory({
         rule="Finish · seed · postseason"
       />
       <div className="mt-2 overflow-x-auto">
-        {/* Header */}
-        <div className="grid grid-cols-[44px_60px_62px_62px_46px_1fr_44px] min-w-0 gap-0 items-baseline pb-1 border-b border-line text-[9.5px] font-semibold tracking-wider uppercase text-muted font-sans">
+        {/* Column headers */}
+        <div className="grid grid-cols-[44px_60px_62px_62px_46px_1fr_44px] min-w-0 gap-x-3 items-baseline pb-1 border-b border-line text-[9.5px] font-semibold tracking-wider uppercase text-muted font-sans">
           <div>Year</div>
           <div>Record</div>
           <div className="text-right">PF</div>
@@ -465,35 +597,48 @@ function SeasonHistory({
             No season history available.
           </div>
         ) : (
-          familySeasons.map((league) => (
-            <div
-              key={league.ref.leagueId}
-              className="grid grid-cols-[44px_60px_62px_62px_46px_1fr_44px] min-w-0 gap-0 items-center py-2 border-b border-dotted border-line"
-            >
-              <div className="font-serif italic font-bold text-[17px] text-ink leading-none">
-                {league.season}
-              </div>
-              {/* Record, PF, PA, seed, finish, power rank — all stub until
-                  per-season roster data is aggregated */}
-              <div className="font-mono text-xs text-muted">—</div>
-              <div className="text-right font-mono text-xs text-muted">—</div>
-              <div className="text-right font-mono text-xs text-muted">—</div>
-              <div className="text-right font-serif italic text-sm text-muted">—</div>
-              <div className="font-serif text-sm text-muted italic">
-                {league.ref.leagueId === familySeasons[0]?.ref.leagueId
-                  ? "In progress"
-                  : "—"}
-              </div>
-              <div className="text-right font-mono text-xs text-muted">—</div>
-            </div>
-          ))
-        )}
+          familySeasons.map((league) => {
+            const s = statsByLeague.get(league.ref.leagueId);
+            const rec = s
+              ? `${s.record.wins}–${s.record.losses}${s.record.ties ? `–${s.record.ties}` : ""}`
+              : "—";
+            const isCurrentSeason =
+              league.ref.leagueId === familySeasons[0]?.ref.leagueId;
 
-        {familySeasons.length > 0 && (
-          <p className="text-[10px] text-muted font-sans italic mt-2">
-            Per-season stats (record, seed, finish) will populate when the
-            historical aggregation endpoint is added.
-          </p>
+            return (
+              <div
+                key={league.ref.leagueId}
+                className="grid grid-cols-[44px_60px_62px_62px_46px_1fr_44px] min-w-0 gap-x-3 items-center py-2 border-b border-dotted border-line"
+              >
+                {/* Year */}
+                <div className="font-serif italic font-bold text-[17px] text-ink leading-none">
+                  {league.season}
+                </div>
+                {/* W-L record */}
+                <div className="font-mono text-xs text-ink">{rec}</div>
+                {/* Points For */}
+                <div className="text-right font-mono text-xs text-ink">
+                  {s ? s.pointsFor.toFixed(1) : "—"}
+                </div>
+                {/* Points Against */}
+                <div className="text-right font-mono text-xs text-muted">
+                  {s ? s.pointsAgainst.toFixed(1) : "—"}
+                </div>
+                {/* Seed / final standing */}
+                <div className="text-right font-serif italic text-sm text-muted">
+                  {s?.seed != null ? `#${s.seed}` : "—"}
+                </div>
+                {/* Postseason result — "In progress" while season is active */}
+                <div className="font-serif text-sm text-muted italic">
+                  {isCurrentSeason && league.status !== "complete"
+                    ? "In progress"
+                    : postseasonLabel(s?.postseason ?? null)}
+                </div>
+                {/* Power rank — placeholder until wired */}
+                <div className="text-right font-mono text-xs text-muted">—</div>
+              </div>
+            );
+          })
         )}
       </div>
     </section>
@@ -627,7 +772,7 @@ function TrophyCard({ trophy }: { trophy: Trophy }) {
   );
 }
 
-// Placeholder trophies shown when no real ones exist yet
+// Placeholder trophies shown while stats are loading (no real data yet)
 const PLACEHOLDER_TROPHIES: Trophy[] = [
   {
     id: "stub-1",
@@ -658,9 +803,101 @@ const PLACEHOLDER_TROPHIES: Trophy[] = [
   },
 ];
 
-function TrophyRoom({ awards }: { awards: Trophy[] }) {
-  const display = awards.length > 0 ? awards : PLACEHOLDER_TROPHIES;
-  const isStub = awards.length === 0;
+/**
+ * Derives the real trophy list from aggregated TeamStats.
+ *
+ * Rules:
+ *   - One gold cup per championship season
+ *   - One silver medal per runner-up season
+ *   - One bronze medal per 3rd-place season
+ *   - One "High Score Week" ribbon star (if we have that data)
+ *   - One "Missed Playoffs" wood card showing the total count (if any)
+ */
+function buildTrophies(stats: TeamStats): Trophy[] {
+  const trophies: Trophy[] = [];
+
+  // Championship cups — one per season
+  stats.seasons
+    .filter((s) => s.postseason === "champion")
+    .forEach((s, i) => {
+      trophies.push({
+        id: `champ-${i}`,
+        title: "Champion",
+        sub: "League champion",
+        detail: "1st place finish",
+        year: s.season,
+        tier: "gold",
+        kind: "cup",
+      });
+    });
+
+  // Runner-up medals
+  stats.seasons
+    .filter((s) => s.postseason === "runner_up")
+    .forEach((s, i) => {
+      trophies.push({
+        id: `ru-${i}`,
+        title: "Runner-Up",
+        sub: "Championship finalist",
+        detail: "2nd place finish",
+        year: s.season,
+        tier: "silver",
+        kind: "medal",
+      });
+    });
+
+  // 3rd-place bronze
+  stats.seasons
+    .filter((s) => s.postseason === "third")
+    .forEach((s, i) => {
+      trophies.push({
+        id: `third-${i}`,
+        title: "3rd Place",
+        sub: "Consolation bracket winner",
+        detail: "3rd place finish",
+        year: s.season,
+        tier: "bronze",
+        kind: "medal",
+      });
+    });
+
+  // High score week ribbon (single all-time card)
+  if (stats.highScore) {
+    trophies.push({
+      id: "high-score",
+      title: "High Score",
+      sub: `${stats.highScore.points.toFixed(2)} pts — Wk ${stats.highScore.week}`,
+      detail: "All-time single-week best",
+      year: stats.highScore.season,
+      tier: "ribbon",
+      kind: "star",
+    });
+  }
+
+  // Missed playoffs count — one wood card with aggregate count
+  const missedCount = stats.seasons.filter(
+    (s) => s.postseason === "missed_playoffs",
+  ).length;
+  if (missedCount > 0) {
+    trophies.push({
+      id: "missed-playoffs",
+      title: "Missed Playoffs",
+      sub: `${missedCount} season${missedCount !== 1 ? "s" : ""} without a playoff berth`,
+      detail: "Patience builds character",
+      year: "Career",
+      tier: "wood",
+      kind: "wood",
+    });
+  }
+
+  return trophies;
+}
+
+function TrophyRoom({ stats }: { stats: TeamStats | undefined }) {
+  // While loading, show placeholder skeleton. Once stats arrive, build real trophies.
+  const awards = stats ? buildTrophies(stats) : null;
+  const display = awards ?? PLACEHOLDER_TROPHIES;
+  const isLoading = awards === null;
 
   return (
     <section>
@@ -668,14 +905,14 @@ function TrophyRoom({ awards }: { awards: Trophy[] }) {
         kicker="The Mantelpiece"
         title="Trophy Room"
         rule={
-          isStub
-            ? "Superlatives · coming soon"
-            : `${awards.length} award${awards.length !== 1 ? "s" : ""}`
+          isLoading
+            ? "Superlatives · loading…"
+            : `${awards!.length} award${awards!.length !== 1 ? "s" : ""}`
         }
       />
-      {isStub && (
+      {isLoading && (
         <p className="text-[11px] text-muted font-sans italic mb-3">
-          Trophies are assigned by algorithms — shell is ready to receive them.
+          Loading trophies…
         </p>
       )}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
@@ -745,6 +982,14 @@ export function TeamPage() {
   // Season trail — fetch all scored weeks for this roster
   const seasonLog = useTeamSeasonLog(selectedLeagueId, rosterId, lastWeek);
 
+  // Team stats — aggregated lifetime + per-season data across the whole league family.
+  // familySeasons is computed above so we can extract just the leagueId list here.
+  const familyLeagueIds = useMemo(
+    () => familySeasons.map((l) => l.ref.leagueId),
+    [familySeasons],
+  );
+  const { data: teamStats } = useTeamStats(selectedLeagueId, rosterId, familyLeagueIds);
+
   const roster = rosters?.find((r) => r.rosterId === rosterId) ?? null;
   const user = roster?.ownerId
     ? leagueUsers?.find((u) => u.userId === roster.ownerId)
@@ -787,12 +1032,13 @@ export function TeamPage() {
 
       <div className="px-6 py-5 flex flex-col gap-8">
         <CurrentSeason roster={roster} log={seasonLog} week={week} />
-        <LifetimeStats />
+        <LifetimeStats stats={teamStats} />
         <SeasonHistory
           familySeasons={familySeasons}
           currentRosterId={rosterId}
+          stats={teamStats}
         />
-        <TrophyRoom awards={[]} />
+        <TrophyRoom stats={teamStats} />
       </div>
     </div>
   );

@@ -44,6 +44,7 @@ import type {
   PlayoffMatchup,
   Draft,
   DraftPick,
+  TeamStats,
 } from "../types/fantasy";
 
 const PROVIDER = "sleeper";
@@ -438,4 +439,39 @@ export function useTeamSeasonLog(
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rosterId, lastWeek, ...results.map((r) => r.data)]);
+}
+
+// ---- Team Stats (lifetime + per-season aggregates) ----
+//
+// Fetches the full career statistics for one team across all seasons in the
+// league family. The server does the heavy lifting (parallel matchup + bracket
+// fetches per season); we just cache the result here for 5 minutes.
+//
+// `familyLeagueIds` must be the full ordered list (newest first) so the server
+// can resolve the ownerId from the current roster and then walk every season.
+//
+// The query is disabled until all three inputs are non-null/non-empty — the
+// page renders before Redux has hydrated and before the leagues query returns.
+
+export function useTeamStats(
+  leagueId: string | null,
+  rosterId: number | null,
+  familyLeagueIds: string[],
+) {
+  return useQuery({
+    queryKey: ["team-stats", leagueId, rosterId, familyLeagueIds],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        leagueIds: familyLeagueIds.join(","),
+      });
+      const res = await axios.get<{ stats: TeamStats }>(
+        base(`/league/${leagueId}/team-stats/${rosterId}?${params}`),
+      );
+      return res.data.stats;
+    },
+    // Only fire when we have a valid current league, a resolved roster ID,
+    // and at least one league ID in the family list.
+    enabled: !!leagueId && rosterId != null && familyLeagueIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
 }

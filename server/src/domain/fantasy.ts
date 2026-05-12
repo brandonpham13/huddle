@@ -185,3 +185,93 @@ export interface DraftPick {
   is_keeper: boolean | null;
   draft_id: string;
 }
+
+// ─── Team Stats (lifetime + per-season aggregates) ────────────────────────────
+
+/** One row in the Season by Season table. */
+export interface SeasonStat {
+  leagueId: string;
+  season: string;
+  record: { wins: number; losses: number; ties: number };
+  pointsFor: number;
+  pointsAgainst: number;
+  /** Final regular-season standing, 1-indexed (1 = best record). Null if we
+   *  couldn't derive standings from matchup data. */
+  seed: number | null;
+  /** Where the team finished in the postseason bracket. Null means the league
+   *  status was not "complete" when stats were computed (in-progress season). */
+  postseason:
+    | "champion"
+    | "runner_up"
+    | "third"
+    | "made_playoffs"
+    | "missed_playoffs"
+    | null;
+  /** Placeholder — will be wired to power-rank data in a future pass. */
+  powerRank: number | null;
+}
+
+/** Head-to-head record against one specific opponent. */
+export interface H2HRecord {
+  opponentRosterId: number;
+  /** Null when the opponent's user id is unknown (they may have left the league). */
+  opponentOwnerId: string | null;
+  /** Display name for the opponent — team name if set, otherwise display name.
+   *  Populated server-side from the most recent season the opponent appeared in. */
+  opponentTeamName: string | null;
+  wins: number;
+  losses: number;
+  ties: number;
+}
+
+/** Full lifetime + per-season statistics for one team. */
+export interface TeamStats {
+  // ── Lifetime record ─────────────────────────────────────────────────────
+  careerRecord: { wins: number; losses: number; ties: number };
+  /** Win percentage across all regular-season games, 0–1. */
+  winPct: number;
+  playoffAppearances: number;
+  championships: number;
+  runnerUps: number;
+  thirdPlace: number;
+  /** Mean seed/finish across all seasons that have seed data. Null if none. */
+  avgFinish: number | null;
+
+  // ── Scoring extremes (all-time) ─────────────────────────────────────────
+  avgPointsFor: number;
+  avgPointsAgainst: number;
+  highScore: {
+    points: number;
+    season: string;
+    week: number;
+    opponentRosterId: number | null;
+  } | null;
+  lowScore: {
+    points: number;
+    season: string;
+    week: number;
+    opponentRosterId: number | null;
+  } | null;
+  biggestWin: {
+    margin: number;
+    season: string;
+    week: number;
+    opponentRosterId: number | null;
+  } | null;
+  worstLoss: {
+    margin: number;
+    season: string;
+    week: number;
+    opponentRosterId: number | null;
+  } | null;
+
+  // ── Streaks ──────────────────────────────────────────────────────────────
+  longestWinStreak: number;
+  longestLossStreak: number;
+
+  // ── Head-to-head ─────────────────────────────────────────────────────────
+  h2h: H2HRecord[];
+
+  // ── Per-season breakdown ─────────────────────────────────────────────────
+  seasons: SeasonStat[];
+}

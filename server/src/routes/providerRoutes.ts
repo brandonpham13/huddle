@@ -2,6 +2,7 @@ import express, { type Express, type Request, type Response } from "express";
 import { getProvider } from "../providers/registry.js";
 import type { FantasyProvider } from "../providers/types.js";
 import { computePowerRankings } from "../services/powerRankingsService.js";
+import { computeTeamStats } from "../services/teamStatsService.js";
 import "../algorithms/index.js";
 
 /**
@@ -402,6 +403,62 @@ export function initProviderRoutes(app: Express) {
       try {
         const draft = await provider.getDraft(req.params.draftId);
         res.json({ draft });
+      } catch (err) {
+        res
+          .status(httpStatus(err))
+          .json({ error: err instanceof Error ? err.message : "Unknown" });
+      }
+    },
+  );
+
+  // GET /api/provider/:providerId/league/:leagueId/team-stats/:rosterId
+  // Query params:
+  //   leagueIds  - comma-separated list of all family league IDs (newest first)
+  // Returns aggregated lifetime + per-season stats for one team owner.
+  router.get(
+    "/:providerId/league/:leagueId/team-stats/:rosterId",
+    async (req: Request, res: Response) => {
+      const provider = resolveProvider(req.params.providerId, res);
+      if (!provider) return;
+
+      const rosterId = parseInt(req.params.rosterId ?? "", 10);
+      if (isNaN(rosterId)) {
+        res.status(400).json({ error: "rosterId must be an integer" });
+        return;
+      }
+
+      // leagueIds query param — a comma-separated list of all family league IDs.
+      // The current leagueId from the URL is used as the canonical "current" league
+      // to resolve the ownerId. The full list is used for multi-season aggregation.
+      const leagueIdsParam = req.query["leagueIds"];
+      const leagueIds =
+        typeof leagueIdsParam === "string" && leagueIdsParam.trim()
+          ? leagueIdsParam.split(",").map((s) => s.trim()).filter(Boolean)
+          : [req.params.leagueId];
+
+      try {
+        // Resolve the ownerId from the current league's roster list.
+        // We do this here so the service layer only receives a stable ownerId —
+        // it doesn't need to know which leagueId is "current".
+        const currentRosters = await provider.getRosters(req.params.leagueId);
+        const currentRoster = currentRosters.find((r) => r.rosterId === rosterId);
+        if (!currentRoster) {
+          res.status(404).json({ error: `Roster ${rosterId} not found in league ${req.params.leagueId}` });
+          return;
+        }
+        if (!currentRoster.ownerId) {
+          res.status(404).json({ error: `Roster ${rosterId} has no owner — cannot compute stats` });
+          return;
+        }
+
+        const stats = await computeTeamStats(
+          provider,
+          leagueIds,
+          rosterId,
+          currentRoster.ownerId,
+        );
+
+        res.json({ stats });
       } catch (err) {
         res
           .status(httpStatus(err))

@@ -255,6 +255,105 @@ Columns with a `sortValue` are clickable — first click sorts desc, second clic
 
 ---
 
+## Adding a custom award to the Trophy Room
+
+All trophy logic lives in `client/src/pages/TeamPage.tsx`. Three things control the Trophy Room:
+
+| Thing | What it does |
+|---|---|
+| `TrophyTier` | Visual style preset — `gold`, `silver`, `bronze`, `ribbon`, `wood` |
+| `Trophy["kind"]` | Which SVG glyph to render — `cup`, `medal`, `ribbon`, `star`, `wood` |
+| `buildTrophies(stats)` | Pure function that maps `TeamStats` → `Trophy[]` |
+
+All you need to do is push a new `Trophy` object into the array inside `buildTrophies`. The `TrophyCard` component and grid rendering are automatic.
+
+### 1. Pick a tier and glyph
+
+| Tier | Glyph | When to use |
+|---|---|---|
+| `gold` / `cup` | Trophy cup | Champion, winner |
+| `silver` / `medal` | Olympic medal | Runner-up |
+| `bronze` / `medal` | Olympic medal | 3rd place |
+| `ribbon` / `star` | Star badge | Stat superlatives (high score, etc.) |
+| `ribbon` / `ribbon` | Ribbon rosette | Participation / other honourable mentions |
+| `wood` / `wood` | Plank / data grid | Shame awards, consolation, career counts |
+
+### 2. Add your entry to `buildTrophies`
+
+Open `client/src/pages/TeamPage.tsx` and find the `buildTrophies` function. Push a `Trophy` object:
+
+```ts
+// Example: "Scorigami" award for a unique score no one else has hit
+if (stats.highScore && stats.highScore.points > 200) {
+  trophies.push({
+    id: "scorigami",                        // must be unique across all trophies
+    title: "Scorigami",                     // bold serif heading on the card
+    sub: `${stats.highScore.points.toFixed(2)} pts in a single week`,  // body line
+    detail: "200-point club",               // small caps footer rule
+    year: stats.highScore.season,           // top-right badge (season year or "Career")
+    tier: "gold",                           // visual style
+    kind: "star",                           // glyph
+  });
+}
+```
+
+Or for a career-aggregate award:
+
+```ts
+// Example: "Veteran" award for playing 5+ seasons
+if (stats.seasons.length >= 5) {
+  trophies.push({
+    id: "veteran",
+    title: "Veteran",
+    sub: `${stats.seasons.length} seasons in the league`,
+    detail: "Long-term member",
+    year: "Career",
+    tier: "ribbon",
+    kind: "ribbon",
+  });
+}
+```
+
+### 3. Data available in `buildTrophies(stats: TeamStats)`
+
+```ts
+stats.seasons[]          // per-season: record, PF, PA, seed, postseason result
+stats.careerRecord       // { wins, losses, ties }
+stats.winPct             // 0–1
+stats.playoffAppearances
+stats.championships
+stats.runnerUps
+stats.thirdPlace
+stats.avgFinish          // average seed across all seasons (null if no data)
+stats.avgPointsFor
+stats.avgPointsAgainst
+stats.highScore          // { points, season, week, opponentRosterId }
+stats.lowScore           // same shape
+stats.biggestWin         // { margin, season, week, opponentRosterId }
+stats.worstLoss          // same shape
+stats.longestWinStreak   // number of consecutive wins
+stats.longestLossStreak
+stats.h2h[]              // per-opponent: { opponentRosterId, wins, losses, ties }
+```
+
+### 4. Add a new glyph (optional)
+
+If none of the five existing glyphs fit, add a new `kind` value:
+
+1. Extend the union type: `type Trophy["kind"] = "cup" | "medal" | ... | "mykind"`
+2. Add a new `if (kind === "mykind") return (<svg>…</svg>)` branch in `TrophyGlyph`
+3. Reference it in your `buildTrophies` entry
+
+Keep glyphs as inline SVGs (no external deps). Use 36×40 viewBox and `stroke="currentColor"` so dark mode works for free.
+
+### Notes
+- IDs must be unique — collisions cause React key warnings
+- Cards render in push order, so put more prestigious awards first
+- `year` is always a string or number; use `"Career"` for aggregate awards
+- The section header automatically updates its rule from `"… awards"` so no manual count tracking needed
+
+---
+
 ## Adding a new provider (fantasy platform)
 
 The provider pattern lives in `server/src/providers/`. To add a new platform:
