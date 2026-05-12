@@ -113,6 +113,12 @@ function StubBanner({ label }: { label: string }) {
 
 // ─── Section 1: Masthead ──────────────────────────────────────────────────────
 
+function ordinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+}
+
 function Masthead({
   teamName,
   ownerName,
@@ -124,6 +130,8 @@ function Masthead({
   powerRank,
   season,
   isMyTeam,
+  seasonCount,
+  leagueName,
 }: {
   teamName: string;
   ownerName: string | null;
@@ -135,6 +143,8 @@ function Masthead({
   powerRank: number | null;
   season: string;
   isMyTeam: boolean;
+  seasonCount: number;
+  leagueName: string | null;
 }) {
   const initials = teamName
     .split(" ")
@@ -181,6 +191,9 @@ function Masthead({
             <div className="font-serif italic text-xs text-muted">
               {record.wins + record.losses + (record.ties ?? 0)} games played ·{" "}
               {((record.wins / Math.max(record.wins + record.losses, 1)) * 100).toFixed(0)}% win rate
+              {leagueName && (
+                <> · {ordinal(seasonCount)} season with {leagueName}</>
+              )}
             </div>
           </div>
         </div>
@@ -1040,6 +1053,8 @@ export function TeamPage() {
         powerRank={powerRank}
         season={selectedLeague?.season ?? "—"}
         isMyTeam={isMyTeam}
+        seasonCount={familySeasons.length}
+        leagueName={selectedLeague?.name ?? null}
       />
 
       <div className="px-6 py-5 flex flex-col gap-8">
