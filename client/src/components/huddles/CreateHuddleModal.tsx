@@ -4,7 +4,8 @@ import { ChevronRight, Check } from "lucide-react";
 import { Button } from "../ui/button";
 import { useCreateHuddle, useLinkLeague } from "../../hooks/useHuddles";
 import { useAllSleeperLeagues } from "../../hooks/useSleeper";
-import { useAppSelector } from "../../store/hooks";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { setSelectedLeague, setSelectedYear } from "../../store/slices/authSlice";
 import { buildFamilyRootMap } from "../../utils/leagueFamily";
 import { sleeperAvatarUrl } from "../../utils/sleeperNormalize";
 import type { Huddle } from "../../types/huddle";
@@ -18,6 +19,7 @@ const STATUS_BADGE: Record<string, string> = {
 
 export function CreateHuddleModal({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const create = useCreateHuddle();
   const linkLeague = useLinkLeague();
 
@@ -64,7 +66,12 @@ export function CreateHuddleModal({ onClose }: { onClose: () => void }) {
               leagueName: selectedLeague.name,
             },
             {
-              onSuccess: (linked) => setCreated(linked),
+              onSuccess: (linked) => {
+                // Dispatch the league selection so the dashboard loads it.
+                dispatch(setSelectedLeague(selectedLeagueId));
+                dispatch(setSelectedYear(selectedLeague.season));
+                setCreated(linked);
+              },
             },
           );
         } else {
@@ -118,11 +125,11 @@ export function CreateHuddleModal({ onClose }: { onClose: () => void }) {
             <Button
               onClick={() => {
                 onClose();
-                navigate(`/huddles/${created.id}`);
+                navigate("/");
               }}
               className="inline-flex items-center gap-1"
             >
-              Go to huddle
+              Go to dashboard
               <ChevronRight size={14} />
             </Button>
           </div>
