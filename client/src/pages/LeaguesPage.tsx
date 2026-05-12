@@ -5,18 +5,32 @@
  * Team claims and settings have moved to LeagueSettingsPage (/league-settings).
  */
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Plus, Hash } from "lucide-react";
-import { ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Hash, ChevronRight } from "lucide-react";
 import { useMyHuddles } from "../hooks/useHuddles";
+import { useAllSleeperLeagues } from "../hooks/useSleeper";
+import { useAppDispatch } from "../store/hooks";
+import { setSelectedLeague, setSelectedYear } from "../store/slices/authSlice";
 import { CreateHuddleModal } from "../components/huddles/CreateHuddleModal";
 import { JoinHuddleModal } from "../components/huddles/JoinHuddleModal";
 
 export function LeaguesPage() {
   const { data: huddles, isLoading } = useMyHuddles();
+  const { data: allLeagues } = useAllSleeperLeagues();
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+
+  /** Select a league and go to the dashboard. */
+  const handleSelectHuddle = (leagueId: string | null) => {
+    if (!leagueId || !allLeagues) return;
+    const league = allLeagues.find((l) => l.ref.leagueId === leagueId);
+    if (!league) return;
+    dispatch(setSelectedLeague(league.ref.leagueId));
+    dispatch(setSelectedYear(league.season));
+    navigate("/");
+  };
 
   return (
     <div className="min-h-full bg-paper text-ink font-sans">
@@ -71,10 +85,14 @@ export function LeaguesPage() {
         {!isLoading && (huddles?.length ?? 0) > 0 && (
           <div className="flex flex-col divide-y divide-line border border-line rounded-lg overflow-hidden">
             {huddles!.map((h) => (
-              <Link
+              <button
                 key={h.id}
-                to={`/huddles/${h.id}`}
-                className="flex items-center justify-between px-4 py-3.5 hover:bg-highlight transition-colors"
+                onClick={() =>
+                  h.leagueId
+                    ? handleSelectHuddle(h.leagueId)
+                    : navigate(`/huddles/${h.id}`)
+                }
+                className="flex items-center justify-between px-4 py-3.5 hover:bg-highlight transition-colors text-left w-full"
               >
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-ink truncate">{h.name}</p>
@@ -99,7 +117,7 @@ export function LeaguesPage() {
                   )}
                   <ChevronRight size={14} className="text-muted" />
                 </div>
-              </Link>
+              </button>
             ))}
           </div>
         )}

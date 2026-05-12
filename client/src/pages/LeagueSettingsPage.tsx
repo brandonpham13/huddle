@@ -219,7 +219,9 @@ function TeamsTable({
                       <span className="text-[12px] text-muted font-sans">
                         <span className="font-semibold text-ink">{describeUser(claim.user)}</span>
                       </span>
-                      {(isMyTeam || isCommissioner) &&
+                      {/* Only the claim owner can unlink their own team;
+                          commissioners can unlink anyone via the Commissioner page. */}
+                      {isMyTeam &&
                         confirmRemoveClaimId !== claim.id ? (
                         <Btn
                           danger
@@ -228,7 +230,7 @@ function TeamsTable({
                         >
                           Unlink
                         </Btn>
-                      ) : (isMyTeam || isCommissioner) &&
+                      ) : isMyTeam &&
                         confirmRemoveClaimId === claim.id ? (
                         <div className="flex gap-1.5">
                           <Btn onClick={() => setConfirmRemoveClaimId(null)}>Cancel</Btn>
@@ -255,15 +257,16 @@ function TeamsTable({
                       <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 font-semibold font-sans">
                         Pending
                       </span>
-                      {(isMyPendingClaim || isCommissioner) &&
+                      {/* Only the claimant can withdraw their own pending claim. */}
+                      {isMyPendingClaim &&
                         confirmRemoveClaimId !== pendingClaim.id ? (
                         <Btn
                           danger
                           onClick={() => setConfirmRemoveClaimId(pendingClaim.id)}
                         >
-                          {isMyPendingClaim ? "Withdraw" : "Remove"}
+                          Withdraw
                         </Btn>
-                      ) : (isMyPendingClaim || isCommissioner) &&
+                      ) : isMyPendingClaim &&
                         confirmRemoveClaimId === pendingClaim.id ? (
                         <div className="flex gap-1.5">
                           <Btn onClick={() => setConfirmRemoveClaimId(null)}>Cancel</Btn>

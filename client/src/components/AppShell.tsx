@@ -33,7 +33,7 @@
  */
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { Menu, Plus, Hash } from "lucide-react";
+import { Menu } from "lucide-react";
 import { useSignOut } from "../hooks/useSignOut";
 import { useAccountModal } from "./AccountModal";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -46,8 +46,6 @@ import { Button } from "./ui/button";
 import { Sidebar } from "./Sidebar";
 import { Avatar } from "./Avatar";
 import { useTheme } from "../context/ThemeContext";
-import { CreateHuddleModal } from "./huddles/CreateHuddleModal";
-import { JoinHuddleModal } from "./huddles/JoinHuddleModal";
 
 interface AppShellProps {
   children?: ReactNode;
@@ -59,8 +57,6 @@ export function AppShell({ children }: AppShellProps) {
   const { open: openAccountModal } = useAccountModal();
   const { theme, toggle } = useTheme();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [createHuddleOpen, setCreateHuddleOpen] = useState(false);
-  const [joinHuddleOpen, setJoinHuddleOpen] = useState(false);
   const location = useLocation();
 
   // Auto-close mobile nav on route change
@@ -246,7 +242,7 @@ export function AppShell({ children }: AppShellProps) {
 
           {uniqueLeagues.length === 0 && (
             <Link
-              to="/leagues"
+              to="/huddles"
               className="text-[10px] text-accent hover:underline truncate normal-case font-sans tracking-normal"
             >
               Create or join a huddle to get started
@@ -266,20 +262,12 @@ export function AppShell({ children }: AppShellProps) {
               </span>
             </div>
           )}
-          <button
-            onClick={() => setJoinHuddleOpen(true)}
-            className="hidden sm:flex items-center gap-1.5 text-sm text-muted hover:text-ink transition-colors"
+          <Link
+            to="/huddles"
+            className="hidden sm:inline text-sm text-muted hover:text-ink transition-colors"
           >
-            <Hash size={13} />
-            Join
-          </button>
-          <button
-            onClick={() => setCreateHuddleOpen(true)}
-            className="hidden sm:flex items-center gap-1.5 text-sm text-muted hover:text-ink transition-colors"
-          >
-            <Plus size={13} />
-            Create
-          </button>
+            Huddles
+          </Link>
           <button
             onClick={() => openAccountModal()}
             className="hidden sm:inline text-sm text-muted hover:text-ink transition-colors"
@@ -310,10 +298,6 @@ export function AppShell({ children }: AppShellProps) {
         />
         <main className="flex-1 overflow-auto">{children ?? <Outlet />}</main>
       </div>
-
-      {/* Huddle modals — triggered from the top nav Join/Create buttons */}
-      {createHuddleOpen && <CreateHuddleModal onClose={() => setCreateHuddleOpen(false)} />}
-      {joinHuddleOpen && <JoinHuddleModal onClose={() => setJoinHuddleOpen(false)} />}
     </div>
   );
 }

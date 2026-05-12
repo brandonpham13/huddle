@@ -283,7 +283,7 @@ export function Sidebar({
         {/* Mobile-only secondary actions (mirror items hidden from top nav at sm) */}
         <div className="md:hidden mt-auto p-2 border-t border-line flex flex-col gap-1">
           <NavLink
-            to="/leagues"
+            to="/huddles"
             className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-muted hover:bg-highlight hover:text-ink transition-colors"
           >
             Huddles

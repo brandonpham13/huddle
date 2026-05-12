@@ -501,7 +501,7 @@ function DangerZonePanel({
               Cancel
             </Btn>
             <BtnPrimary danger disabled={!canDelete} onClick={() =>
-              del.mutate({ huddleId }, { onSuccess: () => navigate("/leagues") })
+              del.mutate({ huddleId }, { onSuccess: () => navigate("/huddles") })
             }>
               {del.isPending ? "Deleting…" : "Delete forever"}
             </BtnPrimary>

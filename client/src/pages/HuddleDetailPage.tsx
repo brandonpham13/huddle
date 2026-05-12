@@ -50,7 +50,7 @@ export function HuddleDetailPage() {
     <div className="min-h-screen bg-paper text-ink">
       <nav className="bg-chrome border-b border-line px-6 py-4 flex items-center gap-4">
         <Link
-          to="/leagues"
+          to="/huddles"
           className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink transition-colors"
         >
           <ChevronLeft size={14} />
