@@ -479,6 +479,11 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
                 label="Longest L Streak"
                 value={stats ? String(stats.longestLossStreak) : "—"}
               />
+              <Stat
+              label="MVP Weeks"
+              value={stats?.mvpWeeks != null ? String(stats.mvpWeeks) : "—"}
+              accent
+            />
             </div>
           </div>
         </div>
@@ -494,11 +499,6 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
             <Stat
               label="Avg PA"
               value={stats ? stats.avgPointsAgainst.toFixed(1) : "—"}
-            />
-            <Stat
-              label="MVP Weeks"
-              value={stats?.mvpWeeks != null ? String(stats.mvpWeeks) : "—"}
-              accent
             />
           </div>
           <div className="mt-3">
