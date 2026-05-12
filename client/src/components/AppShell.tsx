@@ -2,7 +2,7 @@
  * AppShell — the persistent chrome that wraps every authenticated route.
  *
  * Mounted by `App.tsx` around the `<Outlet />` for the protected routes.
- * Every page (DashboardPage, LeaguesPage, TeamPage, HuddleDetailPage, ...)
+ * Every page (DashboardPage, LeaguesPage, TeamPage, ...)
  * renders inside this shell, which is responsible for:
  *
  *   - The top nav bar (wordmark + league dropdown + season dropdown +
