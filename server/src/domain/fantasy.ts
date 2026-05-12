@@ -216,6 +216,9 @@ export interface H2HRecord {
   opponentRosterId: number;
   /** Null when the opponent's user id is unknown (they may have left the league). */
   opponentOwnerId: string | null;
+  /** Display name for the opponent — team name if set, otherwise display name.
+   *  Populated server-side from the most recent season the opponent appeared in. */
+  opponentTeamName: string | null;
   wins: number;
   losses: number;
   ties: number;

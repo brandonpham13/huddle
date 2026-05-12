@@ -502,7 +502,7 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
                         className="flex justify-between items-baseline py-1 border-b border-dotted border-line"
                       >
                         <span className="text-[9.5px] uppercase tracking-wider font-sans text-muted font-semibold">
-                          vs #{rec.opponentRosterId}
+                          vs {rec.opponentTeamName ?? `#${rec.opponentRosterId}`}
                         </span>
                         <span className="font-mono text-xs text-ink">{wl}</span>
                       </div>

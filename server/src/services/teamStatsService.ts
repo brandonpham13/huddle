@@ -22,6 +22,7 @@ import type {
   Matchup,
   PlayoffMatchup,
   Roster,
+  TeamUser,
 } from "../domain/fantasy.js";
 import type { TeamStats, SeasonStat, H2HRecord } from "../domain/fantasy.js";
 import type { ProviderId } from "../domain/fantasy.js";
@@ -132,6 +133,8 @@ interface SeasonData {
   matchupsByWeek: Matchup[][];
   /** All rosters in the league (for seed computation). */
   allRosters: Roster[];
+  /** All users in the league — used to resolve rosterId → team name for H2H display. */
+  allUsers: TeamUser[];
   /** Winners bracket (empty array if league not complete or provider doesn't support it). */
   winnersBracket: PlayoffMatchup[];
 }
@@ -154,15 +157,17 @@ async function fetchSeasonData(
   const weekCount = regularSeasonWeekCount(league);
   const weekNums = Array.from({ length: weekCount }, (_, i) => i + 1);
 
-  // Fetch all weeks in parallel, then fetch the bracket in parallel with that
-  const [matchupsByWeek, winnersBracket] = await Promise.all([
+  // Fetch all weeks in parallel, then fetch the bracket and users in parallel with that
+  const [matchupsByWeek, winnersBracket, allUsers] = await Promise.all([
     Promise.all(weekNums.map((w) => provider.getMatchups(leagueId, w))),
     league.status === "complete" && provider.getWinnersBracket
       ? provider.getWinnersBracket(leagueId).catch(() => [] as PlayoffMatchup[])
       : Promise.resolve([] as PlayoffMatchup[]),
+    // Fetch users so we can resolve rosterId -> team name for H2H display
+    provider.getLeagueUsers(leagueId).catch(() => [] as TeamUser[]),
   ]);
 
-  return { league, roster, matchupsByWeek, allRosters, winnersBracket };
+  return { league, roster, matchupsByWeek, allRosters, allUsers, winnersBracket };
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
@@ -226,14 +231,22 @@ export async function computeTeamStats(
   // Structure: opponentOwnerId (or "noowner:<leagueId>:<rosterId>") -> record
   const h2hByOwner = new Map<
     string,
-    { opponentRosterId: number; opponentOwnerId: string | null; wins: number; losses: number; ties: number }
+    { opponentRosterId: number; opponentOwnerId: string | null; opponentTeamName: string | null; wins: number; losses: number; ties: number }
   >();
 
   // ── Process each season ───────────────────────────────────────────────────
   for (const sd of seasonDataList) {
-    const { league, roster, matchupsByWeek, allRosters, winnersBracket } = sd;
+    const { league, roster, matchupsByWeek, allRosters, allUsers, winnersBracket } = sd;
     const leagueId = league.ref.leagueId;
     const season = league.season;
+
+    // Build a map from ownerId -> preferred display name for this season.
+    // Preference order: team name (custom) > display name > username.
+    // This is the same resolution order used by teamName() in the client.
+    const ownerIdToName = new Map<string, string>();
+    for (const u of allUsers) {
+      ownerIdToName.set(u.userId, u.teamName ?? u.displayName ?? u.username);
+    }
 
     // If the owner wasn't in this league, include a zero-stat season row
     if (!roster) {
@@ -337,6 +350,10 @@ export async function computeTeamStats(
       if (oppRosterId != null) {
         const oppRoster = allRosters.find((r) => r.rosterId === oppRosterId);
         const oppOwnerId = oppRoster?.ownerId ?? null;
+        // Resolve the opponent's display name from the users list for this season.
+        // We prefer the most recent season's name (seasonDataList is newest-first),
+        // so we only update the name if we don't already have one for this owner.
+        const oppName = oppOwnerId ? (ownerIdToName.get(oppOwnerId) ?? null) : null;
         // Use ownerId as key when we have it, otherwise fall back to a stable
         // composite that won't collide across leagues.
         const key = oppOwnerId ?? `noowner:${leagueId}:${oppRosterId}`;
@@ -344,6 +361,9 @@ export async function computeTeamStats(
         const existing = h2hByOwner.get(key) ?? {
           opponentRosterId: oppRosterId,
           opponentOwnerId: oppOwnerId,
+          // Seed with the name from the most recent season (first encounter since
+          // seasonDataList is newest-first). Subsequent seasons won't overwrite.
+          opponentTeamName: oppName,
           wins: 0,
           losses: 0,
           ties: 0,
@@ -434,6 +454,7 @@ export async function computeTeamStats(
   const h2h: H2HRecord[] = Array.from(h2hByOwner.values()).map((v) => ({
     opponentRosterId: v.opponentRosterId,
     opponentOwnerId: v.opponentOwnerId,
+    opponentTeamName: v.opponentTeamName,
     wins: v.wins,
     losses: v.losses,
     ties: v.ties,

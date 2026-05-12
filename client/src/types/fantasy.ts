@@ -210,6 +210,8 @@ export interface SeasonStat {
 export interface H2HRecord {
   opponentRosterId: number;
   opponentOwnerId: string | null;
+  /** Display name for the opponent — team name if set, otherwise display name. */
+  opponentTeamName: string | null;
   wins: number;
   losses: number;
   ties: number;
