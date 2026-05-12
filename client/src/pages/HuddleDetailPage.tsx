@@ -34,6 +34,7 @@ import {
   useLeagueRosters,
   useLeagueUsers,
 } from "../hooks/useSleeper";
+import { buildFamilyRootMap } from "../utils/leagueFamily";
 import type { Roster, TeamUser } from "../types/fantasy";
 import type {
   CommissionerSummary,
@@ -741,16 +742,19 @@ function LinkLeaguePanel({ huddleId }: { huddleId: string }) {
   const linkLeague = useLinkLeague();
   const [selectedLeagueId, setSelectedLeagueId] = useState("");
 
-  // Deduplicate to the latest season per family (same display approach as AppShell)
+  // Deduplicate to the latest season per family, keyed by family root ID so
+  // renames between seasons don't produce duplicate entries.
   const options = useMemo(() => {
     if (!allLeagues) return [];
+    const familyRootMap = buildFamilyRootMap(allLeagues);
     const seen = new Set<string>();
     const result: typeof allLeagues = [];
     for (const l of [...allLeagues].sort(
       (a, b) => Number(b.season) - Number(a.season),
     )) {
-      if (seen.has(l.ref.leagueId)) continue;
-      seen.add(l.ref.leagueId);
+      const root = familyRootMap.get(l.ref.leagueId) ?? l.ref.leagueId;
+      if (seen.has(root)) continue;
+      seen.add(root);
       result.push(l);
     }
     return result;
