@@ -30,9 +30,12 @@ import type { Roster, TeamUser } from "../../types/fantasy";
 import { SectionHead, SortHeader, teamAvatar, teamName } from "./_shared";
 
 // Narrower fixed columns on mobile so the team column has room to breathe;
-// expand to comfortable widths at sm+. Six columns: #, Team, W–L, PF, PA, Strk.
+// expand to comfortable widths at sm+.
+// Two grid variants: with Max PF column and without (shown when data loads).
 const LEAGUE_TABLE_GRID =
-  "grid-cols-[16px_1fr_42px_42px_42px_36px] sm:grid-cols-[18px_1fr_52px_52px_52px_44px]";
+  "grid-cols-[16px_1fr_48px_48px_48px_40px] sm:grid-cols-[18px_1fr_58px_58px_58px_48px]";
+const LEAGUE_TABLE_GRID_MAXPF =
+  "grid-cols-[16px_1fr_48px_48px_48px_48px_40px] sm:grid-cols-[18px_1fr_58px_58px_58px_58px_48px]";
 
 /**
  * Parse a provider streak string ("3W" / "2L") into a signed integer where
@@ -52,10 +55,14 @@ export function LeagueTable({
   rosters,
   users,
   myRosterId,
+  maxPF,
 }: {
   rosters: Roster[];
   users: TeamUser[];
   myRosterId: number | null;
+  /** Optional: Max PF per roster, keyed by rosterId (as string). When present,
+   *  an extra sortable "Max" column is shown to the left of Strk. */
+  maxPF?: Record<string, number>;
 }) {
   // Canonical W–L rank, computed once and used for the leftmost "#" column
   // regardless of the active sort.
@@ -95,6 +102,11 @@ export function LeagueTable({
       // first when the user clicks the header.
       { id: "pa", sortValue: (r) => r.pointsAgainst, defaultDir: "asc" },
       {
+        id: "maxpf",
+        sortValue: (r) => maxPF?.[String(r.rosterId)] ?? -1,
+        defaultDir: "desc",
+      },
+      {
         id: "strk",
         // Desc puts the longest win streak at the top, longest loss streak
         // at the bottom — matches what "who's hot" means at a glance.
@@ -102,7 +114,7 @@ export function LeagueTable({
         defaultDir: "desc",
       },
     ],
-    [rankByRosterId, users],
+    [rankByRosterId, users, maxPF],
   );
 
   const { sortedRows, sortId, sortDir, handleSort } = useSortedRows(
@@ -112,6 +124,10 @@ export function LeagueTable({
     "asc",
   );
 
+  // Show the Max PF column only when data is available.
+  const showMaxPF = !!maxPF && Object.keys(maxPF).length > 0;
+  const grid = showMaxPF ? LEAGUE_TABLE_GRID_MAXPF : LEAGUE_TABLE_GRID;
+
   return (
     <section>
       <SectionHead
@@ -120,7 +136,7 @@ export function LeagueTable({
         rule="W–L · PF · PA"
       />
       <div
-        className={`grid ${LEAGUE_TABLE_GRID} text-[9.5px] font-semibold tracking-wider uppercase text-muted font-sans border-b border-line pb-1 mb-0.5`}
+        className={`grid ${grid} text-[9.5px] font-semibold tracking-wider uppercase text-muted font-sans border-b border-line pb-1 mb-0.5`}
       >
         <SortHeader
           id="rank"
@@ -160,6 +176,16 @@ export function LeagueTable({
           onSort={handleSort}
           align="right"
         />
+        {showMaxPF && (
+          <SortHeader
+            id="maxpf"
+            label="MaxPF"
+            currentId={sortId}
+            dir={sortDir}
+            onSort={handleSort}
+            align="right"
+          />
+        )}
         <SortHeader
           id="strk"
           label="Strk"
@@ -177,12 +203,13 @@ export function LeagueTable({
         const l = r.record.losses ?? 0;
         const pf = r.pointsFor;
         const pa = r.pointsAgainst;
+        const rosterMaxPF = maxPF?.[String(r.rosterId)] ?? null;
         const rank = rankByRosterId.get(r.rosterId) ?? "—";
         return (
           <Link
             key={r.rosterId}
             to={`/teams/${r.rosterId}`}
-            className={`grid ${LEAGUE_TABLE_GRID} items-center py-[5px] border-b border-dotted border-line hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${
+            className={`grid ${grid} items-center py-[5px] border-b border-dotted border-line hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${
               isMine ? "bg-highlight -mx-2 px-2" : ""
             }`}
           >
@@ -208,11 +235,16 @@ export function LeagueTable({
               {w}–{l}
             </div>
             <div className="text-right font-mono text-[11px] text-body">
-              {pf.toFixed(1)}
+              {pf.toFixed(2)}
             </div>
             <div className="text-right font-mono text-[11px] text-muted">
-              {pa.toFixed(1)}
+              {pa.toFixed(2)}
             </div>
+            {showMaxPF && (
+              <div className="text-right font-mono text-[11px] text-muted">
+                {rosterMaxPF !== null ? rosterMaxPF.toFixed(2) : "—"}
+              </div>
+            )}
             <div className="flex items-center justify-end">
               <StreakBadge streak={r.streak} />
             </div>

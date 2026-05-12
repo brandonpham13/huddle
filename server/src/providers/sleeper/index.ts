@@ -58,6 +58,7 @@ function toLeague(s: SleeperLeague): League {
         ? { provider: "sleeper", leagueId: s.previous_league_id }
         : null,
     settings: (s.settings as Record<string, unknown>) ?? {},
+    rosterPositions: s.roster_positions ?? [],
   };
 }
 

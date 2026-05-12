@@ -33,6 +33,13 @@ export interface League {
    * Useful keys (Sleeper): last_scored_leg, playoff_week_start
    */
   settings: Record<string, unknown>;
+  /**
+   * Ordered list of roster slot types for this league, e.g.
+   * ["QB","WR","WR","RB","RB","TE","FLEX","BN","BN","BN"].
+   * BN/IR slots are included — callers filter them out as needed.
+   * Populated from Sleeper's top-level `roster_positions` field.
+   */
+  rosterPositions: string[];
 }
 
 export interface Roster {

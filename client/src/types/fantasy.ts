@@ -18,6 +18,8 @@ export interface League {
   avatar: string | null;
   previousLeagueRef: LeagueRef | null;
   settings: Record<string, unknown>;
+  /** Ordered roster slot types, e.g. ["QB","WR","WR","RB","FLEX","BN",...]. */
+  rosterPositions: string[];
 }
 
 export interface Roster {

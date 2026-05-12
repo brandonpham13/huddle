@@ -3,6 +3,7 @@ import { getProvider } from "../providers/registry.js";
 import type { FantasyProvider } from "../providers/types.js";
 import { computePowerRankings } from "../services/powerRankingsService.js";
 import { computeTeamStats } from "../services/teamStatsService.js";
+import { computeMaxPF } from "../services/maxPFService.js";
 import "../algorithms/index.js";
 
 /**
@@ -528,6 +529,45 @@ export function initProviderRoutes(app: Express) {
         });
 
         res.json(result);
+      } catch (err) {
+        res
+          .status(httpStatus(err))
+          .json({ error: err instanceof Error ? err.message : "Unknown" });
+      }
+    },
+  );
+
+  // GET /api/provider/:providerId/league/:leagueId/max-pf
+  //   Query params:
+  //     weekCount - number of regular-season weeks to compute over (required)
+  // Returns: { maxPF: Record<rosterId, number> }
+  router.get(
+    "/:providerId/league/:leagueId/max-pf",
+    async (req: Request, res: Response) => {
+      const provider = resolveProvider(req.params.providerId, res);
+      if (!provider) return;
+
+      if (!provider.getPlayers) {
+        res.status(400).json({ error: "This provider does not support player data required for Max PF" });
+        return;
+      }
+
+      const weekCountParam = req.query["weekCount"];
+      const weekCount = typeof weekCountParam === "string" ? parseInt(weekCountParam, 10) : NaN;
+      if (isNaN(weekCount) || weekCount < 1) {
+        res.status(400).json({ error: "weekCount query param must be a positive integer" });
+        return;
+      }
+
+      try {
+        const { leagueId } = req.params;
+        const maxPFMap = await computeMaxPF(provider, leagueId, weekCount);
+        // Convert Map<number, number> to a plain object for JSON serialisation.
+        const maxPF: Record<string, number> = {};
+        for (const [rosterId, pts] of maxPFMap) {
+          maxPF[rosterId] = Math.round(pts * 100) / 100;
+        }
+        res.json({ maxPF });
       } catch (err) {
         res
           .status(httpStatus(err))
