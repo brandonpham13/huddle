@@ -334,7 +334,7 @@ function CurrentSeason({
             <div className="mt-3 grid grid-cols-4 gap-3">
               <Stat label="PF" value={roster.pointsFor.toFixed(1)} />
               <Stat label="PA" value={roster.pointsAgainst.toFixed(1)} />
-              <Stat label="Avg PF" value={avgPf.toFixed(1)} accent />
+              <Stat label="Avg PF" value={avgPf.toFixed(1)} />
               <Stat
                 label="Margin"
                 value={`${margin >= 0 ? "+" : ""}${margin.toFixed(1)}`}
@@ -372,26 +372,30 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
   const winPctStr = stats ? `${(stats.winPct * 100).toFixed(1)}%` : "—";
 
   // Extremes rows — keeps the JSX below clean
-  const extremeRows: Array<{ label: string; value: string; ctx: string }> = [
+  const extremeRows: Array<{ label: string; value: string; ctx: string; valueClass: string }> = [
     {
       label: "High Score",
       value: stats?.highScore ? stats.highScore.points.toFixed(2) : "—",
       ctx: extremeCtx(stats?.highScore ?? null),
+      valueClass: "text-accent",
     },
     {
       label: "Low Score",
       value: stats?.lowScore ? stats.lowScore.points.toFixed(2) : "—",
       ctx: extremeCtx(stats?.lowScore ?? null),
+      valueClass: "text-loss",
     },
     {
       label: "Biggest Win",
       value: stats?.biggestWin ? `+${stats.biggestWin.margin.toFixed(2)}` : "—",
       ctx: extremeCtx(stats?.biggestWin ?? null),
+      valueClass: "text-accent",
     },
     {
       label: "Worst Loss",
       value: stats?.worstLoss ? `-${stats.worstLoss.margin.toFixed(2)}` : "—",
       ctx: extremeCtx(stats?.worstLoss ?? null),
+      valueClass: "text-loss",
     },
   ];
 
@@ -456,7 +460,6 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
             <Stat
               label="Avg PF"
               value={stats ? stats.avgPointsFor.toFixed(1) : "—"}
-              accent
             />
             <Stat
               label="Avg PA"
@@ -475,7 +478,7 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
                     {row.label}
                   </span>
                   <div className="text-right">
-                    <div className="font-serif font-semibold text-base text-ink tabular-nums leading-none">
+                    <div className={`font-serif font-semibold text-base tabular-nums leading-none ${row.valueClass}`}>
                       {row.value}
                     </div>
                     <div className="font-serif italic text-[10.5px] text-muted mt-0.5">
@@ -604,11 +607,12 @@ function SeasonHistory({
               : "—";
             const isCurrentSeason =
               league.ref.leagueId === familySeasons[0]?.ref.leagueId;
+            const isChampion = s?.postseason === "champion";
 
             return (
               <div
                 key={league.ref.leagueId}
-                className="grid grid-cols-[44px_60px_62px_62px_46px_1fr_44px] min-w-0 gap-x-3 items-center py-2 border-b border-dotted border-line"
+                className={`grid grid-cols-[44px_60px_62px_62px_46px_1fr_44px] min-w-0 gap-x-3 items-center py-2 border-b border-dotted border-line${isChampion ? " bg-highlight" : ""}`}
               >
                 {/* Year */}
                 <div className="font-serif italic font-bold text-[17px] text-ink leading-none">
