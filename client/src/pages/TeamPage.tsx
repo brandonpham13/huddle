@@ -1053,7 +1053,13 @@ export function TeamPage() {
         powerRank={powerRank}
         season={selectedLeague?.season ?? "—"}
         isMyTeam={isMyTeam}
-        seasonCount={familySeasons.length}
+        seasonCount={
+          teamStats
+            ? teamStats.seasons.filter(
+                (s) => s.record.wins + s.record.losses + s.record.ties > 0,
+              ).length
+            : familySeasons.length
+        }
         leagueName={selectedLeague?.name ?? null}
       />
 
