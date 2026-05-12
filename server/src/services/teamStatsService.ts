@@ -228,10 +228,23 @@ export async function computeTeamStats(
   // H2H accumulation: opponentRosterId is per-league, but since rosters map
   // to the same human owner across seasons (matched by ownerId), we track by
   // opponentOwnerId when available, falling back to a per-league composite key.
-  // For simplicity and correctness within a single league family, we key by
-  // opponentRosterId within each season and merge by opponentOwnerId at the end.
+  //
+  // Pre-pass: build a global "leagueId:rosterId" → ownerId index so that even
+  // seasons where a roster's ownerId field is missing can be resolved via a
+  // season where that same person did have a userId attached. This prevents the
+  // same human from appearing as both an ownerId-keyed entry AND one or more
+  // noowner:* entries.
   //
   // Structure: opponentOwnerId (or "noowner:<leagueId>:<rosterId>") -> record
+  const rosterOwnerIndex = new Map<string, string>(); // "leagueId:rosterId" -> ownerId
+  for (const sd of seasonDataList) {
+    for (const r of sd.allRosters) {
+      if (r.ownerId) {
+        rosterOwnerIndex.set(`${sd.league.ref.leagueId}:${r.rosterId}`, r.ownerId);
+      }
+    }
+  }
+
   const h2hByOwner = new Map<
     string,
     { opponentRosterId: number; opponentOwnerId: string | null; opponentTeamName: string | null; wins: number; losses: number; ties: number }
@@ -367,13 +380,17 @@ export async function computeTeamStats(
       // ── H2H accumulation ─────────────────────────────────────────────
       // oppRoster / oppOwnerId / oppName already resolved above for extremes
       if (oppRosterId != null) {
-        // Use ownerId as key when we have it, otherwise fall back to a stable
-        // composite that won't collide across leagues.
-        const key = oppOwnerId ?? `noowner:${leagueId}:${oppRosterId}`;
+        // Use ownerId as key when we have it. If the roster didn't have an
+        // ownerId directly, consult the pre-built index (covers seasons where
+        // the field was missing on one season but present on another). Only
+        // fall back to a noowner composite if genuinely unresolvable.
+        const resolvedOwnerId =
+          oppOwnerId ?? rosterOwnerIndex.get(`${leagueId}:${oppRosterId}`) ?? null;
+        const key = resolvedOwnerId ?? `noowner:${leagueId}:${oppRosterId}`;
 
         const existing = h2hByOwner.get(key) ?? {
           opponentRosterId: oppRosterId,
-          opponentOwnerId: oppOwnerId,
+          opponentOwnerId: resolvedOwnerId,
           // Seed with the name from the most recent season (first encounter since
           // seasonDataList is newest-first). Subsequent seasons won't overwrite.
           opponentTeamName: oppName,
