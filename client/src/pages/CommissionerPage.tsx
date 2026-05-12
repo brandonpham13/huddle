@@ -598,6 +598,32 @@ export function CommissionerPage() {
 
         <div className="flex flex-col gap-5">
 
+          {/* ── League management (coming soon) ───────────────────────── */}
+          <StubSection
+            icon={Megaphone}
+            title="Announcements"
+            description="Post a message that gets pinned to the top of every member's dashboard. Use it for trade deadlines, playoff reminders, or trash talk."
+            tag="League communications"
+          />
+          <StubSection
+            icon={DollarSign}
+            title="Dues Tracker"
+            description="Set the buy-in amount and mark who has paid. Members can see their own status; only you see the full picture."
+            tag="Finance"
+          />
+          <StubSection
+            icon={Trophy}
+            title="Payout Structure"
+            description="Define how the prize pool is distributed — 1st, 2nd, 3rd place, most points, best regular-season record, or any split you like."
+            tag="Finance"
+          />
+          <StubSection
+            icon={Award}
+            title="Custom Awards"
+            description="Grant one-off trophies to any team: Sacko, Most Improved, Most Transactions, Lucky Schedule — anything your league cares about."
+            tag="Awards"
+          />
+
           {/* ── Huddle management (live) ───────────────────────────────── */}
           {huddle && detail ? (
             <>
@@ -627,32 +653,6 @@ export function CommissionerPage() {
                 : "No huddle is linked to this league yet. Create one from the Huddles page."}
             </div>
           )}
-
-          {/* ── League management (coming soon) ───────────────────────── */}
-          <StubSection
-            icon={Megaphone}
-            title="Announcements"
-            description="Post a message that gets pinned to the top of every member's dashboard. Use it for trade deadlines, playoff reminders, or trash talk."
-            tag="League communications"
-          />
-          <StubSection
-            icon={DollarSign}
-            title="Dues Tracker"
-            description="Set the buy-in amount and mark who has paid. Members can see their own status; only you see the full picture."
-            tag="Finance"
-          />
-          <StubSection
-            icon={Trophy}
-            title="Payout Structure"
-            description="Define how the prize pool is distributed — 1st, 2nd, 3rd place, most points, best regular-season record, or any split you like."
-            tag="Finance"
-          />
-          <StubSection
-            icon={Award}
-            title="Custom Awards"
-            description="Grant one-off trophies to any team: Sacko, Most Improved, Most Transactions, Lucky Schedule — anything your league cares about."
-            tag="Awards"
-          />
 
         </div>
       </div>
