@@ -455,6 +455,20 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
               value={stats?.avgFinish != null ? `#${stats.avgFinish.toFixed(1)}` : "—"}
             />
           </div>
+          <div className="mt-3">
+            <Eyebrow>Streaks</Eyebrow>
+            <div className="mt-2 grid grid-cols-2 gap-3">
+              <Stat
+                label="Longest W"
+                value={stats ? String(stats.longestWinStreak) : "—"}
+                accent
+              />
+              <Stat
+                label="Longest L"
+                value={stats ? String(stats.longestLossStreak) : "—"}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Scoring pillar */}
@@ -495,21 +509,9 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
           </div>
         </div>
 
-        {/* Streaks + H2H pillar */}
+        {/* Rivalries pillar */}
         <div className="border-l border-line pl-5">
-          <Eyebrow>Streaks</Eyebrow>
-          <div className="mt-2 grid grid-cols-2 gap-3">
-            <Stat
-              label="Longest W"
-              value={stats ? String(stats.longestWinStreak) : "—"}
-              accent
-            />
-            <Stat
-              label="Longest L"
-              value={stats ? String(stats.longestLossStreak) : "—"}
-            />
-          </div>
-          <div className="mt-3">
+          <div>
             <Eyebrow>Rivalries (H2H)</Eyebrow>
             {!stats ? (
               <div className="mt-2">
