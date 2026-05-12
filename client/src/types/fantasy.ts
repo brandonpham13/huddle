@@ -231,29 +231,40 @@ export interface TeamStats {
   avgPointsAgainst: number;
   highScore: {
     points: number;
+    opponentPoints: number;
+    opponentName: string | null;
     season: string;
     week: number;
     opponentRosterId: number | null;
   } | null;
   lowScore: {
     points: number;
+    opponentPoints: number;
+    opponentName: string | null;
     season: string;
     week: number;
     opponentRosterId: number | null;
   } | null;
   biggestWin: {
     margin: number;
+    myPoints: number;
+    opponentPoints: number;
+    opponentName: string | null;
     season: string;
     week: number;
     opponentRosterId: number | null;
   } | null;
   worstLoss: {
     margin: number;
+    myPoints: number;
+    opponentPoints: number;
+    opponentName: string | null;
     season: string;
     week: number;
     opponentRosterId: number | null;
   } | null;
 
+  mvpWeeks: number;
   longestWinStreak: number;
   longestLossStreak: number;
 

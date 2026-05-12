@@ -40,7 +40,7 @@ import { Button } from "./ui/button";
 
 interface AccountModalContextValue {
   isOpen: boolean;
-  open: () => void;
+  open: (tab?: string) => void;
   close: () => void;
 }
 
@@ -59,18 +59,25 @@ export function useAccountModal() {
 
 export function AccountModalProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
-  const open = useCallback(() => setIsOpen(true), []);
-  const close = useCallback(() => setIsOpen(false), []);
+  const [initialTab, setInitialTab] = useState<string | undefined>(undefined);
+  const open = useCallback((tab?: string) => {
+    setInitialTab(tab);
+    setIsOpen(true);
+  }, []);
+  const close = useCallback(() => {
+    setIsOpen(false);
+    setInitialTab(undefined);
+  }, []);
 
   return (
     <AccountModalContext.Provider value={{ isOpen, open, close }}>
       {children}
-      {isOpen && <AccountModal onClose={close} />}
+      {isOpen && <AccountModal onClose={close} initialTab={initialTab} />}
     </AccountModalContext.Provider>
   );
 }
 
-function AccountModal({ onClose }: { onClose: () => void }) {
+function AccountModal({ onClose, initialTab }: { onClose: () => void; initialTab?: string }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -78,6 +85,26 @@ function AccountModal({ onClose }: { onClose: () => void }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  // Navigate to the requested tab by clicking the matching nav button after
+  // Clerk's UserProfile has rendered its nav items.
+  useEffect(() => {
+    if (!initialTab) return;
+    const attempt = (retries: number) => {
+      const navButtons = document.querySelectorAll<HTMLElement>(
+        "[data-localization-key], .cl-navbarButton, [class*='navbarButton']",
+      );
+      for (const btn of navButtons) {
+        if (btn.textContent?.trim().toLowerCase() === initialTab.toLowerCase()) {
+          btn.click();
+          return;
+        }
+      }
+      // Clerk renders async — retry a few times with a short delay
+      if (retries > 0) setTimeout(() => attempt(retries - 1), 80);
+    };
+    setTimeout(() => attempt(5), 100);
+  }, [initialTab]);
 
   return (
     <div

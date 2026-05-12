@@ -242,28 +242,41 @@ export interface TeamStats {
   avgPointsAgainst: number;
   highScore: {
     points: number;
+    opponentPoints: number;
+    opponentName: string | null;
     season: string;
     week: number;
     opponentRosterId: number | null;
   } | null;
   lowScore: {
     points: number;
+    opponentPoints: number;
+    opponentName: string | null;
     season: string;
     week: number;
     opponentRosterId: number | null;
   } | null;
   biggestWin: {
     margin: number;
+    myPoints: number;
+    opponentPoints: number;
+    opponentName: string | null;
     season: string;
     week: number;
     opponentRosterId: number | null;
   } | null;
   worstLoss: {
     margin: number;
+    myPoints: number;
+    opponentPoints: number;
+    opponentName: string | null;
     season: string;
     week: number;
     opponentRosterId: number | null;
   } | null;
+
+  // ── Weekly superlatives ───────────────────────────────────────────────────
+  mvpWeeks: number; // regular-season weeks with the top score league-wide
 
   // ── Streaks ──────────────────────────────────────────────────────────────
   longestWinStreak: number;

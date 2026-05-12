@@ -122,7 +122,7 @@ export function LeaguesPage() {
               <p className="text-gray-500 mb-4">
                 Link your Sleeper account to see your leagues.
               </p>
-              <Button onClick={openAccountModal}>Go to Settings</Button>
+              <Button onClick={() => openAccountModal("integrations")}>Go to Settings</Button>
             </CardContent>
           </Card>
         ) : (

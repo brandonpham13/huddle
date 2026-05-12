@@ -113,6 +113,12 @@ function StubBanner({ label }: { label: string }) {
 
 // ─── Section 1: Masthead ──────────────────────────────────────────────────────
 
+function ordinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+}
+
 function Masthead({
   teamName,
   ownerName,
@@ -124,6 +130,8 @@ function Masthead({
   powerRank,
   season,
   isMyTeam,
+  seasonCount,
+  leagueName,
 }: {
   teamName: string;
   ownerName: string | null;
@@ -135,6 +143,8 @@ function Masthead({
   powerRank: number | null;
   season: string;
   isMyTeam: boolean;
+  seasonCount: number;
+  leagueName: string | null;
 }) {
   const initials = teamName
     .split(" ")
@@ -181,6 +191,9 @@ function Masthead({
             <div className="font-serif italic text-xs text-muted">
               {record.wins + record.losses + (record.ties ?? 0)} games played ·{" "}
               {((record.wins / Math.max(record.wins + record.losses, 1)) * 100).toFixed(0)}% win rate
+              {leagueName && (
+                <> · {ordinal(seasonCount)} season with {leagueName}</>
+              )}
             </div>
           </div>
         </div>
@@ -334,7 +347,7 @@ function CurrentSeason({
             <div className="mt-3 grid grid-cols-4 gap-3">
               <Stat label="PF" value={roster.pointsFor.toFixed(1)} />
               <Stat label="PA" value={roster.pointsAgainst.toFixed(1)} />
-              <Stat label="Avg PF" value={avgPf.toFixed(1)} accent />
+              <Stat label="Avg PF" value={avgPf.toFixed(1)} />
               <Stat
                 label="Margin"
                 value={`${margin >= 0 ? "+" : ""}${margin.toFixed(1)}`}
@@ -355,13 +368,17 @@ function CurrentSeason({
 // ─── Section 3: Lifetime Stats ────────────────────────────────────────────────
 
 /**
- * Formats a scoring extreme (highScore / lowScore) or margin extreme
- * (biggestWin / worstLoss) into a concise contextual string like
- * "Season 2023 · Wk 7" shown underneath the main number.
+ * Formats an extreme's subtext: "vs. Opponent · Season 2023 · Wk 7"
  */
-function extremeCtx(e: { season: string; week: number } | null): string {
+function extremeCtx(e: { season: string; week: number; opponentName?: string | null } | null): string {
   if (!e) return "— · —";
-  return `Season ${e.season} · Wk ${e.week}`;
+  const opp = e.opponentName ? `vs. ${e.opponentName}` : "";
+  return `Season ${e.season} · Wk ${e.week} · ${opp}`;
+}
+
+/** Formats a full matchup score string: "135.24 – 112.50" */
+function matchupScore(myPts: number, oppPts: number): string {
+  return `${myPts.toFixed(2)} – ${oppPts.toFixed(2)}`;
 }
 
 function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
@@ -372,26 +389,30 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
   const winPctStr = stats ? `${(stats.winPct * 100).toFixed(1)}%` : "—";
 
   // Extremes rows — keeps the JSX below clean
-  const extremeRows: Array<{ label: string; value: string; ctx: string }> = [
+  const extremeRows: Array<{ label: string; value: string; ctx: string; valueClass: string }> = [
     {
       label: "High Score",
-      value: stats?.highScore ? stats.highScore.points.toFixed(2) : "—",
+      value: stats?.highScore ? matchupScore(stats.highScore.points, stats.highScore.opponentPoints) : "—",
       ctx: extremeCtx(stats?.highScore ?? null),
+      valueClass: "text-accent",
     },
     {
       label: "Low Score",
-      value: stats?.lowScore ? stats.lowScore.points.toFixed(2) : "—",
+      value: stats?.lowScore ? matchupScore(stats.lowScore.points, stats.lowScore.opponentPoints) : "—",
       ctx: extremeCtx(stats?.lowScore ?? null),
+      valueClass: "text-loss",
     },
     {
       label: "Biggest Win",
-      value: stats?.biggestWin ? `+${stats.biggestWin.margin.toFixed(2)}` : "—",
+      value: stats?.biggestWin ? matchupScore(stats.biggestWin.myPoints, stats.biggestWin.opponentPoints) : "—",
       ctx: extremeCtx(stats?.biggestWin ?? null),
+      valueClass: "text-accent",
     },
     {
       label: "Worst Loss",
-      value: stats?.worstLoss ? `-${stats.worstLoss.margin.toFixed(2)}` : "—",
+      value: stats?.worstLoss ? matchupScore(stats.worstLoss.myPoints, stats.worstLoss.opponentPoints) : "—",
       ctx: extremeCtx(stats?.worstLoss ?? null),
+      valueClass: "text-loss",
     },
   ];
 
@@ -447,6 +468,24 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
               value={stats?.avgFinish != null ? `#${stats.avgFinish.toFixed(1)}` : "—"}
             />
           </div>
+          <div className="mt-3">
+            <div className="mt-2 grid grid-cols-2 gap-3">
+              <Stat
+                label="Longest W Streak"
+                value={stats ? String(stats.longestWinStreak) : "—"}
+                accent
+              />
+              <Stat
+                label="Longest L Streak"
+                value={stats ? String(stats.longestLossStreak) : "—"}
+              />
+              <Stat
+              label="MVP Weeks"
+              value={stats?.mvpWeeks != null ? String(stats.mvpWeeks) : "—"}
+              accent
+            />
+            </div>
+          </div>
         </div>
 
         {/* Scoring pillar */}
@@ -456,7 +495,6 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
             <Stat
               label="Avg PF"
               value={stats ? stats.avgPointsFor.toFixed(1) : "—"}
-              accent
             />
             <Stat
               label="Avg PA"
@@ -475,7 +513,7 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
                     {row.label}
                   </span>
                   <div className="text-right">
-                    <div className="font-serif font-semibold text-base text-ink tabular-nums leading-none">
+                    <div className={`font-serif font-semibold text-base tabular-nums leading-none ${row.valueClass}`}>
                       {row.value}
                     </div>
                     <div className="font-serif italic text-[10.5px] text-muted mt-0.5">
@@ -488,21 +526,9 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
           </div>
         </div>
 
-        {/* Streaks + H2H pillar */}
+        {/* Rivalries pillar */}
         <div className="border-l border-line pl-5">
-          <Eyebrow>Streaks</Eyebrow>
-          <div className="mt-2 grid grid-cols-2 gap-3">
-            <Stat
-              label="Longest W"
-              value={stats ? String(stats.longestWinStreak) : "—"}
-              accent
-            />
-            <Stat
-              label="Longest L"
-              value={stats ? String(stats.longestLossStreak) : "—"}
-            />
-          </div>
-          <div className="mt-3">
+          <div>
             <Eyebrow>Rivalries (H2H)</Eyebrow>
             {!stats ? (
               <div className="mt-2">
@@ -513,16 +539,19 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
                 No head-to-head data available.
               </div>
             ) : (
-              /* Sort by most games played (wins+losses+ties) descending so the
-                 most-common opponents appear first. */
+              /* Sort by win pct descending, break ties by most wins. */
               <div className="mt-2 space-y-1">
                 {[...stats.h2h]
-                  .sort(
-                    (a, b) =>
-                      b.wins + b.losses + b.ties - (a.wins + a.losses + a.ties),
-                  )
+                  .sort((a, b) => {
+                    const aTotal = a.wins + a.losses + a.ties;
+                    const bTotal = b.wins + b.losses + b.ties;
+                    const aPct = aTotal > 0 ? a.wins / aTotal : 0;
+                    const bPct = bTotal > 0 ? b.wins / bTotal : 0;
+                    return bPct !== aPct ? bPct - aPct : b.wins - a.wins;
+                  })
                   .map((rec) => {
                     const wl = `${rec.wins}–${rec.losses}${rec.ties ? `–${rec.ties}` : ""}`;
+                    const wlColor = rec.wins > rec.losses ? "text-accent" : rec.wins < rec.losses ? "text-loss" : "text-ink";
                     return (
                       <div
                         key={rec.opponentRosterId}
@@ -531,7 +560,7 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
                         <span className="text-[9.5px] uppercase tracking-wider font-sans text-muted font-semibold">
                           vs {rec.opponentTeamName ?? `#${rec.opponentRosterId}`}
                         </span>
-                        <span className="font-mono text-xs text-ink">{wl}</span>
+                        <span className={`font-mono text-xs ${wlColor}`}>{wl}</span>
                       </div>
                     );
                   })}
@@ -604,11 +633,12 @@ function SeasonHistory({
               : "—";
             const isCurrentSeason =
               league.ref.leagueId === familySeasons[0]?.ref.leagueId;
+            const isChampion = s?.postseason === "champion";
 
             return (
               <div
                 key={league.ref.leagueId}
-                className="grid grid-cols-[44px_60px_62px_62px_46px_1fr_44px] min-w-0 gap-x-3 items-center py-2 border-b border-dotted border-line"
+                className={`grid grid-cols-[44px_60px_62px_62px_46px_1fr_44px] min-w-0 gap-x-3 items-center py-2 border-b border-dotted border-line${isChampion ? " bg-highlight" : ""}`}
               >
                 {/* Year */}
                 <div className="font-serif italic font-bold text-[17px] text-ink leading-none">
@@ -1028,6 +1058,14 @@ export function TeamPage() {
         powerRank={powerRank}
         season={selectedLeague?.season ?? "—"}
         isMyTeam={isMyTeam}
+        seasonCount={
+          teamStats
+            ? teamStats.seasons.filter(
+                (s) => s.record.wins + s.record.losses + s.record.ties > 0,
+              ).length
+            : familySeasons.length
+        }
+        leagueName={selectedLeague?.name ?? null}
       />
 
       <div className="px-6 py-5 flex flex-col gap-8">

@@ -245,7 +245,7 @@ export function AppShell({ children }: AppShellProps) {
             Leagues
           </Link>
           <button
-            onClick={openAccountModal}
+            onClick={() => openAccountModal()}
             className="hidden sm:inline text-sm text-muted hover:text-ink transition-colors"
           >
             Account
@@ -270,7 +270,7 @@ export function AppShell({ children }: AppShellProps) {
         <Sidebar
           mobileOpen={mobileNavOpen}
           onMobileClose={() => setMobileNavOpen(false)}
-          onOpenAccount={openAccountModal}
+          onOpenAccount={() => openAccountModal()}
         />
         <main className="flex-1 overflow-auto">{children ?? <Outlet />}</main>
       </div>

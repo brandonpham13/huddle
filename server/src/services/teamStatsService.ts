@@ -1,5 +1,5 @@
 /**
- * teamStatsService.ts
+ * teamStatsService.ts — v2
  *
  * Computes lifetime and per-season statistics for a single fantasy team
  * across an entire league family (multiple seasons of the same league).
@@ -218,6 +218,9 @@ export async function computeTeamStats(
   let biggestWin: TeamStats["biggestWin"] = null;
   let worstLoss: TeamStats["worstLoss"] = null;
 
+  // Weekly superlatives
+  let mvpWeeks = 0;
+
   // Win/loss streak tracking across entire career (chronologically oldest first)
   // We rebuild the streak from the full chronological game list.
   const allGameResults: Array<"W" | "L" | "T"> = [];
@@ -293,6 +296,16 @@ export async function computeTeamStats(
         pfByRoster.set(m.rosterId, (pfByRoster.get(m.rosterId) ?? 0) + m.points);
       }
 
+      // MVP week: team had the highest score league-wide during regular season
+      const playoffWeekStart =
+        typeof league.settings["playoff_week_start"] === "number"
+          ? (league.settings["playoff_week_start"] as number)
+          : Infinity;
+      if (weekNum < playoffWeekStart) {
+        const weekMax = Math.max(...weekMatchups.map((m) => m.points));
+        if (myEntry.points > 0 && myEntry.points >= weekMax) mvpWeeks++;
+      }
+
       // Find the opponent in the same matchup
       const oppEntry = weekMatchups.find(
         (m) => m.matchupId === myEntry.matchupId && m.rosterId !== myRosterId,
@@ -323,37 +336,37 @@ export async function computeTeamStats(
       allGameResults.push(result);
 
       // ── Scoring extremes ──────────────────────────────────────────────
+      // Resolve opponent display name for extreme labeling
+      const oppRoster = allRosters.find((r) => r.rosterId === oppRosterId);
+      const oppOwnerId = oppRoster?.ownerId ?? null;
+      const oppName = oppOwnerId ? (ownerIdToName.get(oppOwnerId) ?? null) : null;
+
       // High score
       if (highScore === null || myEntry.points > highScore.points) {
-        highScore = { points: myEntry.points, season, week: weekNum, opponentRosterId: oppRosterId };
+        highScore = { points: myEntry.points, opponentPoints: oppPoints, opponentName: oppName, season, week: weekNum, opponentRosterId: oppRosterId };
       }
       // Low score (only count games that were actually played, i.e. points > 0)
       if (myEntry.points > 0 && (lowScore === null || myEntry.points < lowScore.points)) {
-        lowScore = { points: myEntry.points, season, week: weekNum, opponentRosterId: oppRosterId };
+        lowScore = { points: myEntry.points, opponentPoints: oppPoints, opponentName: oppName, season, week: weekNum, opponentRosterId: oppRosterId };
       }
       // Biggest win (only when we actually won)
       if (result === "W") {
         const margin = myEntry.points - oppPoints;
         if (biggestWin === null || margin > biggestWin.margin) {
-          biggestWin = { margin, season, week: weekNum, opponentRosterId: oppRosterId };
+          biggestWin = { margin, myPoints: myEntry.points, opponentPoints: oppPoints, opponentName: oppName, season, week: weekNum, opponentRosterId: oppRosterId };
         }
       }
       // Worst loss (only when we actually lost)
       if (result === "L") {
         const margin = oppPoints - myEntry.points; // positive = how badly we lost
         if (worstLoss === null || margin > worstLoss.margin) {
-          worstLoss = { margin, season, week: weekNum, opponentRosterId: oppRosterId };
+          worstLoss = { margin, myPoints: myEntry.points, opponentPoints: oppPoints, opponentName: oppName, season, week: weekNum, opponentRosterId: oppRosterId };
         }
       }
 
       // ── H2H accumulation ─────────────────────────────────────────────
+      // oppRoster / oppOwnerId / oppName already resolved above for extremes
       if (oppRosterId != null) {
-        const oppRoster = allRosters.find((r) => r.rosterId === oppRosterId);
-        const oppOwnerId = oppRoster?.ownerId ?? null;
-        // Resolve the opponent's display name from the users list for this season.
-        // We prefer the most recent season's name (seasonDataList is newest-first),
-        // so we only update the name if we don't already have one for this owner.
-        const oppName = oppOwnerId ? (ownerIdToName.get(oppOwnerId) ?? null) : null;
         // Use ownerId as key when we have it, otherwise fall back to a stable
         // composite that won't collide across leagues.
         const key = oppOwnerId ?? `noowner:${leagueId}:${oppRosterId}`;
@@ -474,6 +487,7 @@ export async function computeTeamStats(
     lowScore,
     biggestWin,
     worstLoss,
+    mvpWeeks,
     longestWinStreak,
     longestLossStreak,
     h2h,
