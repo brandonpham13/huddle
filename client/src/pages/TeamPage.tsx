@@ -408,8 +408,35 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
           <Eyebrow>Career Record</Eyebrow>
           {/* Large W-L display with win percentage */}
           <div className="mt-2">
-            <Stat label="W–L" value={careerWl} large />
-            <div className="font-serif italic text-xs text-muted mt-1">{winPctStr} win rate</div>
+            <div className="flex items-baseline gap-2">
+              <span className="font-serif font-bold italic text-[42px] leading-none tracking-tight text-ink">
+                {careerWl}
+              </span>
+              {stats && (
+                <span className="font-serif italic text-sm text-muted">
+                  .{String(Math.round(stats.winPct * 1000)).padStart(3, "0")}
+                </span>
+              )}
+            </div>
+            {/* W–L progress bar */}
+            {stats && (() => {
+              const total = stats.careerRecord.wins + stats.careerRecord.losses + stats.careerRecord.ties;
+              const winPct = total > 0 ? stats.careerRecord.wins / total : 0;
+              return (
+                <div className="mt-2">
+                  <div className="h-1.5 w-full bg-muted/30 overflow-hidden">
+                    <div
+                      className="h-full bg-accent transition-all"
+                      style={{ width: `${(winPct * 100).toFixed(1)}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between mt-1 text-[9.5px] font-sans font-semibold tracking-wider uppercase">
+                    <span className="text-accent">{stats.careerRecord.wins} W</span>
+                    <span className="text-muted">{stats.careerRecord.losses} L</span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <Stat label="Playoff Apps" value={stats ? String(stats.playoffAppearances) : "—"} />
