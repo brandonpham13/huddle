@@ -20,14 +20,6 @@
 import { useState, useMemo } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Megaphone, DollarSign, Trophy, Award } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "../components/ui/card";
-import { Button } from "../components/ui/button";
 import { useAppSelector } from "../store/hooks";
 import { useLeagueUsers, useLeagueRosters } from "../hooks/useSleeper";
 import {
@@ -97,6 +89,109 @@ function rosterTeamName(roster: Roster, leagueUsers: TeamUser[]): string {
   return owner?.teamName ?? owner?.displayName ?? `Team ${roster.rosterId}`;
 }
 
+// ─── Shared primitives ───────────────────────────────────────────────────────
+
+/** Consistent section card wrapper. */
+function Panel({
+  children,
+  danger,
+}: {
+  children: React.ReactNode;
+  danger?: boolean;
+}) {
+  return (
+    <div
+      className={`border rounded-lg p-5 flex flex-col gap-4 bg-paper ${
+        danger ? "border-red-300" : "border-line"
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Section heading inside a Panel. */
+function PanelHeader({
+  title,
+  description,
+  titleClass,
+}: {
+  title: string;
+  description?: string;
+  titleClass?: string;
+}) {
+  return (
+    <div className="border-b border-line pb-3">
+      <h2 className={`font-serif font-semibold text-[15px] leading-tight ${titleClass ?? "text-ink"}`}>
+        {title}
+      </h2>
+      {description && (
+        <p className="mt-1 text-[12.5px] text-muted font-sans leading-relaxed">
+          {description}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Small action button — outline style. */
+function Btn({
+  children,
+  onClick,
+  disabled,
+  danger,
+  className,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+  className?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex items-center justify-center px-3 py-1.5 rounded-md border text-xs font-medium font-sans transition-colors
+        disabled:opacity-40 disabled:cursor-not-allowed
+        ${danger
+          ? "border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+          : "border-line text-ink hover:bg-highlight"
+        } ${className ?? ""}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Primary (filled) action button. */
+function BtnPrimary({
+  children,
+  onClick,
+  disabled,
+  danger,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex items-center justify-center px-3 py-1.5 rounded-md text-xs font-medium font-sans transition-colors
+        disabled:opacity-40 disabled:cursor-not-allowed
+        ${danger
+          ? "bg-red-600 text-white hover:bg-red-700"
+          : "bg-ink text-paper hover:opacity-90"
+        }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 // ─── Pending claims panel ─────────────────────────────────────────────────────
 
 function PendingClaimsPanel({
@@ -118,73 +213,69 @@ function PendingClaimsPanel({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Pending claims</CardTitle>
-        <CardDescription>
-          {pending.length === 0
+    <Panel>
+      <PanelHeader
+        title="Pending claims"
+        description={
+          pending.length === 0
             ? "No pending requests."
-            : `${pending.length} claim${pending.length !== 1 ? "s" : ""} waiting for review.`}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {pending.length > 0 && (
-          <div className="space-y-2">
-            {pending.map((claim) => (
-              <div key={claim.id} className="border rounded-md p-3 bg-gray-50">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">
-                      {describeUser(claim.user)}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      requesting{" "}
-                      <span className="font-medium text-gray-700">
-                        {teamNameForRoster(claim.rosterId)}
-                      </span>
-                      {claim.user?.email && claim.user.username
-                        ? ` · ${claim.user.email}`
-                        : ""}
-                    </p>
-                    {claim.message && (
-                      <p className="text-xs text-gray-500 mt-1 italic">
-                        "{claim.message}"
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        decide.mutate({ huddleId, claimId: claim.id, decision: "rejected" })
-                      }
-                      disabled={decide.isPending}
-                    >
-                      Reject
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() =>
-                        decide.mutate({ huddleId, claimId: claim.id, decision: "approved" })
-                      }
-                      disabled={decide.isPending}
-                    >
-                      Approve
-                    </Button>
-                  </div>
-                </div>
+            : `${pending.length} claim${pending.length !== 1 ? "s" : ""} waiting for review.`
+        }
+      />
+      {pending.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {pending.map((claim) => (
+            <div
+              key={claim.id}
+              className="border border-line rounded-md p-3 bg-highlight/40 flex items-start justify-between gap-3"
+            >
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-ink font-sans">
+                  {describeUser(claim.user)}
+                </p>
+                <p className="text-[11.5px] text-muted font-sans mt-0.5">
+                  requesting{" "}
+                  <span className="font-medium text-ink">
+                    {teamNameForRoster(claim.rosterId)}
+                  </span>
+                  {claim.user?.email && claim.user.username
+                    ? ` · ${claim.user.email}`
+                    : ""}
+                </p>
+                {claim.message && (
+                  <p className="text-[11.5px] text-muted font-sans mt-1 italic">
+                    "{claim.message}"
+                  </p>
+                )}
               </div>
-            ))}
-          </div>
-        )}
-        {decide.isError && (
-          <p className="text-xs text-red-500 mt-2">
-            {(decide.error as Error).message}
-          </p>
-        )}
-      </CardContent>
-    </Card>
+              <div className="flex items-center gap-2 shrink-0">
+                <Btn
+                  onClick={() =>
+                    decide.mutate({ huddleId, claimId: claim.id, decision: "rejected" })
+                  }
+                  disabled={decide.isPending}
+                >
+                  Reject
+                </Btn>
+                <BtnPrimary
+                  onClick={() =>
+                    decide.mutate({ huddleId, claimId: claim.id, decision: "approved" })
+                  }
+                  disabled={decide.isPending}
+                >
+                  Approve
+                </BtnPrimary>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {decide.isError && (
+        <p className="text-[11.5px] text-red-600 font-sans">
+          {(decide.error as Error).message}
+        </p>
+      )}
+    </Panel>
   );
 }
 
@@ -212,62 +303,49 @@ function InviteCodePanel({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Invite code</CardTitle>
-        <CardDescription>
-          Share this with members so they can join and claim a team. Rotate it
-          to invalidate the old code immediately.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="flex-1 text-center bg-gray-50 border rounded-md py-2 font-mono text-2xl font-bold tracking-widest text-gray-900">
-              {displayCode ?? "———"}
-            </div>
-            <Button variant="outline" onClick={handleCopy} className="shrink-0">
-              {copied ? "Copied!" : "Copy"}
-            </Button>
-          </div>
-          {!confirming ? (
-            <Button variant="outline" size="sm" onClick={() => setConfirming(true)}>
-              Rotate code…
-            </Button>
-          ) : (
-            <div className="space-y-2 p-3 rounded-md border border-amber-200 bg-amber-50">
-              <p className="text-xs text-amber-800">
-                The old code stops working immediately. Continue?
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setConfirming(false)}
-                  disabled={rotate.isPending}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    rotate.mutate({ huddleId }, { onSuccess: () => setConfirming(false) })
-                  }
-                  disabled={rotate.isPending}
-                >
-                  {rotate.isPending ? "Rotating…" : "Yes, rotate"}
-                </Button>
-              </div>
-            </div>
-          )}
-          {rotate.isError && (
-            <p className="text-xs text-red-500">
-              {(rotate.error as Error).message}
-            </p>
-          )}
+    <Panel>
+      <PanelHeader
+        title="Invite code"
+        description="Share this with members so they can join and claim a team. Rotate it to invalidate the old code immediately."
+      />
+      <div className="flex items-center gap-3">
+        <div className="flex-1 text-center bg-highlight border border-line rounded-md py-2.5 font-mono text-2xl font-bold tracking-widest text-ink">
+          {displayCode ?? "———"}
         </div>
-      </CardContent>
-    </Card>
+        <Btn onClick={handleCopy} className="px-4 py-2.5">
+          {copied ? "Copied!" : "Copy"}
+        </Btn>
+      </div>
+      {!confirming ? (
+        <div>
+          <Btn onClick={() => setConfirming(true)}>Rotate code…</Btn>
+        </div>
+      ) : (
+        <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-3 flex flex-col gap-2">
+          <p className="text-[12px] text-amber-800 dark:text-amber-300 font-sans">
+            The old code stops working immediately. Continue?
+          </p>
+          <div className="flex gap-2">
+            <Btn onClick={() => setConfirming(false)} disabled={rotate.isPending}>
+              Cancel
+            </Btn>
+            <BtnPrimary
+              onClick={() =>
+                rotate.mutate({ huddleId }, { onSuccess: () => setConfirming(false) })
+              }
+              disabled={rotate.isPending}
+            >
+              {rotate.isPending ? "Rotating…" : "Yes, rotate"}
+            </BtnPrimary>
+          </div>
+        </div>
+      )}
+      {rotate.isError && (
+        <p className="text-[11.5px] text-red-600 font-sans">
+          {(rotate.error as Error).message}
+        </p>
+      )}
+    </Panel>
   );
 }
 
@@ -293,104 +371,82 @@ function ManageCommissionersPanel({
   );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Commissioners</CardTitle>
-        <CardDescription>
-          Co-commissioners can approve claims, rotate the invite code, and
-          manage the huddle. There must always be at least one.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div className="space-y-1">
-            {commissioners.map((c) => (
-              <div
-                key={c.userId}
-                className="flex items-center justify-between text-sm py-1"
-              >
-                <span>{describeUser(c.user)}</span>
-                {commissioners.length > 1 && confirmRemoveId !== c.userId ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
-                    onClick={() => setConfirmRemoveId(c.userId)}
-                  >
-                    Remove
-                  </Button>
-                ) : confirmRemoveId === c.userId ? (
-                  <div className="flex gap-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-6 px-2 text-xs"
-                      onClick={() => setConfirmRemoveId(null)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
-                      disabled={remove.isPending}
-                      onClick={() =>
-                        remove.mutate(
-                          { huddleId, targetUserId: c.userId },
-                          { onSuccess: () => setConfirmRemoveId(null) },
-                        )
-                      }
-                    >
-                      Confirm
-                    </Button>
-                  </div>
-                ) : (
-                  <span className="text-xs text-gray-400">last commish</span>
-                )}
-              </div>
-            ))}
-          </div>
+    <Panel>
+      <PanelHeader
+        title="Commissioners"
+        description="Co-commissioners can approve claims, rotate the invite code, and manage the huddle. There must always be at least one."
+      />
 
-          {eligible.length > 0 && (
-            <div className="pt-2 border-t">
-              <p className="text-xs text-gray-500 mb-2">Add co-commissioner</p>
+      <div className="flex flex-col divide-y divide-line">
+        {commissioners.map((c) => (
+          <div key={c.userId} className="flex items-center justify-between py-2.5">
+            <span className="text-[13px] font-sans text-ink">{describeUser(c.user)}</span>
+            {commissioners.length > 1 && confirmRemoveId !== c.userId ? (
+              <Btn danger onClick={() => setConfirmRemoveId(c.userId)}>
+                Remove
+              </Btn>
+            ) : confirmRemoveId === c.userId ? (
               <div className="flex gap-2">
-                <select
-                  value={selectedUserId}
-                  onChange={(e) => setSelectedUserId(e.target.value)}
-                  className="flex-1 text-sm border rounded-md px-2 py-1.5 bg-white"
-                >
-                  <option value="">Select a member…</option>
-                  {eligible.map((c) => (
-                    <option key={c.id} value={c.user?.id ?? ""}>
-                      {describeUser(c.user)}
-                    </option>
-                  ))}
-                </select>
-                <Button
-                  size="sm"
-                  disabled={!selectedUserId || add.isPending}
+                <Btn onClick={() => setConfirmRemoveId(null)}>Cancel</Btn>
+                <Btn
+                  danger
+                  disabled={remove.isPending}
                   onClick={() =>
-                    add.mutate(
-                      { huddleId, newUserId: selectedUserId },
-                      { onSuccess: () => setSelectedUserId("") },
+                    remove.mutate(
+                      { huddleId, targetUserId: c.userId },
+                      { onSuccess: () => setConfirmRemoveId(null) },
                     )
                   }
                 >
-                  {add.isPending ? "Adding…" : "Add"}
-                </Button>
+                  Confirm
+                </Btn>
               </div>
-            </div>
-          )}
+            ) : (
+              <span className="text-[11px] text-muted font-sans">last commish</span>
+            )}
+          </div>
+        ))}
+      </div>
 
-          {(add.isError || remove.isError) && (
-            <p className="text-xs text-red-500">
-              {((add.error ?? remove.error) as Error).message}
-            </p>
-          )}
+      {eligible.length > 0 && (
+        <div className="pt-1 border-t border-line flex flex-col gap-2">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-muted font-sans">
+            Add co-commissioner
+          </p>
+          <div className="flex gap-2">
+            <select
+              value={selectedUserId}
+              onChange={(e) => setSelectedUserId(e.target.value)}
+              className="flex-1 text-[13px] font-sans border border-line rounded-md px-2 py-1.5 bg-paper text-ink"
+            >
+              <option value="">Select a member…</option>
+              {eligible.map((c) => (
+                <option key={c.id} value={c.user?.id ?? ""}>
+                  {describeUser(c.user)}
+                </option>
+              ))}
+            </select>
+            <BtnPrimary
+              disabled={!selectedUserId || add.isPending}
+              onClick={() =>
+                add.mutate(
+                  { huddleId, newUserId: selectedUserId },
+                  { onSuccess: () => setSelectedUserId("") },
+                )
+              }
+            >
+              {add.isPending ? "Adding…" : "Add"}
+            </BtnPrimary>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      )}
+
+      {(add.isError || remove.isError) && (
+        <p className="text-[11.5px] text-red-600 font-sans">
+          {((add.error ?? remove.error) as Error).message}
+        </p>
+      )}
+    </Panel>
   );
 }
 
@@ -411,59 +467,53 @@ function DangerZonePanel({
   const canDelete = confirmText.trim() === groupName && !del.isPending;
 
   return (
-    <Card className="border-red-200">
-      <CardHeader>
-        <CardTitle className="text-red-700">Danger zone</CardTitle>
-        <CardDescription>
-          Deleting the huddle removes all claims permanently. This cannot be
-          undone.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {!confirming ? (
-          <Button variant="destructive" onClick={() => setConfirming(true)}>
+    <Panel danger>
+      <PanelHeader
+        title="Danger zone"
+        description="Deleting the huddle removes all claims permanently. This cannot be undone."
+        titleClass="text-red-600"
+      />
+      {!confirming ? (
+        <div>
+          <BtnPrimary danger onClick={() => setConfirming(true)}>
             Delete huddle
-          </Button>
-        ) : (
-          <div className="space-y-2">
-            <p className="text-sm text-gray-700">
-              Type <span className="font-mono font-medium">{groupName}</span> to
-              confirm:
-            </p>
-            <input
-              value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value)}
-              className="w-full text-sm border rounded-md px-2 py-1.5"
-              placeholder={groupName}
-              autoFocus
-            />
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => { setConfirming(false); setConfirmText(""); }}
-                disabled={del.isPending}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                disabled={!canDelete}
-                onClick={() =>
-                  del.mutate({ huddleId }, { onSuccess: () => navigate("/leagues") })
-                }
-              >
-                {del.isPending ? "Deleting…" : "Delete forever"}
-              </Button>
-            </div>
-            {del.isError && (
-              <p className="text-xs text-red-500">
-                {(del.error as Error).message}
-              </p>
-            )}
+          </BtnPrimary>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <p className="text-[12.5px] text-ink font-sans">
+            Type{" "}
+            <span className="font-mono font-semibold">{groupName}</span>{" "}
+            to confirm:
+          </p>
+          <input
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            className="w-full text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink"
+            placeholder={groupName}
+            autoFocus
+          />
+          <div className="flex items-center justify-end gap-2">
+            <Btn
+              onClick={() => { setConfirming(false); setConfirmText(""); }}
+              disabled={del.isPending}
+            >
+              Cancel
+            </Btn>
+            <BtnPrimary danger disabled={!canDelete} onClick={() =>
+              del.mutate({ huddleId }, { onSuccess: () => navigate("/leagues") })
+            }>
+              {del.isPending ? "Deleting…" : "Delete forever"}
+            </BtnPrimary>
           </div>
-        )}
-      </CardContent>
-    </Card>
+          {del.isError && (
+            <p className="text-[11.5px] text-red-600 font-sans">
+              {(del.error as Error).message}
+            </p>
+          )}
+        </div>
+      )}
+    </Panel>
   );
 }
 
@@ -481,38 +531,36 @@ function StubSection({
   tag?: string;
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex items-center justify-center w-8 h-8 rounded-md bg-highlight text-ink shrink-0">
-              <Icon size={16} />
-            </div>
-            <div>
-              <CardTitle>{title}</CardTitle>
-              {tag && (
-                <span className="text-[9px] font-bold uppercase tracking-widest text-muted font-sans">
-                  {tag}
-                </span>
-              )}
-            </div>
+    <div className="border border-line rounded-lg p-5 flex flex-col gap-3 bg-paper">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-center w-8 h-8 rounded-md bg-highlight text-ink shrink-0">
+            <Icon size={16} />
           </div>
-          <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest text-muted font-sans border border-line rounded px-1.5 py-0.5">
-            Coming soon
-          </span>
+          <div>
+            <h2 className="font-serif font-semibold text-[15px] text-ink leading-tight">
+              {title}
+            </h2>
+            {tag && (
+              <span className="text-[9px] font-bold uppercase tracking-widest text-muted font-sans">
+                {tag}
+              </span>
+            )}
+          </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        <p className="text-[12.5px] text-muted font-sans leading-relaxed mb-3">
-          {description}
-        </p>
-        <div className="h-14 rounded-md bg-highlight/50 border border-dashed border-line flex items-center justify-center">
-          <span className="text-[11px] text-muted font-sans italic">
-            Controls will appear here
-          </span>
-        </div>
-      </CardContent>
-    </Card>
+        <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest text-muted font-sans border border-line rounded px-1.5 py-0.5">
+          Coming soon
+        </span>
+      </div>
+      <p className="text-[12.5px] text-muted font-sans leading-relaxed">
+        {description}
+      </p>
+      <div className="h-14 rounded-md bg-highlight/50 border border-dashed border-line flex items-center justify-center">
+        <span className="text-[11px] text-muted font-sans italic">
+          Controls will appear here
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -573,13 +621,11 @@ export function CommissionerPage() {
               />
             </>
           ) : (
-            <Card>
-              <CardContent className="py-6 text-center text-sm text-muted">
-                {huddle
-                  ? "Loading huddle…"
-                  : "No huddle is linked to this league yet. Create one from the Huddles page."}
-              </CardContent>
-            </Card>
+            <div className="border border-line rounded-lg p-6 text-center text-[13px] text-muted font-sans bg-paper">
+              {huddle
+                ? "Loading huddle…"
+                : "No huddle is linked to this league yet. Create one from the Huddles page."}
+            </div>
           )}
 
           {/* ── League management (coming soon) ───────────────────────── */}

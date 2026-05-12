@@ -13,20 +13,6 @@
 import { useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
-import { Settings } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "../components/ui/tooltip";
 import { useAppSelector } from "../store/hooks";
 import { useLeagueRosters, useLeagueUsers } from "../hooks/useSleeper";
 import {
@@ -37,6 +23,96 @@ import {
 } from "../hooks/useHuddles";
 import type { Roster, TeamUser } from "../types/fantasy";
 import type { HuddleClaimSummary } from "../types/huddle";
+
+// ─── Shared primitives (mirrors CommissionerPage) ─────────────────────────────
+
+function Panel({
+  children,
+  danger,
+}: {
+  children: React.ReactNode;
+  danger?: boolean;
+}) {
+  return (
+    <div
+      className={`border rounded-lg p-5 flex flex-col gap-4 bg-paper ${
+        danger ? "border-red-300" : "border-line"
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function PanelHeader({
+  title,
+  description,
+}: {
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="border-b border-line pb-3">
+      <h2 className="font-serif font-semibold text-[15px] text-ink leading-tight">
+        {title}
+      </h2>
+      {description && (
+        <p className="mt-1 text-[12.5px] text-muted font-sans leading-relaxed">
+          {description}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Btn({
+  children,
+  onClick,
+  disabled,
+  danger,
+  className,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+  className?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex items-center justify-center px-3 py-1.5 rounded-md border text-xs font-medium font-sans transition-colors
+        disabled:opacity-40 disabled:cursor-not-allowed
+        ${danger
+          ? "border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+          : "border-line text-ink hover:bg-highlight"
+        } ${className ?? ""}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function BtnPrimary({
+  children,
+  onClick,
+  disabled,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex items-center justify-center px-3 py-1.5 rounded-md bg-ink text-paper text-xs font-medium font-sans transition-colors hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      {children}
+    </button>
+  );
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -105,227 +181,189 @@ function TeamsTable({
   const canClaimNew = !hasPendingClaim && !hasApprovedClaim;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Teams</CardTitle>
-        <CardDescription>
-          Claim your team so the dashboard knows who you are. One claim per
-          member — pending claims need commissioner approval.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-0">
-          {sorted.map((roster) => {
-            const claim = approvedByRoster.get(roster.rosterId);
-            const pendingClaim = pendingByRoster.get(roster.rosterId);
-            const teamName = rosterTeamName(roster, leagueUsers);
-            const isMyTeam = claim?.user?.id === currentUserId;
-            const isMyPendingClaim =
-              pendingClaim?.user?.id === currentUserId ||
-              (myClaim?.rosterId === roster.rosterId && myClaim?.status === "pending");
-            const isExpanding = claimingRosterId === roster.rosterId;
-            const selfUnlinkBlocked = isMyTeam && isCommissioner && commissionerCount <= 1;
+    <Panel>
+      <PanelHeader
+        title="Teams"
+        description="Claim your team so the dashboard knows who you are. One claim per member — pending claims need commissioner approval."
+      />
 
-            return (
-              <div key={roster.rosterId} className="border-b last:border-b-0">
-                <div className="flex items-center justify-between py-2.5">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-xs text-muted w-5 font-mono">
-                      {roster.rosterId}
-                    </span>
-                    <span className="text-sm font-medium text-ink truncate">
-                      {teamName}
-                    </span>
-                  </div>
+      <div className="flex flex-col divide-y divide-line">
+        {sorted.map((roster) => {
+          const claim = approvedByRoster.get(roster.rosterId);
+          const pendingClaim = pendingByRoster.get(roster.rosterId);
+          const teamName = rosterTeamName(roster, leagueUsers);
+          const isMyTeam = claim?.user?.id === currentUserId;
+          const isMyPendingClaim =
+            pendingClaim?.user?.id === currentUserId ||
+            (myClaim?.rosterId === roster.rosterId && myClaim?.status === "pending");
+          const isExpanding = claimingRosterId === roster.rosterId;
+          const selfUnlinkBlocked = isMyTeam && isCommissioner && commissionerCount <= 1;
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    {claim ? (
-                      <>
-                        <span className="text-xs text-muted">
-                          <span className="font-medium text-ink">
-                            {describeUser(claim.user)}
-                          </span>
-                        </span>
-                        {(isMyTeam || isCommissioner) &&
-                          confirmRemoveClaimId !== claim.id ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="inline-flex">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                                  disabled={selfUnlinkBlocked}
-                                  onClick={() => setConfirmRemoveClaimId(claim.id)}
-                                >
-                                  Unlink
-                                </Button>
-                              </span>
-                            </TooltipTrigger>
-                            {selfUnlinkBlocked && (
-                              <TooltipContent>
-                                Assign another commissioner before unlinking yourself
-                              </TooltipContent>
-                            )}
-                          </Tooltip>
-                        ) : (isMyTeam || isCommissioner) &&
-                          confirmRemoveClaimId === claim.id ? (
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 text-xs"
-                              onClick={() => setConfirmRemoveClaimId(null)}
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
-                              disabled={removeClaim.isPending}
-                              onClick={() =>
-                                removeClaim.mutate(
-                                  { huddleId, claimId: claim.id, isCommissioner },
-                                  { onSuccess: () => setConfirmRemoveClaimId(null) },
-                                )
-                              }
-                            >
-                              Confirm
-                            </Button>
-                          </div>
-                        ) : null}
-                      </>
-                    ) : pendingClaim ? (
-                      <>
-                        <span className="text-xs text-muted">
-                          {pendingClaim.user ? (
-                            <span className="font-medium text-ink">
-                              {describeUser(pendingClaim.user)}
-                            </span>
-                          ) : (
-                            <span className="italic">Pending request</span>
-                          )}
-                        </span>
-                        <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
-                          Pending
-                        </span>
-                        {(isMyPendingClaim || isCommissioner) &&
-                          confirmRemoveClaimId !== pendingClaim.id ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
-                            onClick={() => setConfirmRemoveClaimId(pendingClaim.id)}
-                          >
-                            {isMyPendingClaim ? "Withdraw" : "Remove"}
-                          </Button>
-                        ) : (isMyPendingClaim || isCommissioner) &&
-                          confirmRemoveClaimId === pendingClaim.id ? (
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 text-xs"
-                              onClick={() => setConfirmRemoveClaimId(null)}
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
-                              disabled={removeClaim.isPending}
-                              onClick={() =>
-                                removeClaim.mutate(
-                                  { huddleId, claimId: pendingClaim.id, isCommissioner },
-                                  { onSuccess: () => setConfirmRemoveClaimId(null) },
-                                )
-                              }
-                            >
-                              Confirm
-                            </Button>
-                          </div>
-                        ) : null}
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-xs text-muted">Unclaimed</span>
-                        {canClaimNew && !isExpanding && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-6 px-2 text-xs"
-                            onClick={() => {
-                              setClaimingRosterId(roster.rosterId);
-                              setMessage("");
-                            }}
-                          >
-                            Claim
-                          </Button>
-                        )}
-                      </>
-                    )}
-                  </div>
+          return (
+            <div key={roster.rosterId}>
+              <div className="flex items-center justify-between py-2.5 gap-3">
+                {/* Team name */}
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="text-[11px] font-mono text-muted w-5 shrink-0">
+                    {roster.rosterId}
+                  </span>
+                  <span className="text-[13px] font-medium text-ink font-sans truncate">
+                    {teamName}
+                  </span>
                 </div>
 
-                {/* Inline claim form */}
-                {isExpanding && (
-                  <div className="pb-3 pl-8 space-y-2">
-                    <textarea
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      rows={2}
-                      maxLength={500}
-                      className="w-full text-sm border rounded-md px-2 py-1"
-                      placeholder="Message for the commissioner (optional)"
-                      autoFocus
-                    />
-                    <div className="flex gap-2 justify-end">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setClaimingRosterId(null)}
-                        disabled={submit.isPending}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        disabled={submit.isPending}
-                        onClick={() =>
-                          submit.mutate(
-                            { huddleId, rosterId: roster.rosterId, message: message.trim() || undefined },
-                            { onSuccess: () => { setClaimingRosterId(null); setMessage(""); } },
-                          )
-                        }
-                      >
-                        {submit.isPending ? "Submitting…" : "Submit claim"}
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                {/* Status + actions */}
+                <div className="flex items-center gap-2 shrink-0">
+                  {claim ? (
+                    <>
+                      <span className="text-[12px] text-muted font-sans">
+                        <span className="font-semibold text-ink">{describeUser(claim.user)}</span>
+                      </span>
+                      {(isMyTeam || isCommissioner) &&
+                        confirmRemoveClaimId !== claim.id ? (
+                        <Btn
+                          danger
+                          disabled={selfUnlinkBlocked}
+                          onClick={() => setConfirmRemoveClaimId(claim.id)}
+                        >
+                          Unlink
+                        </Btn>
+                      ) : (isMyTeam || isCommissioner) &&
+                        confirmRemoveClaimId === claim.id ? (
+                        <div className="flex gap-1.5">
+                          <Btn onClick={() => setConfirmRemoveClaimId(null)}>Cancel</Btn>
+                          <Btn
+                            danger
+                            disabled={removeClaim.isPending}
+                            onClick={() =>
+                              removeClaim.mutate(
+                                { huddleId, claimId: claim.id, isCommissioner },
+                                { onSuccess: () => setConfirmRemoveClaimId(null) },
+                              )
+                            }
+                          >
+                            Confirm
+                          </Btn>
+                        </div>
+                      ) : null}
+                    </>
+                  ) : pendingClaim ? (
+                    <>
+                      <span className="text-[11px] font-sans text-muted">
+                        {describeUser(pendingClaim.user)}
+                      </span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 font-semibold font-sans">
+                        Pending
+                      </span>
+                      {(isMyPendingClaim || isCommissioner) &&
+                        confirmRemoveClaimId !== pendingClaim.id ? (
+                        <Btn
+                          danger
+                          onClick={() => setConfirmRemoveClaimId(pendingClaim.id)}
+                        >
+                          {isMyPendingClaim ? "Withdraw" : "Remove"}
+                        </Btn>
+                      ) : (isMyPendingClaim || isCommissioner) &&
+                        confirmRemoveClaimId === pendingClaim.id ? (
+                        <div className="flex gap-1.5">
+                          <Btn onClick={() => setConfirmRemoveClaimId(null)}>Cancel</Btn>
+                          <Btn
+                            danger
+                            disabled={removeClaim.isPending}
+                            onClick={() =>
+                              removeClaim.mutate(
+                                { huddleId, claimId: pendingClaim.id, isCommissioner },
+                                { onSuccess: () => setConfirmRemoveClaimId(null) },
+                              )
+                            }
+                          >
+                            Confirm
+                          </Btn>
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-[11px] text-muted font-sans">Unclaimed</span>
+                      {canClaimNew && !isExpanding && (
+                        <Btn
+                          onClick={() => {
+                            setClaimingRosterId(roster.rosterId);
+                            setMessage("");
+                          }}
+                        >
+                          Claim
+                        </Btn>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
-            );
-          })}
 
-          {sorted.length === 0 && (
-            <p className="text-sm text-muted py-2">No rosters loaded yet.</p>
-          )}
-        </div>
+              {/* Inline claim form */}
+              {isExpanding && (
+                <div className="pb-3 pl-7 flex flex-col gap-2">
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    rows={2}
+                    maxLength={500}
+                    className="w-full text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink resize-none"
+                    placeholder="Message for the commissioner (optional)"
+                    autoFocus
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <Btn
+                      onClick={() => setClaimingRosterId(null)}
+                      disabled={submit.isPending}
+                    >
+                      Cancel
+                    </Btn>
+                    <BtnPrimary
+                      disabled={submit.isPending}
+                      onClick={() =>
+                        submit.mutate(
+                          {
+                            huddleId,
+                            rosterId: roster.rosterId,
+                            message: message.trim() || undefined,
+                          },
+                          {
+                            onSuccess: () => {
+                              setClaimingRosterId(null);
+                              setMessage("");
+                            },
+                          },
+                        )
+                      }
+                    >
+                      {submit.isPending ? "Submitting…" : "Submit claim"}
+                    </BtnPrimary>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
 
-        {myClaim?.status === "pending" && (
-          <p className="text-xs text-amber-600 mt-3">
-            Your claim for roster #{myClaim.rosterId} is pending approval.
+        {sorted.length === 0 && (
+          <p className="text-[13px] text-muted font-sans py-3">
+            No rosters loaded yet.
           </p>
         )}
-        {(submit.error || removeClaim.error) && (
-          <p className="text-xs text-red-500 mt-3">
-            {((submit.error ?? removeClaim.error) as Error).message}
-          </p>
-        )}
-      </CardContent>
-    </Card>
+      </div>
+
+      {myClaim?.status === "pending" && (
+        <p className="text-[12px] text-amber-600 font-sans">
+          Your claim for roster #{myClaim.rosterId} is pending approval.
+        </p>
+      )}
+      {(submit.error || removeClaim.error) && (
+        <p className="text-[11.5px] text-red-600 font-sans">
+          {((submit.error ?? removeClaim.error) as Error).message}
+        </p>
+      )}
+    </Panel>
   );
 }
 
@@ -337,7 +375,6 @@ export function LeagueSettingsPage() {
   const { data: rosters } = useLeagueRosters(selectedLeagueId);
   const { data: leagueUsers } = useLeagueUsers(selectedLeagueId);
 
-  // Find the huddle linked to this league
   const { data: huddles } = useMyHuddles();
   const huddle = useMemo(
     () => huddles?.find((h) => h.leagueId === selectedLeagueId) ?? null,
@@ -345,7 +382,6 @@ export function LeagueSettingsPage() {
   );
   const huddleDetail = useHuddleDetail(huddle?.id ?? null);
   const detail = huddleDetail.data;
-
   const isCommissioner = !!detail?.huddle.isCommissioner;
 
   if (!selectedLeagueId) return <Navigate to="/" replace />;
@@ -359,8 +395,7 @@ export function LeagueSettingsPage() {
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
             League Settings
           </p>
-          <h1 className="font-serif text-3xl font-bold text-ink leading-tight flex items-center gap-3">
-            <Settings size={24} className="text-muted" />
+          <h1 className="font-serif text-3xl font-bold text-ink leading-tight">
             Settings
           </h1>
           <p className="mt-1.5 text-[13px] text-muted font-sans">
@@ -369,6 +404,8 @@ export function LeagueSettingsPage() {
         </div>
 
         <div className="flex flex-col gap-5">
+
+          {/* Teams table */}
           {huddle && detail ? (
             <TeamsTable
               huddleId={huddle.id}
@@ -381,37 +418,36 @@ export function LeagueSettingsPage() {
               commissionerCount={detail.huddle.commissioners.length}
             />
           ) : (
-            <Card>
-              <CardContent className="py-6 text-center text-sm text-muted">
-                {huddle
-                  ? "Loading…"
-                  : "No huddle is linked to this league. Ask your commissioner to set one up."}
-              </CardContent>
-            </Card>
+            <div className="border border-line rounded-lg p-6 text-center text-[13px] text-muted font-sans bg-paper">
+              {huddle
+                ? "Loading…"
+                : "No huddle is linked to this league. Ask your commissioner to set one up."}
+            </div>
           )}
 
-          {/* User preferences stub */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <CardTitle>Preferences</CardTitle>
-                <span className="text-[9px] font-bold uppercase tracking-widest text-muted font-sans border border-line rounded px-1.5 py-0.5">
-                  Coming soon
-                </span>
+          {/* Preferences stub */}
+          <div className="border border-line rounded-lg p-5 flex flex-col gap-3 bg-paper">
+            <div className="flex items-start justify-between gap-3 border-b border-line pb-3">
+              <div>
+                <h2 className="font-serif font-semibold text-[15px] text-ink leading-tight">
+                  Preferences
+                </h2>
+                <p className="mt-1 text-[12.5px] text-muted font-sans leading-relaxed">
+                  Notification settings, display preferences, and other
+                  per-league options will live here.
+                </p>
               </div>
-              <CardDescription>
-                Notification settings, display preferences, and other
-                per-league options will live here.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-14 rounded-md bg-highlight/50 border border-dashed border-line flex items-center justify-center">
-                <span className="text-[11px] text-muted font-sans italic">
-                  Settings will appear here
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+              <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest text-muted font-sans border border-line rounded px-1.5 py-0.5">
+                Coming soon
+              </span>
+            </div>
+            <div className="h-14 rounded-md bg-highlight/50 border border-dashed border-line flex items-center justify-center">
+              <span className="text-[11px] text-muted font-sans italic">
+                Settings will appear here
+              </span>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
