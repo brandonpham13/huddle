@@ -347,3 +347,49 @@ export function useRemoveClaim() {
     },
   });
 }
+
+// ── Payouts ───────────────────────────────────────────────────────────────────
+
+import type { PayoutEntry } from "../types/huddle";
+
+export function usePayouts(huddleId: string | null) {
+  const { getToken } = useAuth();
+  return useQuery({
+    queryKey: ["payouts", huddleId],
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await axios.get<{ entries: PayoutEntry[] }>(
+        `/api/huddles/${huddleId}/payouts`,
+        { headers: authHeader(token) },
+      );
+      return res.data.entries;
+    },
+    enabled: !!huddleId,
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useSetPayouts() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      huddleId,
+      entries,
+    }: {
+      huddleId: string;
+      entries: Array<{ label: string; amount: number }>;
+    }) => {
+      const token = await getToken();
+      const res = await axios.put<{ entries: PayoutEntry[] }>(
+        `/api/huddles/${huddleId}/payouts`,
+        { entries },
+        { headers: authHeader(token) },
+      );
+      return res.data.entries;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["payouts", variables.huddleId] });
+    },
+  });
+}

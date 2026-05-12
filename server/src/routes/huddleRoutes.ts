@@ -23,6 +23,8 @@ import {
   type HuddleMemberStatus,
 } from "../services/huddlesService.js";
 
+import { listPayouts, setPayouts } from "../services/payoutsService.js";
+
 const clerkSecretKey = process.env["CLERK_SECRET_KEY"];
 if (!clerkSecretKey) {
   throw new Error("Missing required environment variable: CLERK_SECRET_KEY");
@@ -547,4 +549,40 @@ export function initHuddleRoutes(app: Express) {
       }
     },
   );
+
+  // GET /api/huddles/:id/payouts — any authenticated member
+  app.get(
+    "/api/huddles/:id/payouts",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const entries = await listPayouts(req.params.id!);
+        res.json({ entries });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // PUT /api/huddles/:id/payouts — commissioner only, replaces all entries
+  app.put(
+    "/api/huddles/:id/payouts",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        const { entries } = req.body as { entries: Array<{ label: string; amount: number }> };
+        if (!Array.isArray(entries)) {
+          res.status(400).json({ error: "entries must be an array" });
+          return;
+        }
+        const saved = await setPayouts(req.params.id!, userId!, entries);
+        res.json({ entries: saved });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
 }
+
+// Re-add the delete route that was displaced above

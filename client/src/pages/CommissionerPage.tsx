@@ -19,7 +19,7 @@
  */
 import { useState, useMemo } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Megaphone, DollarSign, Trophy, Award } from "lucide-react";
+import { Megaphone, DollarSign, Trophy, Award, Plus, Trash2 } from "lucide-react";
 import { useAppSelector } from "../store/hooks";
 import { useLeagueUsers, useLeagueRosters } from "../hooks/useSleeper";
 import {
@@ -32,12 +32,15 @@ import {
   useRemoveCommissioner,
   useDeleteHuddle,
   useRemoveClaim,
+  usePayouts,
+  useSetPayouts,
 } from "../hooks/useHuddles";
 import type { Roster, TeamUser } from "../types/fantasy";
 import type {
   CommissionerSummary,
   HuddleClaimSummary,
   UserSummary,
+  PayoutEntry,
 } from "../types/huddle";
 
 // ─── Access guard ─────────────────────────────────────────────────────────────
@@ -517,6 +520,125 @@ function DangerZonePanel({
   );
 }
 
+// ─── Payout structure panel ──────────────────────────────────────────────────
+
+const DEFAULT_ENTRIES = [
+  { label: "1st Place", amount: 0 },
+  { label: "2nd Place", amount: 0 },
+  { label: "3rd Place", amount: 0 },
+];
+
+function PayoutStructurePanel({ huddleId }: { huddleId: string }) {
+  const { data: saved } = usePayouts(huddleId);
+  const setPayouts = useSetPayouts();
+
+  // Local draft state — initialized from saved data or defaults
+  const [entries, setEntries] = useState<Array<{ label: string; amount: number }>>(
+    () => DEFAULT_ENTRIES,
+  );
+  const [initialized, setInitialized] = useState(false);
+
+  // Sync saved data into local state once on first load
+  useMemo(() => {
+    if (saved !== undefined && !initialized) {
+      setEntries(
+        saved.length > 0
+          ? saved.map((e) => ({ label: e.label, amount: e.amount }))
+          : DEFAULT_ENTRIES,
+      );
+      setInitialized(true);
+    }
+  }, [saved, initialized]);
+
+  const totalCents = entries.reduce((s, e) => s + (e.amount || 0), 0);
+  const fmt = (cents: number) =>
+    `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}` ;
+
+  const updateEntry = (i: number, field: "label" | "amount", val: string) => {
+    setEntries((prev) =>
+      prev.map((e, idx) =>
+        idx === i
+          ? { ...e, [field]: field === "amount" ? Math.round(parseFloat(val || "0") * 100) : val }
+          : e,
+      ),
+    );
+  };
+
+  const addEntry = () =>
+    setEntries((prev) => [...prev, { label: "", amount: 0 }]);
+
+  const removeEntry = (i: number) =>
+    setEntries((prev) => prev.filter((_, idx) => idx !== i));
+
+  const handleSave = () =>
+    setPayouts.mutate({ huddleId, entries });
+
+  return (
+    <Panel>
+      <PanelHeader
+        title="Payout Structure"
+        description="Define how the prize pool is distributed. Amounts are for reference — Huddle doesn't process payments."
+      />
+
+      <div className="flex flex-col gap-2">
+        {entries.map((e, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <input
+              value={e.label}
+              onChange={(ev) => updateEntry(i, "label", ev.target.value)}
+              placeholder="Label (e.g. 1st Place)"
+              maxLength={120}
+              className="flex-1 text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink"
+            />
+            <div className="relative shrink-0">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] text-muted font-sans">$</span>
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                value={e.amount / 100 || ""}
+                onChange={(ev) => updateEntry(i, "amount", ev.target.value)}
+                placeholder="0.00"
+                className="w-24 text-[13px] font-sans border border-line rounded-md pl-6 pr-2 py-1.5 bg-paper text-ink"
+              />
+            </div>
+            <button
+              onClick={() => removeEntry(i)}
+              className="text-muted hover:text-red-600 transition-colors p-1"
+              aria-label="Remove entry"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between pt-1">
+        <Btn onClick={addEntry}>
+          <Plus size={13} className="mr-1" /> Add entry
+        </Btn>
+        <span className="text-[12px] font-mono text-muted">
+          Total pool: <span className="text-ink font-semibold">{fmt(totalCents)}</span>
+        </span>
+      </div>
+
+      <div className="flex items-center justify-end gap-3 border-t border-line pt-3">
+        {setPayouts.isError && (
+          <p className="text-[11.5px] text-red-600 font-sans flex-1">
+            {(setPayouts.error as Error).message}
+          </p>
+        )}
+        {setPayouts.isSuccess && (
+          <p className="text-[11.5px] text-accent font-sans">Saved!</p>
+        )}
+        <BtnPrimary onClick={handleSave} disabled={setPayouts.isPending}>
+          {setPayouts.isPending ? "Saving…" : "Save payouts"}
+        </BtnPrimary>
+      </div>
+    </Panel>
+  );
+}
+
 // ─── Coming-soon stub section ─────────────────────────────────────────────────
 
 function StubSection({
@@ -611,12 +733,16 @@ export function CommissionerPage() {
             description="Set the buy-in amount and mark who has paid. Members can see their own status; only you see the full picture."
             tag="Finance"
           />
-          <StubSection
-            icon={Trophy}
-            title="Payout Structure"
-            description="Define how the prize pool is distributed — 1st, 2nd, 3rd place, most points, best regular-season record, or any split you like."
-            tag="Finance"
-          />
+          {huddle ? (
+            <PayoutStructurePanel huddleId={huddle.id} />
+          ) : (
+            <StubSection
+              icon={Trophy}
+              title="Payout Structure"
+              description="Define how the prize pool is distributed — 1st, 2nd, 3rd place, most points, best regular-season record, or any split you like."
+              tag="Finance"
+            />
+          )}
           <StubSection
             icon={Award}
             title="Custom Awards"

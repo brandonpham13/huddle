@@ -95,3 +95,33 @@ export type NewHuddle = typeof huddles.$inferInsert;
 export type HuddleCommissioner = typeof huddleCommissioners.$inferSelect;
 export type TeamClaim = typeof teamClaims.$inferSelect;
 export type NewTeamClaim = typeof teamClaims.$inferInsert;
+
+// ── Payout structure ─────────────────────────────────────────────────────────
+
+export const huddlePayoutEntries = pgTable(
+  "huddle_payout_entries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    huddleId: uuid("huddle_id")
+      .notNull()
+      .references(() => huddles.id, { onDelete: "cascade" }),
+    /** Human-readable label, e.g. "1st Place", "Most Points". */
+    label: text("label").notNull(),
+    /** Amount in cents (e.g. 5000 = $50.00). */
+    amount: integer("amount").notNull().default(0),
+    /** Display order (lower = shown first). */
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    byHuddle: index("huddle_payout_entries_huddle_idx").on(t.huddleId),
+  }),
+);
+
+export type HuddlePayoutEntry = typeof huddlePayoutEntries.$inferSelect;
+export type NewHuddlePayoutEntry = typeof huddlePayoutEntries.$inferInsert;
