@@ -38,6 +38,7 @@ import {
   ChevronUp,
   Users,
   X,
+  Shield,
 } from "lucide-react";
 import { useAppSelector } from "../store/hooks";
 import { useLeagueRosters, useLeagueUsers } from "../hooks/useSleeper";
@@ -45,6 +46,7 @@ import { useMyClaimedTeam } from "../hooks/useMyClaimedTeam";
 import { useAllSleeperLeagues } from "../hooks/useSleeper";
 import { getFamilySeasons } from "../utils/leagueFamily";
 import { useMemo } from "react";
+import { useIsCommissioner } from "../pages/CommissionerPage";
 
 const TOP_NAV_ITEMS = [
   { label: "Home", to: "/", icon: Home, end: true },
@@ -86,6 +88,7 @@ export function Sidebar({
   const { data: rosters } = useLeagueRosters(selectedLeagueId);
   const { data: leagueUsers } = useLeagueUsers(selectedLeagueId);
   const { rosterId: myRosterId } = useMyClaimedTeam(currentFamilyLeagueId);
+  const isCommissioner = useIsCommissioner();
 
   const teams = useMemo(() => {
     if (!rosters) return [];
@@ -178,6 +181,27 @@ export function Sidebar({
               {!renderCollapsed && <span>{label}</span>}
             </NavLink>
           ))}
+
+          {/* Commissioner-only link — only shown when the current user is
+              the league commissioner (isOwner) for the selected league. */}
+          {isCommissioner && (
+            <NavLink
+              to="/commissioner"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
+              ${
+                isActive
+                  ? "bg-highlight text-ink"
+                  : "text-muted hover:bg-highlight hover:text-ink"
+              }
+              ${renderCollapsed ? "justify-center" : ""}
+              `
+              }
+            >
+              <Shield size={16} className="shrink-0" />
+              {!renderCollapsed && <span>Commissioner</span>}
+            </NavLink>
+          )}
 
           {/* Teams collapsible */}
           {selectedLeagueId && (
