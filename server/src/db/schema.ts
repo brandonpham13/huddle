@@ -42,7 +42,6 @@ export const huddles = pgTable(
   }),
 );
 
-// Many-to-many: a huddle can have multiple commissioners (co-commish support)
 export const huddleCommissioners = pgTable(
   "huddle_commissioners",
   {
@@ -90,6 +89,8 @@ export const teamClaims = pgTable(
   }),
 );
 
+// ── Announcements ─────────────────────────────────────────────────────────────
+
 export const huddleAnnouncements = pgTable(
   "huddle_announcements",
   {
@@ -97,7 +98,6 @@ export const huddleAnnouncements = pgTable(
     huddleId: uuid("huddle_id")
       .notNull()
       .references(() => huddles.id, { onDelete: "cascade" }),
-    // Clerk userId of the commissioner who posted it
     authorId: text("author_id").notNull(),
     title: text("title").notNull(),
     body: text("body").notNull(),
@@ -113,6 +113,43 @@ export const huddleAnnouncements = pgTable(
   }),
 );
 
+// ── Dues tracker ──────────────────────────────────────────────────────────────
+
+export const huddleDuesConfig = pgTable("huddle_dues_config", {
+  huddleId: uuid("huddle_id")
+    .primaryKey()
+    .references(() => huddles.id, { onDelete: "cascade" }),
+  amount: integer("amount").notNull(),
+  season: text("season"),
+  note: text("note"),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export const huddleDuesPayments = pgTable(
+  "huddle_dues_payments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    huddleId: uuid("huddle_id")
+      .notNull()
+      .references(() => huddles.id, { onDelete: "cascade" }),
+    rosterId: integer("roster_id").notNull(),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    markedBy: text("marked_by").notNull(),
+    note: text("note"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    uniqRoster: uniqueIndex("huddle_dues_payments_huddle_roster_uniq").on(
+      t.huddleId,
+      t.rosterId,
+    ),
+  }),
+);
+
 export type Huddle = typeof huddles.$inferSelect;
 export type NewHuddle = typeof huddles.$inferInsert;
 export type HuddleCommissioner = typeof huddleCommissioners.$inferSelect;
@@ -120,3 +157,5 @@ export type TeamClaim = typeof teamClaims.$inferSelect;
 export type NewTeamClaim = typeof teamClaims.$inferInsert;
 export type HuddleAnnouncement = typeof huddleAnnouncements.$inferSelect;
 export type NewHuddleAnnouncement = typeof huddleAnnouncements.$inferInsert;
+export type HuddleDuesConfig = typeof huddleDuesConfig.$inferSelect;
+export type HuddleDuesPayment = typeof huddleDuesPayments.$inferSelect;

@@ -14,6 +14,9 @@ import type {
   HuddleClaim,
   HuddleClaimSummary,
   HuddleDetailResponse,
+  DuesConfig,
+  DuesPayment,
+  DuesResponse,
 } from "../types/huddle";
 
 function authHeader(token: string | null): Record<string, string> {
@@ -319,6 +322,84 @@ export function useRemoveCommissioner() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["huddle", variables.huddleId] });
+    },
+  });
+}
+
+// ---- Dues ----
+
+/** Fetch the dues config and all payment records for a huddle. */
+export function useDues(huddleId: string | null) {
+  const { getToken } = useAuth();
+  return useQuery({
+    queryKey: ["dues", huddleId],
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await axios.get<DuesResponse>(
+        `/api/huddles/${huddleId}/dues`,
+        { headers: authHeader(token) },
+      );
+      return res.data;
+    },
+    enabled: !!huddleId,
+    staleTime: 30 * 1000,
+  });
+}
+
+/** Commissioner: upsert dues config (amount in cents, optional season/note). */
+export function useSetDuesConfig() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      huddleId: string;
+      amount: number;
+      season?: string | null;
+      note?: string | null;
+    }) => {
+      const token = await getToken();
+      try {
+        const res = await axios.put<{ config: DuesConfig }>(
+          `/api/huddles/${input.huddleId}/dues/config`,
+          { amount: input.amount, season: input.season, note: input.note },
+          { headers: authHeader(token) },
+        );
+        return res.data.config;
+      } catch (err) {
+        throw new Error(errorMessage(err, "Failed to save dues config"));
+      }
+    },
+    onSuccess: (_config, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["dues", variables.huddleId] });
+    },
+  });
+}
+
+/** Commissioner: mark or unmark a roster as paid. */
+export function useSetDuesPaid() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      huddleId: string;
+      rosterId: number;
+      paid: boolean;
+      note?: string | null;
+    }) => {
+      const token = await getToken();
+      try {
+        const res = await axios.put<{ payment: DuesPayment }>(
+          `/api/huddles/${input.huddleId}/dues/payments/${input.rosterId}`,
+          { paid: input.paid, note: input.note },
+          { headers: authHeader(token) },
+        );
+        return res.data.payment;
+      } catch (err) {
+        throw new Error(errorMessage(err, "Failed to update payment"));
+      }
+    },
+    onSuccess: (_payment, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["dues", variables.huddleId] });
     },
   });
 }

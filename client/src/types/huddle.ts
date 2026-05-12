@@ -66,3 +66,29 @@ export interface HuddleAnnouncement {
   createdAt: string;
   updatedAt: string;
 }
+
+/** Dues configuration set by the commissioner for the season. */
+export interface DuesConfig {
+  huddleId: string;
+  /** Due amount in cents (e.g. 5000 = $50.00). */
+  amount: number;
+  season: string | null;
+  note: string | null;
+  updatedAt: string;
+}
+
+/** Payment record for a single roster within a huddle. */
+export interface DuesPayment {
+  id: string;
+  huddleId: string;
+  rosterId: number;
+  /** Null means unpaid; non-null means paid at that timestamp. */
+  paidAt: string | null;
+  note: string | null;
+  updatedAt: string;
+}
+
+export interface DuesResponse {
+  config: DuesConfig | null;
+  payments: DuesPayment[];
+}

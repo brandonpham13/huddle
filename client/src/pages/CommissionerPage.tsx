@@ -35,6 +35,9 @@ import {
   useAnnouncements,
   useCreateAnnouncement,
   useDeleteAnnouncement,
+  useDues,
+  useSetDuesConfig,
+  useSetDuesPaid,
 } from "../hooks/useHuddles";
 import type { Roster, TeamUser } from "../types/fantasy";
 import type {
@@ -619,6 +622,151 @@ function AnnouncementsPanel({ huddleId }: { huddleId: string }) {
   );
 }
 
+// ─── Dues tracker panel ──────────────────────────────────────────────────────
+
+function DuesTrackerPanel({
+  huddleId,
+  rosters,
+  leagueUsers,
+}: {
+  huddleId: string;
+  rosters: Roster[];
+  leagueUsers: TeamUser[];
+}) {
+  const { data: duesData } = useDues(huddleId);
+  const setConfig = useSetDuesConfig();
+  const setPaid = useSetDuesPaid();
+
+  // Local config form state, seeded from saved data
+  const [amount, setAmount] = useState<string>("");
+  const [season, setSeason] = useState<string>("");
+  const [note, setNote] = useState<string>("");
+  const [configInitialized, setConfigInitialized] = useState(false);
+
+  useMemo(() => {
+    if (duesData?.config && !configInitialized) {
+      setAmount(((duesData.config.amount ?? 0) / 100).toFixed(2));
+      setSeason(duesData.config.season ?? "");
+      setNote(duesData.config.note ?? "");
+      setConfigInitialized(true);
+    }
+  }, [duesData?.config, configInitialized]);
+
+  const paidRosterIds = useMemo(
+    () => new Set((duesData?.payments ?? []).filter((p) => p.paidAt).map((p) => p.rosterId)),
+    [duesData?.payments],
+  );
+
+  const paidCount = paidRosterIds.size;
+  const totalCount = rosters.length;
+  const amountCents = Math.round(parseFloat(amount || "0") * 100);
+  const totalCollected = paidCount * amountCents;
+  const fmt = (cents: number) =>
+    `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
+
+  return (
+    <Panel>
+      <PanelHeader
+        title="Dues Tracker"
+        description="Set the buy-in amount and mark who has paid."
+      />
+
+      {/* Config form */}
+      <div className="flex flex-col gap-2">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] text-muted font-sans">$</span>
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+              className="w-full text-[13px] font-sans border border-line rounded-md pl-6 pr-3 py-1.5 bg-paper text-ink"
+            />
+          </div>
+          <input
+            value={season}
+            onChange={(e) => setSeason(e.target.value)}
+            placeholder="Season (e.g. 2024)"
+            maxLength={20}
+            className="flex-1 text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink"
+          />
+        </div>
+        <input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Note (optional)"
+          maxLength={200}
+          className="text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink"
+        />
+        <div className="flex items-center justify-end gap-3">
+          {setConfig.isError && (
+            <p className="text-[11.5px] text-red-600 font-sans flex-1">
+              {(setConfig.error as Error).message}
+            </p>
+          )}
+          {setConfig.isSuccess && (
+            <p className="text-[11.5px] text-accent font-sans">Saved!</p>
+          )}
+          <BtnPrimary
+            onClick={() =>
+              setConfig.mutate({ huddleId, amount: amountCents, season: season || null, note: note || null })
+            }
+            disabled={setConfig.isPending}
+          >
+            {setConfig.isPending ? "Saving…" : "Save config"}
+          </BtnPrimary>
+        </div>
+      </div>
+
+      {/* Payment roster */}
+      {rosters.length > 0 && (
+        <div className="flex flex-col divide-y divide-line border-t border-line pt-2">
+          {[...rosters].sort((a, b) => a.rosterId - b.rosterId).map((r) => {
+            const user = r.ownerId ? leagueUsers.find((u) => u.userId === r.ownerId) : null;
+            const name = user?.teamName ?? user?.displayName ?? `Team ${r.rosterId}`;
+            const paid = paidRosterIds.has(r.rosterId);
+            return (
+              <div key={r.rosterId} className="flex items-center justify-between py-2.5 gap-3">
+                <span className="text-[13px] font-sans text-ink truncate">{name}</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  {paid ? (
+                    <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 font-sans">
+                      ✓ Paid
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-muted font-sans">Unpaid</span>
+                  )}
+                  <Btn
+                    onClick={() =>
+                      setPaid.mutate({ huddleId, rosterId: r.rosterId, paid: !paid })
+                    }
+                    disabled={setPaid.isPending}
+                  >
+                    {paid ? "Mark unpaid" : "Mark paid"}
+                  </Btn>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Summary */}
+      <div className="flex justify-between items-center text-[12px] font-sans border-t border-line pt-3">
+        <span className="text-muted">
+          {paidCount} of {totalCount} paid
+        </span>
+        <span className="font-semibold text-ink">
+          {fmt(totalCollected)} collected{amountCents > 0 ? ` of ${fmt(totalCount * amountCents)}` : ""}
+        </span>
+      </div>
+    </Panel>
+  );
+}
+
 // ─── Coming-soon stub section ─────────────────────────────────────────────────
 
 function StubSection({
@@ -711,12 +859,20 @@ export function CommissionerPage() {
               tag="League communications"
             />
           )}
-          <StubSection
-            icon={DollarSign}
-            title="Dues Tracker"
-            description="Set the buy-in amount and mark who has paid. Members can see their own status; only you see the full picture."
-            tag="Finance"
-          />
+          {huddle ? (
+            <DuesTrackerPanel
+              huddleId={huddle.id}
+              rosters={rosters ?? []}
+              leagueUsers={leagueUsers ?? []}
+            />
+          ) : (
+            <StubSection
+              icon={DollarSign}
+              title="Dues Tracker"
+              description="Set the buy-in amount and mark who has paid. Members can see their own status; only you see the full picture."
+              tag="Finance"
+            />
+          )}
           <StubSection
             icon={Trophy}
             title="Payout Structure"
