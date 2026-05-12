@@ -359,8 +359,8 @@ function CurrentSeason({
  */
 function extremeCtx(e: { season: string; week: number; opponentName?: string | null } | null): string {
   if (!e) return "— · —";
-  const opp = e.opponentName ? `vs. ${e.opponentName} · ` : "";
-  return `${opp}Season ${e.season} · Wk ${e.week}`;
+  const opp = e.opponentName ? `vs. ${e.opponentName}` : "";
+  return `Season ${e.season} · Wk ${e.week} · ${opp}`;
 }
 
 /** Formats a full matchup score string: "135.24 – 112.50" */
