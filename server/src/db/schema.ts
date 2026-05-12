@@ -90,8 +90,33 @@ export const teamClaims = pgTable(
   }),
 );
 
+export const huddleAnnouncements = pgTable(
+  "huddle_announcements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    huddleId: uuid("huddle_id")
+      .notNull()
+      .references(() => huddles.id, { onDelete: "cascade" }),
+    // Clerk userId of the commissioner who posted it
+    authorId: text("author_id").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    byHuddle: index("huddle_announcements_huddle_idx").on(t.huddleId),
+  }),
+);
+
 export type Huddle = typeof huddles.$inferSelect;
 export type NewHuddle = typeof huddles.$inferInsert;
 export type HuddleCommissioner = typeof huddleCommissioners.$inferSelect;
 export type TeamClaim = typeof teamClaims.$inferSelect;
 export type NewTeamClaim = typeof teamClaims.$inferInsert;
+export type HuddleAnnouncement = typeof huddleAnnouncements.$inferSelect;
+export type NewHuddleAnnouncement = typeof huddleAnnouncements.$inferInsert;

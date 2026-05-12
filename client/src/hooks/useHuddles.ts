@@ -11,9 +11,11 @@ import { useAuth } from "@clerk/clerk-react";
 import axios, { AxiosError } from "axios";
 import type {
   Huddle,
+  HuddleAnnouncement,
   HuddleClaim,
   HuddleClaimSummary,
   HuddleDetailResponse,
+  PayoutEntry,
 } from "../types/huddle";
 
 function authHeader(token: string | null): Record<string, string> {
@@ -319,6 +321,130 @@ export function useRemoveCommissioner() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["huddle", variables.huddleId] });
+    },
+  });
+}
+
+// ---- Announcements ----
+
+/** Fetches announcements for a huddle, newest first. */
+export function useAnnouncements(huddleId: string | null) {
+  const { getToken } = useAuth();
+  return useQuery({
+    queryKey: ["huddle-announcements", huddleId],
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await axios.get<{ announcements: HuddleAnnouncement[] }>(
+        `/api/huddles/${huddleId}/announcements`,
+        { headers: authHeader(token) },
+      );
+      return res.data.announcements;
+    },
+    enabled: !!huddleId,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+}
+
+export function useCreateAnnouncement() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      huddleId: string;
+      title: string;
+      body: string;
+    }) => {
+      const token = await getToken();
+      try {
+        const res = await axios.post<{ announcement: HuddleAnnouncement }>(
+          `/api/huddles/${input.huddleId}/announcements`,
+          { title: input.title, body: input.body },
+          { headers: authHeader(token) },
+        );
+        return res.data.announcement;
+      } catch (err) {
+        throw new Error(errorMessage(err, "Failed to post announcement"));
+      }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["huddle-announcements", variables.huddleId],
+      });
+    },
+  });
+}
+
+export function useDeleteAnnouncement() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      huddleId: string;
+      announcementId: string;
+    }) => {
+      const token = await getToken();
+      try {
+        await axios.delete(
+          `/api/huddles/${input.huddleId}/announcements/${input.announcementId}`,
+          { headers: authHeader(token) },
+        );
+      } catch (err) {
+        throw new Error(errorMessage(err, "Failed to delete announcement"));
+      }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["huddle-announcements", variables.huddleId],
+      });
+    },
+  });
+}
+
+// ---- Payout hooks ----
+
+/** Fetches the payout structure for a huddle. */
+export function usePayouts(huddleId: string | null) {
+  const { getToken } = useAuth();
+  return useQuery({
+    queryKey: ["huddle-payouts", huddleId],
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await axios.get<{ entries: PayoutEntry[] }>(
+        `/api/huddles/${huddleId}/payouts`,
+        { headers: authHeader(token) },
+      );
+      return res.data.entries;
+    },
+    enabled: !!huddleId,
+    staleTime: 60 * 1000,
+  });
+}
+
+/** Replaces the full payout structure for a huddle (commissioner only). */
+export function useSetPayouts() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      huddleId: string;
+      entries: Array<{ label: string; amount: number }>;
+    }) => {
+      const token = await getToken();
+      try {
+        const res = await axios.put<{ entries: PayoutEntry[] }>(
+          `/api/huddles/${input.huddleId}/payouts`,
+          { entries: input.entries },
+          { headers: authHeader(token) },
+        );
+        return res.data.entries;
+      } catch (err) {
+        throw new Error(errorMessage(err, "Failed to save payout structure"));
+      }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["huddle-payouts", variables.huddleId],
+      });
     },
   });
 }

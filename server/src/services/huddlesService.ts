@@ -1,12 +1,14 @@
 import { randomBytes } from "crypto";
-import { and, eq, count, inArray } from "drizzle-orm";
+import { and, eq, count, inArray, desc } from "drizzle-orm";
 import { db } from "../db/client.js";
 import {
   huddles,
   huddleCommissioners,
+  huddleAnnouncements,
   teamClaims,
   type Huddle,
   type HuddleCommissioner,
+  type HuddleAnnouncement,
   type TeamClaim,
 } from "../db/schema.js";
 
@@ -498,6 +500,84 @@ export async function deleteHuddle(opts: {
   if (!(await isCommissioner(opts.huddleId, opts.userId)))
     fail(403, "Only a commissioner can delete the huddle");
   await db.delete(huddles).where(eq(huddles.id, opts.huddleId));
+}
+
+// ---- Announcements ----
+
+const MAX_ANNOUNCEMENT_TITLE_LEN = 120;
+const MAX_ANNOUNCEMENT_BODY_LEN = 2000;
+
+export async function createAnnouncement(opts: {
+  huddleId: string;
+  userId: string;
+  title: unknown;
+  body: unknown;
+}): Promise<HuddleAnnouncement> {
+  if (!(await isCommissioner(opts.huddleId, opts.userId)))
+    fail(403, "Only a commissioner can post announcements");
+
+  if (
+    typeof opts.title !== "string" ||
+    !opts.title.trim() ||
+    opts.title.trim().length > MAX_ANNOUNCEMENT_TITLE_LEN
+  )
+    fail(400, `title is required (max ${MAX_ANNOUNCEMENT_TITLE_LEN} chars)`);
+
+  if (
+    typeof opts.body !== "string" ||
+    !opts.body.trim() ||
+    opts.body.trim().length > MAX_ANNOUNCEMENT_BODY_LEN
+  )
+    fail(400, `body is required (max ${MAX_ANNOUNCEMENT_BODY_LEN} chars)`);
+
+  const [created] = await db
+    .insert(huddleAnnouncements)
+    .values({
+      huddleId: opts.huddleId,
+      authorId: opts.userId,
+      title: (opts.title as string).trim(),
+      body: (opts.body as string).trim(),
+    })
+    .returning();
+  if (!created) fail(500, "Failed to create announcement");
+  return created!;
+}
+
+export async function listAnnouncements(
+  huddleId: string,
+  limit = 10,
+): Promise<HuddleAnnouncement[]> {
+  return db
+    .select()
+    .from(huddleAnnouncements)
+    .where(eq(huddleAnnouncements.huddleId, huddleId))
+    .orderBy(desc(huddleAnnouncements.createdAt))
+    .limit(limit);
+}
+
+export async function deleteAnnouncement(opts: {
+  huddleId: string;
+  announcementId: string;
+  userId: string;
+}): Promise<void> {
+  if (!(await isCommissioner(opts.huddleId, opts.userId)))
+    fail(403, "Only a commissioner can delete announcements");
+
+  const rows = await db
+    .select()
+    .from(huddleAnnouncements)
+    .where(
+      and(
+        eq(huddleAnnouncements.id, opts.announcementId),
+        eq(huddleAnnouncements.huddleId, opts.huddleId),
+      ),
+    )
+    .limit(1);
+  if (!rows[0]) fail(404, "Announcement not found");
+
+  await db
+    .delete(huddleAnnouncements)
+    .where(eq(huddleAnnouncements.id, opts.announcementId));
 }
 
 // Self-unclaim: user removes their own pending or approved claim

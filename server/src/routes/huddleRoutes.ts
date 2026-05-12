@@ -4,13 +4,16 @@ import { requireAuth } from "../middleware/requireAuth.js";
 import {
   HuddlesServiceError,
   addCommissioner,
+  createAnnouncement,
   createHuddle,
   decideClaim,
+  deleteAnnouncement,
   deleteHuddle,
   forceRemoveClaim,
   getHuddle,
   getHuddleByInviteCode,
   isCommissioner,
+  listAnnouncements,
   listClaimsForHuddle,
   listCommissioners,
   listHuddlesForUser,
@@ -541,6 +544,65 @@ export function initHuddleRoutes(app: Express) {
       try {
         const { userId } = getAuth(req);
         await deleteHuddle({ huddleId: req.params.id!, userId: userId! });
+        res.status(204).end();
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // POST /api/huddles/:id/announcements — commissioner only
+  app.post(
+    "/api/huddles/:id/announcements",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        const { title, body } = req.body as { title?: unknown; body?: unknown };
+        const announcement = await createAnnouncement({
+          huddleId: req.params.id!,
+          userId: userId!,
+          title,
+          body,
+        });
+        res.status(201).json({ announcement });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // GET /api/huddles/:id/announcements — any authenticated member
+  app.get(
+    "/api/huddles/:id/announcements",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const limitParam = req.query["limit"];
+        const limit =
+          typeof limitParam === "string" && /^\d+$/.test(limitParam)
+            ? Math.min(Number(limitParam), 50)
+            : 10;
+        const announcements = await listAnnouncements(req.params.id!, limit);
+        res.json({ announcements });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // DELETE /api/huddles/:id/announcements/:announcementId — commissioner only
+  app.delete(
+    "/api/huddles/:id/announcements/:announcementId",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        await deleteAnnouncement({
+          huddleId: req.params.id!,
+          announcementId: req.params.announcementId!,
+          userId: userId!,
+        });
         res.status(204).end();
       } catch (err) {
         handleError(err, res);

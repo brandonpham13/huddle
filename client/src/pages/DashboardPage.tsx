@@ -36,6 +36,7 @@ import { useMyClaimedTeam } from "../hooks/useMyClaimedTeam";
 import { useMyHuddles } from "../hooks/useHuddles";
 import { Ticker } from "../widgets/dashboard/Ticker";
 import { Masthead } from "../widgets/dashboard/Masthead";
+import { Announcements } from "../widgets/dashboard/Announcements";
 import { MyTeamSection } from "../widgets/dashboard/MyTeamSection";
 import { TopPerformers } from "../widgets/dashboard/TopPerformers";
 import { LeagueTable } from "../widgets/dashboard/LeagueTable";
@@ -242,6 +243,10 @@ export function DashboardPage() {
               nextWeek={nextWeek}
               powerRows={powerData?.rows ?? []}
             />
+
+            <div className="h-4" />
+
+            <Announcements />
 
             <div className="h-4" />
 
