@@ -37,6 +37,7 @@ import { LeaguePage } from "./pages/LeaguePage";
 import { SchedulePage } from "./pages/SchedulePage";
 import { DraftPage } from "./pages/DraftPage";
 import { CommissionerPage } from "./pages/CommissionerPage";
+import { LeagueSettingsPage } from "./pages/LeagueSettingsPage";
 
 export default function App() {
   return (
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="/huddles/:id" element={<HuddleDetailPage />} />
             <Route path="/teams/:rosterId" element={<TeamPage />} />
             <Route path="/commissioner" element={<CommissionerPage />} />
+            <Route path="/league-settings" element={<LeagueSettingsPage />} />
           </Route>
         </Routes>
       </AccountModalProvider>

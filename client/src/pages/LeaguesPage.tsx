@@ -1,64 +1,112 @@
-import { Link } from "react-router-dom";
-import { ChevronLeft } from "lucide-react";
-import { useAccountModal } from "../components/AccountModal";
-import { useAppSelector } from "../store/hooks";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { HuddlesSection } from "../components/huddles/HuddlesSection";
+/**
+ * LeaguesPage — huddle list + entry points to create or join a huddle.
+ *
+ * Commissioner controls have moved to CommissionerPage (/commissioner).
+ * Team claims and settings have moved to LeagueSettingsPage (/league-settings).
+ */
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Plus, Hash } from "lucide-react";
+import { ChevronRight } from "lucide-react";
+import { useMyHuddles } from "../hooks/useHuddles";
+import { CreateHuddleModal } from "../components/huddles/CreateHuddleModal";
+import { JoinHuddleModal } from "../components/huddles/JoinHuddleModal";
 
 export function LeaguesPage() {
-  const { open: openAccountModal } = useAccountModal();
-  const sleeperUsername = useAppSelector(
-    (state) => state.auth.user?.sleeperUsername,
-  );
+  const { data: huddles, isLoading } = useMyHuddles();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
+  const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-paper text-ink">
-      <nav className="bg-chrome border-b border-line px-6 py-4 flex items-center gap-4">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink transition-colors"
-        >
-          <ChevronLeft size={14} />
-          Dashboard
-        </Link>
-        <h1 className="text-xl font-bold text-ink">Huddles</h1>
-      </nav>
+    <div className="min-h-full bg-paper text-ink font-sans">
+      <div className="max-w-2xl mx-auto px-4 sm:px-8 py-8">
 
-      <main className="p-6 max-w-2xl mx-auto space-y-4">
-        {!sleeperUsername && (
-          <Card>
-            <CardContent className="py-8 text-center">
-              <p className="text-gray-500 mb-4">
-                Connect your Sleeper account so you can link a league to your
-                huddle.
-              </p>
-              <Button onClick={() => openAccountModal("integrations")}>
-                Go to Settings
-              </Button>
-            </CardContent>
-          </Card>
+        {/* Page header */}
+        <div className="mb-8 pb-5 border-b border-line">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
+            My Huddles
+          </p>
+          <h1 className="font-serif text-3xl font-bold text-ink leading-tight">
+            Huddles
+          </h1>
+          <p className="mt-1.5 text-[13px] text-muted font-sans">
+            Create a huddle, invite your league, and link a Sleeper league to
+            unlock the full dashboard.
+          </p>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex gap-3 mb-6">
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-md bg-ink text-paper text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            <Plus size={15} />
+            Create a Huddle
+          </button>
+          <button
+            onClick={() => setJoinOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-md border border-line text-ink text-sm font-medium hover:bg-highlight transition-colors"
+          >
+            <Hash size={15} />
+            Join a Huddle
+          </button>
+        </div>
+
+        {/* Huddle list */}
+        {isLoading && (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-ink" />
+          </div>
         )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>My Huddles</CardTitle>
-            <CardDescription>
-              Create a huddle, invite your league members, then link a Sleeper
-              league from inside the huddle to unlock the full dashboard.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <HuddlesSection />
-          </CardContent>
-        </Card>
-      </main>
+        {!isLoading && (huddles?.length ?? 0) === 0 && (
+          <div className="text-center py-12 text-muted">
+            <p className="text-sm">No huddles yet.</p>
+            <p className="text-xs mt-1">Create one or ask your commissioner for an invite code.</p>
+          </div>
+        )}
+
+        {!isLoading && (huddles?.length ?? 0) > 0 && (
+          <div className="flex flex-col divide-y divide-line border border-line rounded-lg overflow-hidden">
+            {huddles!.map((h) => (
+              <Link
+                key={h.id}
+                to={`/huddles/${h.id}`}
+                className="flex items-center justify-between px-4 py-3.5 hover:bg-highlight transition-colors"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-ink truncate">{h.name}</p>
+                  <p className="text-xs text-muted mt-0.5">
+                    {h.myStatus === "pending"
+                      ? "Pending approval"
+                      : h.leagueId
+                        ? "League linked"
+                        : "No league linked yet"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-3">
+                  {h.myStatus === "pending" && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold">
+                      Pending
+                    </span>
+                  )}
+                  {!h.leagueId && h.myStatus !== "pending" && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-line text-muted font-semibold">
+                      Setup needed
+                    </span>
+                  )}
+                  <ChevronRight size={14} className="text-muted" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {createOpen && <CreateHuddleModal onClose={() => setCreateOpen(false)} />}
+        {joinOpen && <JoinHuddleModal onClose={() => setJoinOpen(false)} />}
+      </div>
     </div>
   );
 }

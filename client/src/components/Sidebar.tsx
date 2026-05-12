@@ -39,6 +39,7 @@ import {
   Users,
   X,
   Shield,
+  Settings,
 } from "lucide-react";
 import { useAppSelector } from "../store/hooks";
 import { useLeagueRosters, useLeagueUsers } from "../hooks/useSleeper";
@@ -182,8 +183,7 @@ export function Sidebar({
             </NavLink>
           ))}
 
-          {/* Commissioner-only link — only shown when the current user is
-              the league commissioner (isOwner) for the selected league. */}
+          {/* Commissioner-only link */}
           {isCommissioner && (
             <NavLink
               to="/commissioner"
@@ -200,6 +200,26 @@ export function Sidebar({
             >
               <Shield size={16} className="shrink-0" />
               {!renderCollapsed && <span>Commissioner</span>}
+            </NavLink>
+          )}
+
+          {/* League settings — visible to all members when a league is selected */}
+          {selectedLeagueId && (
+            <NavLink
+              to="/league-settings"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
+              ${
+                isActive
+                  ? "bg-highlight text-ink"
+                  : "text-muted hover:bg-highlight hover:text-ink"
+              }
+              ${renderCollapsed ? "justify-center" : ""}
+              `
+              }
+            >
+              <Settings size={16} className="shrink-0" />
+              {!renderCollapsed && <span>Settings</span>}
             </NavLink>
           )}
 
