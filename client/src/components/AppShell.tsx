@@ -40,6 +40,7 @@ import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { setSelectedLeague, setSelectedYear } from "../store/slices/authSlice";
 import { useAllSleeperLeagues } from "../hooks/useSleeper";
 import { useMyClaimedTeam } from "../hooks/useMyClaimedTeam";
+import { useMyHuddles } from "../hooks/useHuddles";
 import { buildFamilyRootMap, getFamilySeasons } from "../utils/leagueFamily";
 import { Button } from "./ui/button";
 import { Sidebar } from "./Sidebar";
@@ -63,23 +64,32 @@ export function AppShell({ children }: AppShellProps) {
     setMobileNavOpen(false);
   }, [location.pathname]);
 
-  const syncedLeagueIds = useAppSelector(
-    (state) => state.auth.user?.syncedLeagueIds ?? [],
-  );
   const selectedLeagueId = useAppSelector(
     (state) => state.auth.selectedLeagueId,
   );
   const { data: allLeagues } = useAllSleeperLeagues();
+  const { data: myHuddles } = useMyHuddles();
 
   const familyRootMap = useMemo(
     () => (allLeagues ? buildFamilyRootMap(allLeagues) : null),
     [allLeagues],
   );
 
+  // Leagues available in the sidebar = those linked to any of the user's huddles
+  const huddleLeagueIds = useMemo(
+    () =>
+      [...new Set(
+        (myHuddles ?? [])
+          .map((h) => h.leagueId)
+          .filter((id): id is string => !!id),
+      )],
+    [myHuddles],
+  );
+
   const syncedLeagues = useMemo(
     () =>
-      allLeagues?.filter((l) => syncedLeagueIds.includes(l.ref.leagueId)) ?? [],
-    [allLeagues, syncedLeagueIds],
+      allLeagues?.filter((l) => huddleLeagueIds.includes(l.ref.leagueId)) ?? [],
+    [allLeagues, huddleLeagueIds],
   );
 
   // One entry per league family, picking the most recent season as the
@@ -100,16 +110,30 @@ export function AppShell({ children }: AppShellProps) {
     return result;
   }, [syncedLeagues, familyRootMap]);
 
-  // Auto-select on first load when nothing is persisted yet. We only fire
-  // when selectedLeagueId is null so we don't clobber a league/season the
-  // user explicitly picked (which the store hydrated from localStorage).
+  // Auto-select on first load when nothing is persisted yet, OR when the
+  // previously-selected league is no longer in the available (huddle-linked)
+  // list — e.g. the user unlinked it from their huddle.
   useEffect(() => {
-    if (!selectedLeagueId && uniqueLeagues.length > 0) {
+    if (!myHuddles) return; // wait until huddles have loaded before clearing
+    const allIds = new Set(allLeagues?.map((l) => l.ref.leagueId) ?? []);
+    // The selected league must still exist AND be linked to one of the user's huddles
+    const selectionValid =
+      !!selectedLeagueId &&
+      allIds.has(selectedLeagueId) &&
+      uniqueLeagues.some(
+        (l) =>
+          (familyRootMap?.get(l.ref.leagueId) ?? l.ref.leagueId) ===
+          (familyRootMap?.get(selectedLeagueId) ?? selectedLeagueId),
+      );
+
+    if (!selectionValid && uniqueLeagues.length > 0) {
       const first = uniqueLeagues[0]!;
       dispatch(setSelectedLeague(first.ref.leagueId));
       dispatch(setSelectedYear(first.season));
+    } else if (!selectionValid && uniqueLeagues.length === 0) {
+      dispatch(setSelectedLeague(null));
     }
-  }, [uniqueLeagues, selectedLeagueId, dispatch]);
+  }, [uniqueLeagues, selectedLeagueId, myHuddles, allLeagues, familyRootMap, dispatch]);
 
   const handleLeagueChange = (leagueId: string) => {
     const league = uniqueLeagues.find((l) => l.ref.leagueId === leagueId);
@@ -221,7 +245,7 @@ export function AppShell({ children }: AppShellProps) {
               to="/leagues"
               className="text-[10px] text-accent hover:underline truncate normal-case font-sans tracking-normal"
             >
-              Sync a league to get started
+              Create or join a huddle to get started
             </Link>
           )}
         </div>
@@ -242,7 +266,7 @@ export function AppShell({ children }: AppShellProps) {
             to="/leagues"
             className="hidden sm:inline text-sm text-muted hover:text-ink transition-colors"
           >
-            Leagues
+            Huddles
           </Link>
           <button
             onClick={() => openAccountModal()}

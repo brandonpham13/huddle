@@ -1,14 +1,16 @@
 export type ClaimStatus = "pending" | "approved" | "rejected";
+export type HuddleMemberStatus = "commissioner" | "approved" | "pending";
 
 export interface Huddle {
   id: string;
-  leagueProvider: string;
-  leagueId: string;
+  leagueProvider: string | null;
+  leagueId: string | null;
   name: string;
   inviteCode?: string;
   inviteCodeUpdatedAt?: string;
   createdAt: string;
   updatedAt: string;
+  myStatus?: HuddleMemberStatus;
 }
 
 export interface UserSummary {

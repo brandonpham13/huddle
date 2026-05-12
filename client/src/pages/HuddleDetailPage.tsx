@@ -26,12 +26,15 @@ import {
   useRotateInviteCode,
   useSubmitClaim,
   useUpdateHuddle,
+  useLinkLeague,
 } from "../hooks/useHuddles";
 import {
+  useAllSleeperLeagues,
   useLeague,
   useLeagueRosters,
   useLeagueUsers,
 } from "../hooks/useSleeper";
+import { buildFamilyRootMap } from "../utils/leagueFamily";
 import type { Roster, TeamUser } from "../types/fantasy";
 import type {
   CommissionerSummary,
@@ -94,7 +97,9 @@ export function HuddleDetailPage() {
               <CardHeader>
                 <CardTitle>{detail.huddle.name}</CardTitle>
                 <CardDescription>
-                  League: {league?.name ?? detail.huddle.leagueId}
+                  {detail.huddle.leagueId
+                    ? `League: ${league?.name ?? detail.huddle.leagueId}`
+                    : "No league linked yet"}
                   {" · "}
                   Commissioners:{" "}
                   {detail.huddle.commissioners
@@ -104,18 +109,36 @@ export function HuddleDetailPage() {
               </CardHeader>
             </Card>
 
-            <RosterTable
-              huddleId={huddleId}
-              rosters={rosters ?? []}
-              leagueUsers={leagueUsers ?? []}
-              claims={detail.claims}
-              myClaim={detail.myClaim}
-              currentUserId={userId ?? null}
-              isCommissioner={isCommissioner}
-              commissionerCount={detail.huddle.commissioners.length}
-            />
+            {/* Commissioners can link a Sleeper league when none is set yet */}
+            {isCommissioner && !detail.huddle.leagueId && (
+              <LinkLeaguePanel huddleId={huddleId} />
+            )}
 
-            {isCommissioner && (
+            {/* Non-commissioners see a prompt when no league is linked */}
+            {!isCommissioner && !detail.huddle.leagueId && (
+              <Card>
+                <CardContent className="py-6 text-center text-sm text-muted-foreground">
+                  The commissioner hasn't linked a Sleeper league yet. Check
+                  back soon.
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Roster table only makes sense once a league is linked */}
+            {detail.huddle.leagueId && (
+              <RosterTable
+                huddleId={huddleId}
+                rosters={rosters ?? []}
+                leagueUsers={leagueUsers ?? []}
+                claims={detail.claims}
+                myClaim={detail.myClaim}
+                currentUserId={userId ?? null}
+                isCommissioner={isCommissioner}
+                commissionerCount={detail.huddle.commissioners.length}
+              />
+            )}
+
+            {isCommissioner && detail.huddle.leagueId && (
               <CommissionerPendingPanel
                 huddleId={huddleId}
                 rosters={rosters ?? []}
@@ -142,8 +165,6 @@ export function HuddleDetailPage() {
               <DangerZone
                 huddleId={huddleId}
                 groupName={detail.huddle.name}
-                leagueProvider={detail.huddle.leagueProvider}
-                leagueId={detail.huddle.leagueId}
               />
             )}
           </>
@@ -197,6 +218,14 @@ function RosterTable({
     return map;
   }, [claims]);
 
+  const pendingByRoster = useMemo(() => {
+    const map = new Map<number, HuddleClaimSummary>();
+    for (const c of claims) {
+      if (c.status === "pending") map.set(c.rosterId, c);
+    }
+    return map;
+  }, [claims]);
+
   const sorted = useMemo(
     () => [...rosters].sort((a, b) => a.rosterId - b.rosterId),
     [rosters],
@@ -220,8 +249,11 @@ function RosterTable({
         <div className="space-y-2">
           {sorted.map((roster) => {
             const claim = approvedByRoster.get(roster.rosterId);
+            const pendingClaim = pendingByRoster.get(roster.rosterId);
             const teamName = rosterTeamName(roster, leagueUsers);
             const isMyTeam = claim && claim.user?.id === currentUserId;
+            const isMyPendingClaim = pendingClaim?.user?.id === currentUserId ||
+              (myClaim?.rosterId === roster.rosterId && myClaim?.status === "pending");
             const isExpanding = claimingRosterId === roster.rosterId;
             // Last-commish self-unlink guard
             const selfUnlinkBlocked =
@@ -299,6 +331,61 @@ function RosterTable({
                                     onSuccess: () =>
                                       setConfirmRemoveClaimId(null),
                                   },
+                                );
+                              }}
+                            >
+                              Confirm
+                            </Button>
+                          </div>
+                        ) : null}
+                      </>
+                    ) : pendingClaim ? (
+                      // Pending claim — visible to everyone; name shown to commissioner + claimant
+                      <>
+                        <span className="text-xs text-gray-500">
+                          {pendingClaim.user
+                            ? <span className="font-medium text-gray-900">{describeUser(pendingClaim.user)}</span>
+                            : <span className="italic text-gray-400">Pending request</span>
+                          }
+                        </span>
+                        <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+                          Pending
+                        </span>
+                        {/* Claimant can withdraw; commissioner can force-remove */}
+                        {(isMyPendingClaim || isCommissioner) &&
+                          confirmRemoveClaimId !== pendingClaim.id ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
+                            onClick={() => setConfirmRemoveClaimId(pendingClaim.id)}
+                          >
+                            {isMyPendingClaim ? "Withdraw" : "Remove"}
+                          </Button>
+                        ) : (isMyPendingClaim || isCommissioner) &&
+                          confirmRemoveClaimId === pendingClaim.id ? (
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => setConfirmRemoveClaimId(null)}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 border-red-300 hover:bg-red-50 h-6 px-2 text-xs"
+                              disabled={removeClaim.isPending}
+                              onClick={() => {
+                                removeClaim.mutate(
+                                  {
+                                    huddleId,
+                                    claimId: pendingClaim.id,
+                                    isCommissioner,
+                                  },
+                                  { onSuccess: () => setConfirmRemoveClaimId(null) },
                                 );
                               }}
                             >
@@ -714,18 +801,100 @@ function ManageCommissioners({
   );
 }
 
+// ---- Link League panel (commissioner, when no league is set) ----
+
+function LinkLeaguePanel({ huddleId }: { huddleId: string }) {
+  const { data: allLeagues, isLoading } = useAllSleeperLeagues();
+  const linkLeague = useLinkLeague();
+  const [selectedLeagueId, setSelectedLeagueId] = useState("");
+
+  // Deduplicate to the latest season per family, keyed by family root ID so
+  // renames between seasons don't produce duplicate entries.
+  const options = useMemo(() => {
+    if (!allLeagues) return [];
+    const familyRootMap = buildFamilyRootMap(allLeagues);
+    const seen = new Set<string>();
+    const result: typeof allLeagues = [];
+    for (const l of [...allLeagues].sort(
+      (a, b) => Number(b.season) - Number(a.season),
+    )) {
+      const root = familyRootMap.get(l.ref.leagueId) ?? l.ref.leagueId;
+      if (seen.has(root)) continue;
+      seen.add(root);
+      result.push(l);
+    }
+    return result;
+  }, [allLeagues]);
+
+  const selectedLeague = options.find((l) => l.ref.leagueId === selectedLeagueId);
+
+  const handleLink = () => {
+    if (!selectedLeagueId) return;
+    linkLeague.mutate({
+      huddleId,
+      leagueProvider: "sleeper",
+      leagueId: selectedLeagueId,
+      leagueName: selectedLeague?.name,
+    });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Link a league</CardTitle>
+        <CardDescription>
+          Choose the Sleeper league this huddle is for. Members will then be
+          able to claim their team rosters.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading && <p className="text-sm text-gray-400">Loading leagues…</p>}
+        {!isLoading && options.length === 0 && (
+          <p className="text-sm text-gray-500">
+            No Sleeper leagues found. Make sure your Sleeper account is
+            connected in Account → Integrations.
+          </p>
+        )}
+        {options.length > 0 && (
+          <div className="space-y-3">
+            <select
+              value={selectedLeagueId}
+              onChange={(e) => setSelectedLeagueId(e.target.value)}
+              className="w-full text-sm border rounded-md px-2 py-1.5 bg-white"
+            >
+              <option value="">— Select a league —</option>
+              {options.map((l) => (
+                <option key={l.ref.leagueId} value={l.ref.leagueId}>
+                  {l.name} ({l.season})
+                </option>
+              ))}
+            </select>
+            <Button
+              disabled={!selectedLeagueId || linkLeague.isPending}
+              onClick={handleLink}
+            >
+              {linkLeague.isPending ? "Linking…" : "Link league"}
+            </Button>
+            {linkLeague.isError && (
+              <p className="text-xs text-red-500">
+                {(linkLeague.error as Error).message}
+              </p>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ---- Danger zone (commissioner-only delete) ----
 
 function DangerZone({
   huddleId,
   groupName,
-  leagueProvider,
-  leagueId,
 }: {
   huddleId: string;
   groupName: string;
-  leagueProvider: string;
-  leagueId: string;
 }) {
   const del = useDeleteHuddle();
   const navigate = useNavigate();
@@ -736,7 +905,7 @@ function DangerZone({
 
   const handleDelete = () => {
     del.mutate(
-      { huddleId, leagueProvider, leagueId },
+      { huddleId },
       {
         onSuccess: () => {
           navigate("/leagues");

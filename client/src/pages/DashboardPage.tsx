@@ -32,6 +32,7 @@ import {
 import { usePowerRankings } from "../hooks/usePowerRankings";
 import { getFamilySeasons } from "../utils/leagueFamily";
 import { useMyClaimedTeam } from "../hooks/useMyClaimedTeam";
+import { useMyHuddles } from "../hooks/useHuddles";
 import { Ticker } from "../widgets/dashboard/Ticker";
 import { Masthead } from "../widgets/dashboard/Masthead";
 import { MyTeamSection } from "../widgets/dashboard/MyTeamSection";
@@ -41,15 +42,14 @@ import { Scoreboard } from "../widgets/dashboard/Scoreboard";
 import { PowerRankings } from "../widgets/dashboard/PowerRankings";
 
 /**
- * Shown when the user has no leagues synced yet (or hasn't picked one).
- * "Syncing" happens on the /leagues page, which is wired up in App.tsx.
+ * Shown when the user has no huddle-linked league yet.
  */
 function EmptyState() {
   return (
     <div className="flex-1 flex items-center justify-center">
       <div className="text-center font-serif italic text-muted text-lg">
         <Link to="/leagues" className="text-accent hover:underline">
-          Sync a league
+          Create or join a huddle
         </Link>{" "}
         to get started.
       </div>
@@ -61,16 +61,20 @@ export function DashboardPage() {
   // -----------------------------------------------------------------------
   // Step 1: Read selection state out of Redux.
   //
-  // `syncedLeagueIds` is the set of Sleeper leagues the user has connected
-  // (managed on /leagues). `selectedLeagueId` is the currently-active one,
-  // persisted to localStorage by the store subscriber in `store/index.ts`.
+  // `selectedLeagueId` is the currently-active league, persisted to
+  // localStorage by the store subscriber in `store/index.ts`. AppShell
+  // auto-selects from leagues linked to the user's huddles; DashboardPage
+  // just consumes whichever value is already set.
   // -----------------------------------------------------------------------
-  const syncedLeagueIds = useAppSelector(
-    (state) => state.auth.user?.syncedLeagueIds ?? [],
-  );
   const selectedLeagueId = useAppSelector(
     (state) => state.auth.selectedLeagueId,
   );
+
+  // Determine whether the user has any huddle-linked leagues available.
+  // `syncedLeagueIds` (Clerk metadata) no longer drives the dashboard —
+  // only leagues linked to a huddle the user belongs to are shown.
+  const { data: myHuddles } = useMyHuddles();
+  const hasLinkedLeague = (myHuddles ?? []).some((h) => !!h.leagueId);
 
   // -----------------------------------------------------------------------
   // Step 2: Fetch the global / per-league reference data.
@@ -177,13 +181,8 @@ export function DashboardPage() {
     familySeasons[0]?.ref.leagueId ?? selectedLeagueId;
   const { rosterId: myRosterId } = useMyClaimedTeam(currentFamilyLeagueId);
 
-  // List of leagues the user has actually synced (vs. the broader allLeagues
-  // which also contains family siblings the user may not have explicitly
-  // added). `hasLeague` gates the empty-state.
-  const syncedLeagues =
-    allLeagues?.filter((l) => syncedLeagueIds.includes(l.ref.leagueId)) ?? [];
-
-  const hasLeague = !!selectedLeagueId && syncedLeagues.length > 0;
+  // Show content only when a league is both selected and linked to a huddle.
+  const hasLeague = !!selectedLeagueId && hasLinkedLeague;
 
   // -----------------------------------------------------------------------
   // Step 6: Render. The newspaper layout, top-to-bottom:

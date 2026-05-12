@@ -13,12 +13,14 @@ import {
   isCommissioner,
   listClaimsForHuddle,
   listCommissioners,
-  listHuddlesForLeague,
+  listHuddlesForUser,
+  linkLeague,
   removeCommissioner,
   rotateInviteCode,
   submitClaim,
   unclaimTeam,
   updateHuddle,
+  type HuddleMemberStatus,
 } from "../services/huddlesService.js";
 
 const clerkSecretKey = process.env["CLERK_SECRET_KEY"];
@@ -68,8 +70,8 @@ function handleError(err: unknown, res: Response): void {
 function serializeHuddle(
   h: {
     id: string;
-    leagueProvider: string;
-    leagueId: string;
+    leagueProvider: string | null;
+    leagueId: string | null;
     name: string;
     inviteCode: string;
     inviteCodeUpdatedAt: Date;
@@ -114,55 +116,35 @@ function serializeClaim(c: {
 }
 
 export function initHuddleRoutes(app: Express) {
-  // POST /api/huddles
+  // POST /api/huddles — name is auto-generated from the user's Clerk display name
   app.post("/api/huddles", requireAuth, async (req: Request, res: Response) => {
     try {
       const { userId } = getAuth(req);
-      const { leagueProvider, leagueId, name, rosterId } = req.body as {
-        leagueProvider?: string;
-        leagueId?: string;
-        name?: string;
-        rosterId?: number | null;
-      };
-      if (typeof leagueProvider !== "string" || !leagueProvider) {
-        res.status(400).json({ error: "leagueProvider required" });
-        return;
-      }
-      if (typeof leagueId !== "string" || !leagueId) {
-        res.status(400).json({ error: "leagueId required" });
-        return;
-      }
-      const huddle = await createHuddle({
-        leagueProvider,
-        leagueId,
-        name,
-        rosterId: rosterId ?? null,
-        commissionerUserId: userId!,
-      });
+      const clerkUser = await clerkClient.users.getUser(userId!);
+      const handle =
+        clerkUser.username ??
+        clerkUser.firstName ??
+        clerkUser.emailAddresses[0]?.emailAddress?.split("@")[0] ??
+        "Your";
+      const name = `${handle}'s Huddle`;
+      const huddle = await createHuddle({ name, commissionerUserId: userId! });
       res.status(201).json({ huddle: serializeHuddle(huddle, true) });
     } catch (err) {
       handleError(err, res);
     }
   });
 
-  // GET /api/huddles?leagueProvider=sleeper&leagueId=123
+  // GET /api/huddles — returns all huddles the user is a member of
   app.get("/api/huddles", requireAuth, async (req: Request, res: Response) => {
     try {
       const { userId } = getAuth(req);
-      const leagueProvider = req.query["leagueProvider"];
-      const leagueId = req.query["leagueId"];
-      if (typeof leagueProvider !== "string" || typeof leagueId !== "string") {
-        res
-          .status(400)
-          .json({ error: "leagueProvider and leagueId query params required" });
-        return;
-      }
-      const list = await listHuddlesForLeague(
-        leagueProvider,
-        leagueId,
-        userId!,
-      );
-      res.json({ huddles: list.map((h) => serializeHuddle(h, false)) });
+      const list = await listHuddlesForUser(userId!);
+      res.json({
+        huddles: list.map(({ huddle, myStatus }) => ({
+          ...serializeHuddle(huddle, false),
+          myStatus,
+        })),
+      });
     } catch (err) {
       handleError(err, res);
     }
@@ -176,30 +158,13 @@ export function initHuddleRoutes(app: Express) {
       try {
         const { userId } = getAuth(req);
         const code = req.query["code"];
-        const leagueProvider = req.query["leagueProvider"];
-        const leagueId = req.query["leagueId"];
         if (typeof code !== "string" || !code) {
           res.status(400).json({ error: "code query param required" });
           return;
         }
-        if (
-          typeof leagueProvider !== "string" ||
-          typeof leagueId !== "string"
-        ) {
-          res.status(400).json({
-            error: "leagueProvider and leagueId query params required",
-          });
-          return;
-        }
-        const huddle = await getHuddleByInviteCode(
-          code,
-          leagueProvider,
-          leagueId,
-        );
+        const huddle = await getHuddleByInviteCode(code);
         if (!huddle) {
-          res
-            .status(404)
-            .json({ error: "No huddle found with that invite code" });
+          res.status(404).json({ error: "No huddle found with that invite code" });
           return;
         }
         // Check if the user is already a member (approved claim or commissioner)
@@ -208,16 +173,47 @@ export function initHuddleRoutes(app: Express) {
           listCommissioners(huddle.id),
         ]);
         const alreadyMember =
-          existingClaims.some(
-            (c) => c.userId === userId && c.status === "approved",
-          ) || commishRows.some((c) => c.userId === userId);
+          existingClaims.some((c) => c.userId === userId && c.status === "approved") ||
+          commishRows.some((c) => c.userId === userId);
         if (alreadyMember) {
-          res
-            .status(409)
-            .json({ error: "You're already a member of this huddle" });
+          res.status(409).json({ error: "You're already a member of this huddle" });
           return;
         }
         res.json({ huddle: serializeHuddle(huddle, false) });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // PATCH /api/huddles/:id/league — commissioner links a Sleeper league
+  app.patch(
+    "/api/huddles/:id/league",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        const { leagueProvider, leagueId, leagueName } = req.body as {
+          leagueProvider?: string;
+          leagueId?: string;
+          leagueName?: string;
+        };
+        if (typeof leagueProvider !== "string" || !leagueProvider) {
+          res.status(400).json({ error: "leagueProvider required" });
+          return;
+        }
+        if (typeof leagueId !== "string" || !leagueId) {
+          res.status(400).json({ error: "leagueId required" });
+          return;
+        }
+        const huddle = await linkLeague({
+          huddleId: req.params.id!,
+          userId: userId!,
+          leagueProvider,
+          leagueId,
+          leagueName: typeof leagueName === "string" && leagueName ? leagueName : undefined,
+        });
+        res.json({ huddle: serializeHuddle(huddle, true) });
       } catch (err) {
         handleError(err, res);
       }

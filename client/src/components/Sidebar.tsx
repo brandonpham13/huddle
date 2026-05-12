@@ -242,7 +242,7 @@ export function Sidebar({
             to="/leagues"
             className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-muted hover:bg-highlight hover:text-ink transition-colors"
           >
-            Leagues
+            Huddles
           </NavLink>
           {onOpenAccount && (
             <button

@@ -111,10 +111,7 @@ export async function listCommissioners(
 // ---- Huddle CRUD ----
 
 export async function createHuddle(opts: {
-  leagueProvider: string;
-  leagueId: string;
   name: unknown;
-  rosterId?: number | null;
   commissionerUserId: string;
 }): Promise<Huddle> {
   const name = validateName(opts.name);
@@ -122,12 +119,7 @@ export async function createHuddle(opts: {
 
   const [created] = await db
     .insert(huddles)
-    .values({
-      leagueProvider: opts.leagueProvider,
-      leagueId: opts.leagueId,
-      name,
-      inviteCode,
-    })
+    .values({ name, inviteCode })
     .returning();
 
   if (!created) fail(500, "Failed to create huddle");
@@ -139,48 +131,86 @@ export async function createHuddle(opts: {
     addedBy: opts.commissionerUserId,
   });
 
-  // Auto-approve commissioner's own team claim if they specified one
-  if (typeof opts.rosterId === "number" && opts.rosterId > 0) {
-    await db.insert(teamClaims).values({
-      huddleId: created!.id,
-      userId: opts.commissionerUserId,
-      rosterId: opts.rosterId,
-      status: "approved",
-      decidedAt: new Date(),
-      decidedBy: opts.commissionerUserId,
-    });
-  }
-
   return created!;
 }
 
-export async function listHuddlesForLeague(
-  leagueProvider: string,
-  leagueId: string,
+export type HuddleMemberStatus = "commissioner" | "approved" | "pending";
+
+export async function listHuddlesForUser(
   userId: string,
-): Promise<Huddle[]> {
-  // Only show huddles where the user has an approved claim
-  const claimRows = await db
-    .select({ huddleId: teamClaims.huddleId })
-    .from(teamClaims)
-    .where(
-      and(eq(teamClaims.userId, userId), eq(teamClaims.status, "approved")),
-    );
+): Promise<{ huddle: Huddle; myStatus: HuddleMemberStatus }[]> {
+  // Include pending claims so the user can see huddles they've requested to join
+  const [commishRows, claimRows] = await Promise.all([
+    db
+      .select({ huddleId: huddleCommissioners.huddleId })
+      .from(huddleCommissioners)
+      .where(eq(huddleCommissioners.userId, userId)),
+    db
+      .select({ huddleId: teamClaims.huddleId, status: teamClaims.status })
+      .from(teamClaims)
+      .where(
+        and(
+          eq(teamClaims.userId, userId),
+          inArray(teamClaims.status, ["approved", "pending"]),
+        ),
+      ),
+  ]);
 
-  const memberHuddleIds = [...new Set(claimRows.map((r) => r.huddleId))];
+  const commishSet = new Set(commishRows.map((r) => r.huddleId));
+  // If a user has both an approved and a pending claim somehow, approved wins
+  const claimMap = new Map<string, "approved" | "pending">();
+  for (const r of claimRows) {
+    const existing = claimMap.get(r.huddleId);
+    if (!existing || r.status === "approved") {
+      claimMap.set(r.huddleId, r.status as "approved" | "pending");
+    }
+  }
 
-  if (memberHuddleIds.length === 0) return [];
+  const allHuddleIds = [
+    ...new Set([...commishSet, ...claimMap.keys()]),
+  ];
 
-  return db
+  if (allHuddleIds.length === 0) return [];
+
+  const huddleList = await db
     .select()
     .from(huddles)
-    .where(
-      and(
-        eq(huddles.leagueProvider, leagueProvider),
-        eq(huddles.leagueId, leagueId),
-        inArray(huddles.id, memberHuddleIds),
-      ),
-    );
+    .where(inArray(huddles.id, allHuddleIds));
+
+  return huddleList.map((huddle) => ({
+    huddle,
+    myStatus: commishSet.has(huddle.id)
+      ? "commissioner"
+      : (claimMap.get(huddle.id) ?? "pending"),
+  }));
+}
+
+export async function linkLeague(opts: {
+  huddleId: string;
+  userId: string;
+  leagueProvider: string;
+  leagueId: string;
+  leagueName?: string; // when provided, rename the huddle to the league name
+}): Promise<Huddle> {
+  if (!(await isCommissioner(opts.huddleId, opts.userId)))
+    fail(403, "Only a commissioner can link a league");
+
+  const patch: Partial<typeof huddles.$inferInsert> = {
+    leagueProvider: opts.leagueProvider,
+    leagueId: opts.leagueId,
+    updatedAt: new Date(),
+  };
+  if (opts.leagueName) {
+    patch.name = opts.leagueName.trim().slice(0, MAX_NAME_LEN);
+  }
+
+  const [updated] = await db
+    .update(huddles)
+    .set(patch)
+    .where(eq(huddles.id, opts.huddleId))
+    .returning();
+  if (!updated) fail(500, "Failed to link league");
+  return updated!;
 }
 
 export async function getHuddle(huddleId: string): Promise<Huddle | null> {
@@ -194,19 +224,11 @@ export async function getHuddle(huddleId: string): Promise<Huddle | null> {
 
 export async function getHuddleByInviteCode(
   code: string,
-  leagueProvider: string,
-  leagueId: string,
 ): Promise<Huddle | null> {
   const rows = await db
     .select()
     .from(huddles)
-    .where(
-      and(
-        eq(huddles.inviteCode, code.toUpperCase()),
-        eq(huddles.leagueProvider, leagueProvider),
-        eq(huddles.leagueId, leagueId),
-      ),
-    )
+    .where(eq(huddles.inviteCode, code.toUpperCase()))
     .limit(1);
   return rows[0] ?? null;
 }
