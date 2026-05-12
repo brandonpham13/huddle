@@ -32,6 +32,9 @@ import {
   useRemoveCommissioner,
   useDeleteHuddle,
   useRemoveClaim,
+  useAnnouncements,
+  useCreateAnnouncement,
+  useDeleteAnnouncement,
 } from "../hooks/useHuddles";
 import type { Roster, TeamUser } from "../types/fantasy";
 import type {
@@ -517,6 +520,105 @@ function DangerZonePanel({
   );
 }
 
+
+// ─── Announcements panel ──────────────────────────────────────────────────────
+
+function AnnouncementsPanel({ huddleId }: { huddleId: string }) {
+  const { data: announcements } = useAnnouncements(huddleId);
+  const create = useCreateAnnouncement();
+  const del = useDeleteAnnouncement();
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  const handlePost = () => {
+    if (!title.trim() || !body.trim()) return;
+    create.mutate(
+      { huddleId, title: title.trim(), body: body.trim() },
+      { onSuccess: () => { setTitle(""); setBody(""); } },
+    );
+  };
+
+  return (
+    <Panel>
+      <PanelHeader
+        title="Announcements"
+        description="Post a message pinned to every member's dashboard."
+      />
+      <div className="flex flex-col gap-2">
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={120}
+          placeholder="Title"
+          className="text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink"
+        />
+        <textarea
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          maxLength={2000}
+          rows={3}
+          placeholder="Write your announcement…"
+          className="text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink resize-none"
+        />
+        <div className="flex items-center justify-end gap-3">
+          {create.isError && (
+            <p className="text-[11.5px] text-red-600 font-sans flex-1">
+              {(create.error as Error).message}
+            </p>
+          )}
+          <BtnPrimary
+            onClick={handlePost}
+            disabled={create.isPending || !title.trim() || !body.trim()}
+          >
+            {create.isPending ? "Posting…" : "Post announcement"}
+          </BtnPrimary>
+        </div>
+      </div>
+      {announcements && announcements.length > 0 && (
+        <div className="flex flex-col gap-3 border-t border-line pt-3">
+          {announcements.map((a) => (
+            <div key={a.id} className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold font-serif text-ink leading-tight">
+                  {a.title}
+                </p>
+                <p className="text-[12px] text-muted font-sans mt-0.5 line-clamp-2">
+                  {a.body}
+                </p>
+                <p className="text-[10.5px] text-muted font-sans mt-1">
+                  {new Date(a.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+              {confirmDeleteId !== a.id ? (
+                <Btn danger onClick={() => setConfirmDeleteId(a.id)} className="shrink-0">
+                  Delete
+                </Btn>
+              ) : (
+                <div className="flex gap-1.5 shrink-0">
+                  <Btn onClick={() => setConfirmDeleteId(null)}>Cancel</Btn>
+                  <Btn
+                    danger
+                    disabled={del.isPending}
+                    onClick={() =>
+                      del.mutate(
+                        { huddleId, announcementId: a.id },
+                        { onSuccess: () => setConfirmDeleteId(null) },
+                      )
+                    }
+                  >
+                    Confirm
+                  </Btn>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 // ─── Coming-soon stub section ─────────────────────────────────────────────────
 
 function StubSection({
@@ -599,12 +701,16 @@ export function CommissionerPage() {
         <div className="flex flex-col gap-5">
 
           {/* ── League management (coming soon) ───────────────────────── */}
-          <StubSection
-            icon={Megaphone}
-            title="Announcements"
-            description="Post a message that gets pinned to the top of every member's dashboard. Use it for trade deadlines, playoff reminders, or trash talk."
-            tag="League communications"
-          />
+          {huddle ? (
+            <AnnouncementsPanel huddleId={huddle.id} />
+          ) : (
+            <StubSection
+              icon={Megaphone}
+              title="Announcements"
+              description="Post a message that gets pinned to the top of every member's dashboard. Use it for trade deadlines, playoff reminders, or trash talk."
+              tag="League communications"
+            />
+          )}
           <StubSection
             icon={DollarSign}
             title="Dues Tracker"

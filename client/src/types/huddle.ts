@@ -56,3 +56,13 @@ export interface HuddleDetailResponse {
   claims: HuddleClaimSummary[];
   myClaim: { id: string; rosterId: number; status: ClaimStatus } | null;
 }
+
+export interface HuddleAnnouncement {
+  id: string;
+  huddleId: string;
+  authorId: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
