@@ -10,7 +10,7 @@ import {
   CardDescription,
 } from "../components/ui/card";
 import { Button } from "../components/ui/button";
-import { HuddlesSection } from "../components/huddles/LeagueHuddlesSection";
+import { HuddlesSection } from "../components/huddles/HuddlesSection";
 
 export function LeaguesPage() {
   const { open: openAccountModal } = useAccountModal();

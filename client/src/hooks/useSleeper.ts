@@ -30,8 +30,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import axios from "axios";
 import { useAuth } from "@clerk/clerk-react";
-import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { setSyncedLeagueIds } from "../store/slices/authSlice";
+import { useAppSelector } from "../store/hooks";
 import type {
   League,
   Roster,
@@ -338,41 +337,6 @@ export function useDraftPicks(draftId: string | null) {
     },
     enabled: !!draftId,
     staleTime: 60 * 60 * 1000,
-  });
-}
-
-/**
- * Mutation: persist the user's selected synced league IDs to the backend.
- *
- * Used by the /leagues page when the user toggles which Sleeper leagues
- * they want to track. On success we both:
- *   - update the Redux `auth.user.syncedLeagueIds` so the rest of the app
- *     (sidebar, dashboard) sees the new selection immediately
- *   - invalidate the cached `sleeper-leagues` queries so any league lists
- *     downstream refetch
- *
- * Clerk JWT is forwarded via Bearer header — the backend uses it to
- * identify the user and write to the right row in Postgres.
- */
-export function useSyncLeagues() {
-  const { getToken } = useAuth();
-  const dispatch = useAppDispatch();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (syncedLeagueIds: string[]) => {
-      const token = await getToken();
-      const res = await axios.patch<{ syncedLeagueIds: string[] }>(
-        "/api/user/synced-leagues",
-        { syncedLeagueIds },
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      return res.data.syncedLeagueIds;
-    },
-    onSuccess: (syncedLeagueIds) => {
-      dispatch(setSyncedLeagueIds(syncedLeagueIds));
-      queryClient.invalidateQueries({ queryKey: ["sleeper-leagues"] });
-    },
   });
 }
 
