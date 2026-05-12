@@ -456,15 +456,14 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
             />
           </div>
           <div className="mt-3">
-            <Eyebrow>Streaks</Eyebrow>
             <div className="mt-2 grid grid-cols-2 gap-3">
               <Stat
-                label="Longest W"
+                label="Longest W Streak"
                 value={stats ? String(stats.longestWinStreak) : "—"}
                 accent
               />
               <Stat
-                label="Longest L"
+                label="Longest L Streak"
                 value={stats ? String(stats.longestLossStreak) : "—"}
               />
             </div>
