@@ -1,5 +1,5 @@
 /**
- * teamStatsService.ts — v2
+ * teamStatsService.ts - v2
  *
  * Computes lifetime and per-season statistics for a single fantasy team
  * across an entire league family (multiple seasons of the same league).
@@ -11,7 +11,7 @@
  *
  * Design notes:
  *   - We make *all* network calls in parallel where possible to keep latency low.
- *   - `provider.*` calls are the only I/O — no DB access from this layer.
+ *   - `provider.*` calls are the only I/O - no DB access from this layer.
  *   - All internal state is immutable and rebuit on every call (no caching here;
  *     the route layer or TanStack Query on the client own caching concerns).
  */
@@ -24,7 +24,7 @@ import type {
   Roster,
   TeamUser,
 } from "../domain/fantasy.js";
-import type { TeamStats, SeasonStat, H2HRecord } from "../domain/fantasy.js";
+import type { TeamStats, SeasonStat, H2HRecord, H2HContribution } from "../domain/fantasy.js";
 import type { ProviderId } from "../domain/fantasy.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -44,6 +44,38 @@ function regularSeasonWeekCount(league: League): number {
   if (playoffStart && playoffStart > 1) return playoffStart - 1;
   if (lastScored && lastScored > 0) return lastScored;
   return 13; // safe default for most platforms
+}
+
+/** Internal map key: leagueId + unit separator + season. */
+const H2H_CONTRIB_SEP = "\x1f";
+
+function h2hContribKey(leagueId: string, season: string): string {
+  return `${leagueId}${H2H_CONTRIB_SEP}${season}`;
+}
+
+/** Plain object counts survive `{ ...rec }` merges; Maps do not. */
+type H2HContribBucket = Record<string, number>;
+
+function mergeContribBuckets(into: H2HContribBucket, from: H2HContribBucket): void {
+  for (const k of Object.keys(from)) {
+    into[k] = (into[k] ?? 0) + from[k]!;
+  }
+}
+
+function contribBucketToSortedArray(bucket: H2HContribBucket): H2HContribution[] {
+  const out: H2HContribution[] = [];
+  for (const k of Object.keys(bucket)) {
+    const games = bucket[k]!;
+    const i = k.indexOf(H2H_CONTRIB_SEP);
+    const leagueId = i >= 0 ? k.slice(0, i) : k;
+    const season = i >= 0 ? k.slice(i + H2H_CONTRIB_SEP.length) : "";
+    out.push({ leagueId, season, games });
+  }
+  out.sort((a, b) => {
+    if (a.season !== b.season) return b.season.localeCompare(a.season);
+    return a.leagueId.localeCompare(b.leagueId);
+  });
+  return out;
 }
 
 /**
@@ -76,7 +108,7 @@ function computeSeeds(
  * Determine a roster's postseason result from the winners bracket.
  *
  * Strategy:
- *   1. Find the highest round number in the bracket — that's the championship round.
+ *   1. Find the highest round number in the bracket - that's the championship round.
  *   2. The winner of that round is champion; the loser is runner_up.
  *   3. For 3rd place, look for a matchup whose `place` field equals 3, or a
  *      matchup in the round just below the championship whose loser_roster_id
@@ -133,7 +165,7 @@ interface SeasonData {
   matchupsByWeek: Matchup[][];
   /** All rosters in the league (for seed computation). */
   allRosters: Roster[];
-  /** All users in the league — used to resolve rosterId → team name for H2H display. */
+  /** All users in the league - used to resolve rosterId → team name for H2H display. */
   allUsers: TeamUser[];
   /** Winners bracket (empty array if league not complete or provider doesn't support it). */
   winnersBracket: PlayoffMatchup[];
@@ -212,7 +244,7 @@ export async function computeTeamStats(
   let thirdPlace = 0;
   const seedsForAvg: number[] = [];
 
-  // Extremes — tracked as mutable "best so far" records
+  // Extremes - tracked as mutable "best so far" records
   let highScore: TeamStats["highScore"] = null;
   let lowScore: TeamStats["lowScore"] = null;
   let biggestWin: TeamStats["biggestWin"] = null;
@@ -228,13 +260,34 @@ export async function computeTeamStats(
   // H2H accumulation: opponentRosterId is per-league, but since rosters map
   // to the same human owner across seasons (matched by ownerId), we track by
   // opponentOwnerId when available, falling back to a per-league composite key.
-  // For simplicity and correctness within a single league family, we key by
-  // opponentRosterId within each season and merge by opponentOwnerId at the end.
+  //
+  // Pre-pass: build a global "leagueId:rosterId" → ownerId index so that even
+  // seasons where a roster's ownerId field is missing can be resolved via a
+  // season where that same person did have a userId attached. This prevents the
+  // same human from appearing as both an ownerId-keyed entry AND one or more
+  // noowner:* entries.
   //
   // Structure: opponentOwnerId (or "noowner:<leagueId>:<rosterId>") -> record
+  const rosterOwnerIndex = new Map<string, string>(); // "leagueId:rosterId" -> ownerId
+  for (const sd of seasonDataList) {
+    for (const r of sd.allRosters) {
+      if (r.ownerId) {
+        rosterOwnerIndex.set(`${sd.league.ref.leagueId}:${r.rosterId}`, r.ownerId);
+      }
+    }
+  }
+
   const h2hByOwner = new Map<
     string,
-    { opponentRosterId: number; opponentOwnerId: string | null; opponentTeamName: string | null; wins: number; losses: number; ties: number }
+    {
+      opponentRosterId: number;
+      opponentOwnerId: string | null;
+      opponentTeamName: string | null;
+      wins: number;
+      losses: number;
+      ties: number;
+      contrib: H2HContribBucket;
+    }
   >();
 
   // ── Process each season ───────────────────────────────────────────────────
@@ -277,7 +330,7 @@ export async function computeTeamStats(
     let seasonPF = 0;
     let seasonPA = 0;
 
-    // For seed computation — PF and wins we derived ourselves
+    // For seed computation - PF and wins we derived ourselves
     const pfByRoster = new Map<number, number>();
     const winsByRoster = new Map<number, number>();
 
@@ -367,20 +420,28 @@ export async function computeTeamStats(
       // ── H2H accumulation ─────────────────────────────────────────────
       // oppRoster / oppOwnerId / oppName already resolved above for extremes
       if (oppRosterId != null) {
-        // Use ownerId as key when we have it, otherwise fall back to a stable
-        // composite that won't collide across leagues.
-        const key = oppOwnerId ?? `noowner:${leagueId}:${oppRosterId}`;
+        // Use ownerId as key when we have it. If the roster didn't have an
+        // ownerId directly, consult the pre-built index (covers seasons where
+        // the field was missing on one season but present on another). Only
+        // fall back to a noowner composite if genuinely unresolvable.
+        const resolvedOwnerId =
+          oppOwnerId ?? rosterOwnerIndex.get(`${leagueId}:${oppRosterId}`) ?? null;
+        const key = resolvedOwnerId ?? `noowner:${leagueId}:${oppRosterId}`;
 
         const existing = h2hByOwner.get(key) ?? {
           opponentRosterId: oppRosterId,
-          opponentOwnerId: oppOwnerId,
+          opponentOwnerId: resolvedOwnerId,
           // Seed with the name from the most recent season (first encounter since
           // seasonDataList is newest-first). Subsequent seasons won't overwrite.
           opponentTeamName: oppName,
           wins: 0,
           losses: 0,
           ties: 0,
+          contrib: {},
         };
+
+        const ck = h2hContribKey(leagueId, season);
+        existing.contrib[ck] = (existing.contrib[ck] ?? 0) + 1;
 
         if (result === "W") existing.wins++;
         else if (result === "L") existing.losses++;
@@ -426,7 +487,7 @@ export async function computeTeamStats(
       pointsAgainst: seasonPA,
       seed,
       postseason,
-      powerRank: null, // placeholder — wired in a future pass
+      powerRank: null, // placeholder - wired in a future pass
     });
   }
 
@@ -464,13 +525,100 @@ export async function computeTeamStats(
       ? seedsForAvg.reduce((a, b) => a + b, 0) / seedsForAvg.length
       : null;
 
-  const h2h: H2HRecord[] = Array.from(h2hByOwner.values()).map((v) => ({
+  // ── Final dedup pass ────────────────────────────────────────────────────
+  // Collapse entries that map to the same logical opponent. There are two
+  // scenarios that produce spurious duplicates:
+  //
+  // 1. Same ownerId appeared twice in h2hByOwner (shouldn't happen with the
+  //    index pre-pass above, but guarded here for safety).
+  //
+  // 2. Same person across different seasons had different ownerIds (e.g. they
+  //    created a new Sleeper account). We can't detect this reliably via IDs
+  //    alone, so we use opponentTeamName as a secondary merge key: if two
+  //    owner-keyed entries share the exact same non-null team name, collapse
+  //    them. This is a heuristic - it will merge two *different* people with
+  //    the same team name, but that is far less likely than a returning player
+  //    with a different account.
+  type H2HVal = {
+    opponentRosterId: number;
+    opponentOwnerId: string | null;
+    opponentTeamName: string | null;
+    wins: number;
+    losses: number;
+    ties: number;
+    contrib: H2HContribBucket;
+  };
+  const mergedByOwner = new Map<string, H2HVal>(); // ownerId -> merged record
+  const mergedByName = new Map<string, H2HVal>(); // teamName -> merged record (for owner-less / multi-account)
+  const orphans: H2HVal[] = []; // genuinely noowner + no name to key by
+
+  for (const rec of h2hByOwner.values()) {
+    if (rec.opponentOwnerId) {
+      // Owner-keyed: merge by ownerId first.
+      const existing = mergedByOwner.get(rec.opponentOwnerId);
+      if (existing) {
+        existing.wins += rec.wins;
+        existing.losses += rec.losses;
+        existing.ties += rec.ties;
+        mergeContribBuckets(existing.contrib, rec.contrib);
+      } else {
+        mergedByOwner.set(rec.opponentOwnerId, {
+          ...rec,
+          contrib: { ...rec.contrib },
+        });
+      }
+    } else if (rec.opponentTeamName) {
+      // No ownerId but has a name: merge by name.
+      const existing = mergedByName.get(rec.opponentTeamName);
+      if (existing) {
+        existing.wins += rec.wins;
+        existing.losses += rec.losses;
+        existing.ties += rec.ties;
+        mergeContribBuckets(existing.contrib, rec.contrib);
+      } else {
+        mergedByName.set(rec.opponentTeamName, {
+          ...rec,
+          contrib: { ...rec.contrib },
+        });
+      }
+    } else {
+      orphans.push({
+        ...rec,
+        contrib: { ...rec.contrib },
+      });
+    }
+  }
+
+  // Second pass: merge any owner-keyed entries into name-keyed ones if a
+  // matching team name already exists there (covers the multi-account case where
+  // season N has ownerId but season N-1 didn't).
+  const ownerKeysToDelete: string[] = [];
+  for (const rec of mergedByOwner.values()) {
+    if (rec.opponentTeamName && mergedByName.has(rec.opponentTeamName)) {
+      const nameEntry = mergedByName.get(rec.opponentTeamName)!;
+      nameEntry.wins += rec.wins;
+      nameEntry.losses += rec.losses;
+      nameEntry.ties += rec.ties;
+      mergeContribBuckets(nameEntry.contrib, rec.contrib);
+      // Prefer the ownerId-keyed version's ownerId on the merged record.
+      nameEntry.opponentOwnerId ??= rec.opponentOwnerId;
+      ownerKeysToDelete.push(rec.opponentOwnerId!);
+    }
+  }
+  for (const k of ownerKeysToDelete) mergedByOwner.delete(k);
+
+  const h2h: H2HRecord[] = [
+    ...mergedByOwner.values(),
+    ...mergedByName.values(),
+    ...orphans,
+  ].map((v) => ({
     opponentRosterId: v.opponentRosterId,
     opponentOwnerId: v.opponentOwnerId,
     opponentTeamName: v.opponentTeamName,
     wins: v.wins,
     losses: v.losses,
     ties: v.ties,
+    contributions: contribBucketToSortedArray(v.contrib ?? {}),
   }));
 
   return {

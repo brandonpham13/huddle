@@ -211,6 +211,13 @@ export interface SeasonStat {
   powerRank: number | null;
 }
 
+/** One league-season slice of a head-to-head row (regular-season games counted). */
+export interface H2HContribution {
+  leagueId: string;
+  season: string;
+  games: number;
+}
+
 /** Head-to-head record against one specific opponent. */
 export interface H2HRecord {
   opponentRosterId: number;
@@ -222,6 +229,11 @@ export interface H2HRecord {
   wins: number;
   losses: number;
   ties: number;
+  /**
+   * Which league seasons contributed regular-season H2H games to this row.
+   * Helps trace "extra" rows (e.g. name-merge vs owner-merge, unexpected league ids).
+   */
+  contributions: H2HContribution[];
 }
 
 /** Full lifetime + per-season statistics for one team. */

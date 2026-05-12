@@ -12,7 +12,7 @@
  * they render the correct layout with placeholder values so the page is
  * usable as-is.
  */
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useAppSelector } from "../store/hooks";
 import {
@@ -24,7 +24,7 @@ import {
   useTeamSeasonLog,
   useTeamStats,
 } from "../hooks/useSleeper";
-import type { TeamStats, SeasonStat } from "../types/fantasy";
+import type { TeamStats, SeasonStat, H2HRecord } from "../types/fantasy";
 import { usePowerRankings } from "../hooks/usePowerRankings";
 import { useMyClaimedTeam } from "../hooks/useMyClaimedTeam";
 import { getFamilySeasons } from "../utils/leagueFamily";
@@ -381,12 +381,48 @@ function matchupScore(myPts: number, oppPts: number): string {
   return `${myPts.toFixed(2)} – ${oppPts.toFixed(2)}`;
 }
 
-function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
+/** Match server H2H naming: team name > display name > username. */
+function userDisplayLabel(u: {
+  teamName: string | null;
+  displayName: string;
+  username: string;
+}): string {
+  return (u.teamName ?? u.displayName ?? u.username).trim();
+}
+
+/** Keep lifetime H2H rows whose opponent is still in the selected league (roster or user list). */
+function filterH2hToCurrentLeague(
+  rows: H2HRecord[],
+  filter: { ownerIds: Set<string>; displayNameKeys: Set<string> },
+): H2HRecord[] {
+  const { ownerIds, displayNameKeys } = filter;
+  if (ownerIds.size === 0 && displayNameKeys.size === 0) return rows;
+  return rows.filter((rec) => {
+    if (rec.opponentOwnerId && ownerIds.has(rec.opponentOwnerId)) return true;
+    const nk = (rec.opponentTeamName ?? "").trim().toLowerCase();
+    return nk.length > 0 && displayNameKeys.has(nk);
+  });
+}
+
+function LifetimeStats({
+  stats,
+  familyLeagueIds,
+  rivalryFilter,
+}: {
+  stats: TeamStats | undefined;
+  familyLeagueIds: string[];
+  rivalryFilter: { ownerIds: Set<string>; displayNameKeys: Set<string> };
+}) {
   // Career record display string — e.g. "42–18–2"
   const careerWl = stats
     ? `${stats.careerRecord.wins}–${stats.careerRecord.losses}${stats.careerRecord.ties ? `–${stats.careerRecord.ties}` : ""}`
     : "—";
   const winPctStr = stats ? `${(stats.winPct * 100).toFixed(1)}%` : "—";
+
+  const h2hVsCurrentLeague = useMemo(
+    () => (stats?.h2h?.length ? filterH2hToCurrentLeague(stats.h2h, rivalryFilter) : []),
+    [stats?.h2h, rivalryFilter],
+  );
 
   // Extremes rows — keeps the JSX below clean
   const extremeRows: Array<{ label: string; value: string; ctx: string; valueClass: string }> = [
@@ -526,10 +562,10 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
           </div>
         </div>
 
-        {/* Rivalries pillar */}
+        {/* H2H Records pillar */}
         <div className="border-l border-line pl-5">
           <div>
-            <Eyebrow>Rivalries (H2H)</Eyebrow>
+            <Eyebrow>H2H Records</Eyebrow>
             {!stats ? (
               <div className="mt-2">
                 <StubBanner label="Head-to-head records vs each opponent" />
@@ -538,10 +574,14 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
               <div className="mt-2 text-[11px] text-muted font-sans italic">
                 No head-to-head data available.
               </div>
+            ) : h2hVsCurrentLeague.length === 0 ? (
+              <div className="mt-2 text-[11px] text-muted font-sans italic">
+                No head-to-head vs current league members yet.
+              </div>
             ) : (
               /* Sort by win pct descending, break ties by most wins. */
               <div className="mt-2 space-y-1">
-                {[...stats.h2h]
+                {[...h2hVsCurrentLeague]
                   .sort((a, b) => {
                     const aTotal = a.wins + a.losses + a.ties;
                     const bTotal = b.wins + b.losses + b.ties;
@@ -549,12 +589,14 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
                     const bPct = bTotal > 0 ? b.wins / bTotal : 0;
                     return bPct !== aPct ? bPct - aPct : b.wins - a.wins;
                   })
-                  .map((rec) => {
+                  .map((rec, idx) => {
                     const wl = `${rec.wins}–${rec.losses}${rec.ties ? `–${rec.ties}` : ""}`;
                     const wlColor = rec.wins > rec.losses ? "text-accent" : rec.wins < rec.losses ? "text-loss" : "text-ink";
+                    // roster_id is per-league; across a family the same number can refer to different opponents.
+                    const h2hKey = `${rec.opponentOwnerId ?? ""}|${rec.opponentTeamName ?? ""}|${rec.opponentRosterId}|${idx}`;
                     return (
                       <div
-                        key={rec.opponentRosterId}
+                        key={h2hKey}
                         className="flex justify-between items-baseline py-1 border-b border-dotted border-line"
                       >
                         <span className="text-[9.5px] uppercase tracking-wider font-sans text-muted font-semibold">
@@ -1020,6 +1062,19 @@ export function TeamPage() {
   );
   const { data: teamStats } = useTeamStats(selectedLeagueId, rosterId, familyLeagueIds);
 
+  const rivalryFilter = useMemo(() => {
+    const ownerIds = new Set<string>();
+    const displayNameKeys = new Set<string>();
+    for (const r of rosters ?? []) {
+      if (r.ownerId) ownerIds.add(r.ownerId);
+    }
+    for (const u of leagueUsers ?? []) {
+      const k = userDisplayLabel(u).toLowerCase();
+      if (k) displayNameKeys.add(k);
+    }
+    return { ownerIds, displayNameKeys };
+  }, [rosters, leagueUsers]);
+
   const roster = rosters?.find((r) => r.rosterId === rosterId) ?? null;
   const user = roster?.ownerId
     ? leagueUsers?.find((u) => u.userId === roster.ownerId)
@@ -1070,7 +1125,11 @@ export function TeamPage() {
 
       <div className="px-6 py-5 flex flex-col gap-8">
         <CurrentSeason roster={roster} log={seasonLog} week={week} />
-        <LifetimeStats stats={teamStats} />
+        <LifetimeStats
+          stats={teamStats}
+          familyLeagueIds={familyLeagueIds}
+          rivalryFilter={rivalryFilter}
+        />
         <SeasonHistory
           familySeasons={familySeasons}
           currentRosterId={rosterId}
