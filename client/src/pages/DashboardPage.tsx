@@ -256,6 +256,7 @@ export function DashboardPage() {
               matchups={matchups}
               players={players}
               week={week}
+              scoringSettings={selectedLeague?.scoringSettings}
             />
 
             <div className="h-4" />

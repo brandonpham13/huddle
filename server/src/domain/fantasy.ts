@@ -40,6 +40,13 @@ export interface League {
    * Populated from Sleeper's top-level `roster_positions` field.
    */
   rosterPositions: string[];
+  /**
+   * League scoring settings — maps Sleeper stat keys to their point values.
+   * e.g. { pass_yd: 0.04, pass_td: 4, rec: 1, bonus_rec_te: 0.5, ... }
+   * Used to compute accurate per-player fantasy points for custom-scoring leagues.
+   * Populated from Sleeper's top-level `scoring_settings` field.
+   */
+  scoringSettings: Record<string, number>;
 }
 
 export interface Roster {

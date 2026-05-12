@@ -44,20 +44,56 @@ export function sleeperAvatarUrl(hash: string | null | undefined): string | null
   return `${SLEEPER_AVATAR_BASE}/${hash}`;
 }
 
-// ── Fantasy scoring key ───────────────────────────────────────────────────────
+// ── Fantasy scoring ──────────────────────────────────────────────────────────
+
+/**
+ * Compute a player's fantasy points for a given week using the league's
+ * custom scoring settings.
+ *
+ * Sleeper's `scoring_settings` maps stat keys (e.g. "pass_yd", "rec",
+ * "bonus_rec_te") to their point multipliers. The player stats object from
+ * the `/stats` endpoint uses the same keys. Computing the dot product of
+ * the two gives the exact score Sleeper would show for that league.
+ *
+ * Bonus threshold fields (e.g. "bonus_pass_yd_400", "bonus_rec_yd_100")
+ * are pre-computed as 0/1 flags in the stats object by Sleeper, so they
+ * multiply cleanly with no special-case logic needed here.
+ *
+ * @param stats           - Raw Sleeper per-player stat record for one week.
+ * @param scoringSettings - League's scoring_settings map.
+ * @returns Fantasy point total for that player in that week.
+ */
+export function applyCustomScoring(
+  stats: Record<string, number>,
+  scoringSettings: Record<string, number>,
+): number {
+  let total = 0;
+  for (const [key, multiplier] of Object.entries(scoringSettings)) {
+    const statValue = stats[key];
+    if (statValue) total += statValue * multiplier;
+  }
+  return Math.round(total * 100) / 100;
+}
 
 /**
  * Extract the fantasy point total from a Sleeper per-player stats object.
- * Defaults to PPR scoring (pts_ppr), which is the most common format.
  *
- * @param stats - Raw stats record for a single player/week.
- * @param format - Scoring format key. Defaults to "pts_ppr".
+ * When `scoringSettings` is provided (non-empty), computes points from raw
+ * stats via `applyCustomScoring` so custom-scoring leagues are accurate.
+ * Falls back to Sleeper's pre-computed `pts_ppr` field otherwise.
+ *
+ * @param stats           - Raw stats record for a single player/week.
+ * @param scoringSettings - Optional league scoring settings.
  */
 export function getFantasyPoints(
   stats: Record<string, number>,
-  format: "pts_ppr" | "pts_half_ppr" | "pts_std" = "pts_ppr",
+  scoringSettings?: Record<string, number>,
 ): number {
-  return Number(stats[format] ?? 0);
+  if (scoringSettings && Object.keys(scoringSettings).length > 0) {
+    return applyCustomScoring(stats, scoringSettings);
+  }
+  // Fallback: use Sleeper's pre-computed PPR total.
+  return Number(stats["pts_ppr"] ?? 0);
 }
 
 // ── Defense per-week points ─────────────────────────────────────────────────────
