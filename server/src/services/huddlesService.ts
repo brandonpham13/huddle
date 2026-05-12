@@ -134,33 +134,55 @@ export async function createHuddle(opts: {
   return created!;
 }
 
-export async function listHuddlesForUser(userId: string): Promise<Huddle[]> {
-  // Return all huddles where the user is a commissioner OR has an approved claim
-  const commishRows = await db
-    .select({ huddleId: huddleCommissioners.huddleId })
-    .from(huddleCommissioners)
-    .where(eq(huddleCommissioners.userId, userId));
+export type HuddleMemberStatus = "commissioner" | "approved" | "pending";
 
-  const claimRows = await db
-    .select({ huddleId: teamClaims.huddleId })
-    .from(teamClaims)
-    .where(
-      and(eq(teamClaims.userId, userId), eq(teamClaims.status, "approved")),
-    );
+export async function listHuddlesForUser(
+  userId: string,
+): Promise<{ huddle: Huddle; myStatus: HuddleMemberStatus }[]> {
+  // Include pending claims so the user can see huddles they've requested to join
+  const [commishRows, claimRows] = await Promise.all([
+    db
+      .select({ huddleId: huddleCommissioners.huddleId })
+      .from(huddleCommissioners)
+      .where(eq(huddleCommissioners.userId, userId)),
+    db
+      .select({ huddleId: teamClaims.huddleId, status: teamClaims.status })
+      .from(teamClaims)
+      .where(
+        and(
+          eq(teamClaims.userId, userId),
+          inArray(teamClaims.status, ["approved", "pending"]),
+        ),
+      ),
+  ]);
 
-  const memberHuddleIds = [
-    ...new Set([
-      ...commishRows.map((r) => r.huddleId),
-      ...claimRows.map((r) => r.huddleId),
-    ]),
+  const commishSet = new Set(commishRows.map((r) => r.huddleId));
+  // If a user has both an approved and a pending claim somehow, approved wins
+  const claimMap = new Map<string, "approved" | "pending">();
+  for (const r of claimRows) {
+    const existing = claimMap.get(r.huddleId);
+    if (!existing || r.status === "approved") {
+      claimMap.set(r.huddleId, r.status as "approved" | "pending");
+    }
+  }
+
+  const allHuddleIds = [
+    ...new Set([...commishSet, ...claimMap.keys()]),
   ];
 
-  if (memberHuddleIds.length === 0) return [];
+  if (allHuddleIds.length === 0) return [];
 
-  return db
+  const huddleList = await db
     .select()
     .from(huddles)
-    .where(inArray(huddles.id, memberHuddleIds));
+    .where(inArray(huddles.id, allHuddleIds));
+
+  return huddleList.map((huddle) => ({
+    huddle,
+    myStatus: commishSet.has(huddle.id)
+      ? "commissioner"
+      : (claimMap.get(huddle.id) ?? "pending"),
+  }));
 }
 
 export async function linkLeague(opts: {

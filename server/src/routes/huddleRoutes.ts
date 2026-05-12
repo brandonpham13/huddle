@@ -20,6 +20,7 @@ import {
   submitClaim,
   unclaimTeam,
   updateHuddle,
+  type HuddleMemberStatus,
 } from "../services/huddlesService.js";
 
 const clerkSecretKey = process.env["CLERK_SECRET_KEY"];
@@ -138,7 +139,12 @@ export function initHuddleRoutes(app: Express) {
     try {
       const { userId } = getAuth(req);
       const list = await listHuddlesForUser(userId!);
-      res.json({ huddles: list.map((h) => serializeHuddle(h, false)) });
+      res.json({
+        huddles: list.map(({ huddle, myStatus }) => ({
+          ...serializeHuddle(huddle, false),
+          myStatus,
+        })),
+      });
     } catch (err) {
       handleError(err, res);
     }

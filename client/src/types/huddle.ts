@@ -1,4 +1,5 @@
 export type ClaimStatus = "pending" | "approved" | "rejected";
+export type HuddleMemberStatus = "commissioner" | "approved" | "pending";
 
 export interface Huddle {
   id: string;
@@ -9,6 +10,7 @@ export interface Huddle {
   inviteCodeUpdatedAt?: string;
   createdAt: string;
   updatedAt: string;
+  myStatus?: HuddleMemberStatus;
 }
 
 export interface UserSummary {

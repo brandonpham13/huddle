@@ -47,15 +47,15 @@ export function HuddlesSection() {
         <div className="space-y-1">
           {huddles!.map((h) => (
             <div key={h.id} className="flex items-center justify-between text-sm">
-              <div className="min-w-0">
+              <div className="min-w-0 flex items-center gap-2 flex-wrap">
                 <span className="truncate font-medium">{h.name}</span>
-                {h.leagueId && (
-                  <span className="ml-2 text-xs text-gray-400">
-                    league linked
+                {h.myStatus === "pending" && (
+                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium shrink-0">
+                    Pending
                   </span>
                 )}
-                {!h.leagueId && (
-                  <span className="ml-2 text-xs text-amber-500">
+                {h.myStatus !== "pending" && !h.leagueId && (
+                  <span className="text-xs text-amber-500 shrink-0">
                     no league linked
                   </span>
                 )}
@@ -64,7 +64,7 @@ export function HuddlesSection() {
                 to={`/huddles/${h.id}`}
                 className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-600 hover:underline shrink-0 ml-2"
               >
-                Open
+                {h.myStatus === "pending" ? "View" : "Open"}
                 <ChevronRight size={12} />
               </Link>
             </div>
