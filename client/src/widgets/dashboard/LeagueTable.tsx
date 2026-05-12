@@ -179,7 +179,7 @@ export function LeagueTable({
         {showMaxPF && (
           <SortHeader
             id="maxpf"
-            label="Max"
+            label="MaxPF"
             currentId={sortId}
             dir={sortDir}
             onSort={handleSort}
@@ -235,14 +235,14 @@ export function LeagueTable({
               {w}–{l}
             </div>
             <div className="text-right font-mono text-[11px] text-body">
-              {pf.toFixed(1)}
+              {pf.toFixed(2)}
             </div>
             <div className="text-right font-mono text-[11px] text-muted">
-              {pa.toFixed(1)}
+              {pa.toFixed(2)}
             </div>
             {showMaxPF && (
               <div className="text-right font-mono text-[11px] text-muted">
-                {rosterMaxPF !== null ? rosterMaxPF.toFixed(1) : "—"}
+                {rosterMaxPF !== null ? rosterMaxPF.toFixed(2) : "—"}
               </div>
             )}
             <div className="flex items-center justify-end">
