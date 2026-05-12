@@ -28,6 +28,7 @@ import {
   useNFLState,
   useNFLPlayers,
   usePlayerStats,
+  useMaxPF,
 } from "../hooks/useSleeper";
 import { usePowerRankings } from "../hooks/usePowerRankings";
 import { getFamilySeasons } from "../utils/leagueFamily";
@@ -146,6 +147,16 @@ export function DashboardPage() {
   );
   const { data: playerStats } = usePlayerStats(season, week);
   const { data: powerData } = usePowerRankings(selectedLeagueId);
+  // weekCount for Max PF: use last_scored_leg if available, otherwise stop at
+  // playoff_week_start - 1 (regular season only). Disable for unstarted leagues.
+  const maxPFWeekCount = isLeagueUnstarted
+    ? null
+    : lastScoredLeg
+      ? lastScoredLeg
+      : playoffWeekStart
+        ? playoffWeekStart - 1
+        : null;
+  const { data: maxPFData } = useMaxPF(selectedLeagueId, maxPFWeekCount);
 
   // -----------------------------------------------------------------------
   // Step 5: Derive the "league family" (same league across multiple seasons).
@@ -253,6 +264,7 @@ export function DashboardPage() {
                 rosters={rosters ?? []}
                 users={users ?? []}
                 myRosterId={myRosterId}
+                maxPF={maxPFData}
               />
               <Scoreboard
                 rosters={rosters ?? []}

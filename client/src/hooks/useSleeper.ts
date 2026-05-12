@@ -439,3 +439,29 @@ export function useTeamStats(
     staleTime: 5 * 60 * 1000,
   });
 }
+
+// ---- Max PF ----
+
+/**
+ * Fetches the season Max PF for every roster in the league — i.e. what each
+ * team would have scored if they had set the optimal lineup every week.
+ *
+ * `weekCount` should be the number of regular-season weeks already scored.
+ * When 0 or null, the query is disabled (pre-draft or unstarted leagues).
+ *
+ * Returns a Record<rosterId (as string), number>.
+ */
+export function useMaxPF(leagueId: string | null, weekCount: number | null) {
+  return useQuery({
+    queryKey: ["max-pf", leagueId, weekCount],
+    queryFn: async () => {
+      const res = await axios.get<{ maxPF: Record<string, number> }>(
+        base(`/league/${leagueId}/max-pf?weekCount=${weekCount}`),
+      );
+      return res.data.maxPF;
+    },
+    enabled: !!leagueId && !!weekCount && weekCount > 0,
+    // Max PF is expensive to compute — cache for 10 minutes.
+    staleTime: 10 * 60 * 1000,
+  });
+}
