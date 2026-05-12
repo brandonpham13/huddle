@@ -549,12 +549,14 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
                     const bPct = bTotal > 0 ? b.wins / bTotal : 0;
                     return bPct !== aPct ? bPct - aPct : b.wins - a.wins;
                   })
-                  .map((rec) => {
+                  .map((rec, idx) => {
                     const wl = `${rec.wins}–${rec.losses}${rec.ties ? `–${rec.ties}` : ""}`;
                     const wlColor = rec.wins > rec.losses ? "text-accent" : rec.wins < rec.losses ? "text-loss" : "text-ink";
+                    // roster_id is per-league; across a family the same number can refer to different opponents.
+                    const h2hKey = `${rec.opponentOwnerId ?? ""}|${rec.opponentTeamName ?? ""}|${rec.opponentRosterId}|${idx}`;
                     return (
                       <div
-                        key={rec.opponentRosterId}
+                        key={h2hKey}
                         className="flex justify-between items-baseline py-1 border-b border-dotted border-line"
                       >
                         <span className="text-[9.5px] uppercase tracking-wider font-sans text-muted font-semibold">
