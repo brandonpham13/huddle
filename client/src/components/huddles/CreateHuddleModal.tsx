@@ -1,26 +1,15 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { Button } from "../ui/button";
 import { useCreateHuddle } from "../../hooks/useHuddles";
+import { useState } from "react";
 import type { Huddle } from "../../types/huddle";
 
 export function CreateHuddleModal({ onClose }: { onClose: () => void }) {
   const create = useCreateHuddle();
   const navigate = useNavigate();
-
-  const [name, setName] = useState("");
   const [created, setCreated] = useState<Huddle | null>(null);
   const [copied, setCopied] = useState(false);
-
-  const canSubmit = name.trim().length > 0 && !create.isPending;
-
-  const handleSubmit = () => {
-    create.mutate(
-      { name: name.trim() },
-      { onSuccess: (huddle) => setCreated(huddle) },
-    );
-  };
 
   const handleCopy = () => {
     if (created?.inviteCode) {
@@ -44,8 +33,8 @@ export function CreateHuddleModal({ onClose }: { onClose: () => void }) {
           <div>
             <h2 className="text-lg font-bold">Huddle created!</h2>
             <p className="text-sm text-gray-500 mt-1">
-              Share this invite code with your league members. You can link a
-              Sleeper league from inside the huddle.
+              Share this invite code with your league members. You'll name it
+              properly once you link a Sleeper league from inside the huddle.
             </p>
           </div>
 
@@ -92,22 +81,9 @@ export function CreateHuddleModal({ onClose }: { onClose: () => void }) {
           <h2 className="text-lg font-bold">Create huddle</h2>
           <p className="text-sm text-gray-500 mt-1">
             You'll be the commissioner. An invite code is generated
-            automatically. Link a Sleeper league from inside the huddle.
+            automatically. Link a Sleeper league from inside the huddle to
+            set its name and roster list.
           </p>
-        </div>
-
-        <div>
-          <label className="text-xs text-gray-500 block mb-1">
-            Huddle name
-          </label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={80}
-            autoFocus
-            className="w-full text-sm border rounded-md px-2 py-1.5"
-            placeholder="e.g. The Boys"
-          />
         </div>
 
         {create.isError && (
@@ -124,7 +100,10 @@ export function CreateHuddleModal({ onClose }: { onClose: () => void }) {
           >
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit}>
+          <Button
+            onClick={() => create.mutate(undefined, { onSuccess: (h) => setCreated(h) })}
+            disabled={create.isPending}
+          >
             {create.isPending ? "Creating…" : "Create huddle"}
           </Button>
         </div>

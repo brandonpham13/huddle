@@ -115,11 +115,17 @@ function serializeClaim(c: {
 }
 
 export function initHuddleRoutes(app: Express) {
-  // POST /api/huddles
+  // POST /api/huddles — name is auto-generated from the user's Clerk display name
   app.post("/api/huddles", requireAuth, async (req: Request, res: Response) => {
     try {
       const { userId } = getAuth(req);
-      const { name } = req.body as { name?: string };
+      const clerkUser = await clerkClient.users.getUser(userId!);
+      const handle =
+        clerkUser.username ??
+        clerkUser.firstName ??
+        clerkUser.emailAddresses[0]?.emailAddress?.split("@")[0] ??
+        "Your";
+      const name = `${handle}'s Huddle`;
       const huddle = await createHuddle({ name, commissionerUserId: userId! });
       res.status(201).json({ huddle: serializeHuddle(huddle, true) });
     } catch (err) {
@@ -181,9 +187,10 @@ export function initHuddleRoutes(app: Express) {
     async (req: Request, res: Response) => {
       try {
         const { userId } = getAuth(req);
-        const { leagueProvider, leagueId } = req.body as {
+        const { leagueProvider, leagueId, leagueName } = req.body as {
           leagueProvider?: string;
           leagueId?: string;
+          leagueName?: string;
         };
         if (typeof leagueProvider !== "string" || !leagueProvider) {
           res.status(400).json({ error: "leagueProvider required" });
@@ -198,6 +205,7 @@ export function initHuddleRoutes(app: Express) {
           userId: userId!,
           leagueProvider,
           leagueId,
+          leagueName: typeof leagueName === "string" && leagueName ? leagueName : undefined,
         });
         res.json({ huddle: serializeHuddle(huddle, true) });
       } catch (err) {

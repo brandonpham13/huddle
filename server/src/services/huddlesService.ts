@@ -168,17 +168,23 @@ export async function linkLeague(opts: {
   userId: string;
   leagueProvider: string;
   leagueId: string;
+  leagueName?: string; // when provided, rename the huddle to the league name
 }): Promise<Huddle> {
   if (!(await isCommissioner(opts.huddleId, opts.userId)))
     fail(403, "Only a commissioner can link a league");
 
+  const patch: Partial<typeof huddles.$inferInsert> = {
+    leagueProvider: opts.leagueProvider,
+    leagueId: opts.leagueId,
+    updatedAt: new Date(),
+  };
+  if (opts.leagueName) {
+    patch.name = opts.leagueName.trim().slice(0, MAX_NAME_LEN);
+  }
+
   const [updated] = await db
     .update(huddles)
-    .set({
-      leagueProvider: opts.leagueProvider,
-      leagueId: opts.leagueId,
-      updatedAt: new Date(),
-    })
+    .set(patch)
     .where(eq(huddles.id, opts.huddleId))
     .returning();
   if (!updated) fail(500, "Failed to link league");

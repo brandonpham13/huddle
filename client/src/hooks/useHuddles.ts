@@ -89,12 +89,12 @@ export function useCreateHuddle() {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { name: string }) => {
+    mutationFn: async () => {
       const token = await getToken();
       try {
         const res = await axios.post<{ huddle: Huddle }>(
           "/api/huddles",
-          input,
+          {},
           { headers: authHeader(token) },
         );
         return res.data.huddle;
@@ -116,12 +116,13 @@ export function useLinkLeague() {
       huddleId: string;
       leagueProvider: string;
       leagueId: string;
+      leagueName?: string;
     }) => {
       const token = await getToken();
       try {
         const res = await axios.patch<{ huddle: Huddle }>(
           `/api/huddles/${input.huddleId}/league`,
-          { leagueProvider: input.leagueProvider, leagueId: input.leagueId },
+          { leagueProvider: input.leagueProvider, leagueId: input.leagueId, leagueName: input.leagueName },
           { headers: authHeader(token) },
         );
         return res.data.huddle;

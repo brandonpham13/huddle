@@ -756,12 +756,15 @@ function LinkLeaguePanel({ huddleId }: { huddleId: string }) {
     return result;
   }, [allLeagues]);
 
+  const selectedLeague = options.find((l) => l.ref.leagueId === selectedLeagueId);
+
   const handleLink = () => {
     if (!selectedLeagueId) return;
     linkLeague.mutate({
       huddleId,
       leagueProvider: "sleeper",
       leagueId: selectedLeagueId,
+      leagueName: selectedLeague?.name,
     });
   };
 
