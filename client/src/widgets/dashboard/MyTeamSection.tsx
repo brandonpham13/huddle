@@ -190,7 +190,7 @@ export function MyTeamSection({
           </p>
         )}
 
-        <div className="h-3 border-t border-line mt-3 pt-3">
+        <div className="border-t border-line mt-3 pt-3">
           <Eyebrow>Next · Week {nextWeek} Preview</Eyebrow>
           {nextOppRoster ? (
             <div className="mt-1">
