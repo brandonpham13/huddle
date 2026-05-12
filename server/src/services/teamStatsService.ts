@@ -24,7 +24,7 @@ import type {
   Roster,
   TeamUser,
 } from "../domain/fantasy.js";
-import type { TeamStats, SeasonStat, H2HRecord } from "../domain/fantasy.js";
+import type { TeamStats, SeasonStat, H2HRecord, H2HContribution } from "../domain/fantasy.js";
 import type { ProviderId } from "../domain/fantasy.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -44,6 +44,38 @@ function regularSeasonWeekCount(league: League): number {
   if (playoffStart && playoffStart > 1) return playoffStart - 1;
   if (lastScored && lastScored > 0) return lastScored;
   return 13; // safe default for most platforms
+}
+
+/** Internal map key: leagueId + unit separator + season. */
+const H2H_CONTRIB_SEP = "\x1f";
+
+function h2hContribKey(leagueId: string, season: string): string {
+  return `${leagueId}${H2H_CONTRIB_SEP}${season}`;
+}
+
+/** Plain object counts survive `{ ...rec }` merges; Maps do not. */
+type H2HContribBucket = Record<string, number>;
+
+function mergeContribBuckets(into: H2HContribBucket, from: H2HContribBucket): void {
+  for (const k of Object.keys(from)) {
+    into[k] = (into[k] ?? 0) + from[k]!;
+  }
+}
+
+function contribBucketToSortedArray(bucket: H2HContribBucket): H2HContribution[] {
+  const out: H2HContribution[] = [];
+  for (const k of Object.keys(bucket)) {
+    const games = bucket[k]!;
+    const i = k.indexOf(H2H_CONTRIB_SEP);
+    const leagueId = i >= 0 ? k.slice(0, i) : k;
+    const season = i >= 0 ? k.slice(i + H2H_CONTRIB_SEP.length) : "";
+    out.push({ leagueId, season, games });
+  }
+  out.sort((a, b) => {
+    if (a.season !== b.season) return b.season.localeCompare(a.season);
+    return a.leagueId.localeCompare(b.leagueId);
+  });
+  return out;
 }
 
 /**
@@ -247,7 +279,15 @@ export async function computeTeamStats(
 
   const h2hByOwner = new Map<
     string,
-    { opponentRosterId: number; opponentOwnerId: string | null; opponentTeamName: string | null; wins: number; losses: number; ties: number }
+    {
+      opponentRosterId: number;
+      opponentOwnerId: string | null;
+      opponentTeamName: string | null;
+      wins: number;
+      losses: number;
+      ties: number;
+      contrib: H2HContribBucket;
+    }
   >();
 
   // ── Process each season ───────────────────────────────────────────────────
@@ -397,7 +437,11 @@ export async function computeTeamStats(
           wins: 0,
           losses: 0,
           ties: 0,
+          contrib: {},
         };
+
+        const ck = h2hContribKey(leagueId, season);
+        existing.contrib[ck] = (existing.contrib[ck] ?? 0) + 1;
 
         if (result === "W") existing.wins++;
         else if (result === "L") existing.losses++;
@@ -495,10 +539,18 @@ export async function computeTeamStats(
   //    them. This is a heuristic - it will merge two *different* people with
   //    the same team name, but that is far less likely than a returning player
   //    with a different account.
-  type H2HVal = { opponentRosterId: number; opponentOwnerId: string | null; opponentTeamName: string | null; wins: number; losses: number; ties: number };
+  type H2HVal = {
+    opponentRosterId: number;
+    opponentOwnerId: string | null;
+    opponentTeamName: string | null;
+    wins: number;
+    losses: number;
+    ties: number;
+    contrib: H2HContribBucket;
+  };
   const mergedByOwner = new Map<string, H2HVal>(); // ownerId -> merged record
-  const mergedByName = new Map<string, H2HVal>();  // teamName -> merged record (for owner-less / multi-account)
-  const orphans: H2HVal[] = [];                     // genuinely noowner + no name to key by
+  const mergedByName = new Map<string, H2HVal>(); // teamName -> merged record (for owner-less / multi-account)
+  const orphans: H2HVal[] = []; // genuinely noowner + no name to key by
 
   for (const rec of h2hByOwner.values()) {
     if (rec.opponentOwnerId) {
@@ -508,8 +560,12 @@ export async function computeTeamStats(
         existing.wins += rec.wins;
         existing.losses += rec.losses;
         existing.ties += rec.ties;
+        mergeContribBuckets(existing.contrib, rec.contrib);
       } else {
-        mergedByOwner.set(rec.opponentOwnerId, { ...rec });
+        mergedByOwner.set(rec.opponentOwnerId, {
+          ...rec,
+          contrib: { ...rec.contrib },
+        });
       }
     } else if (rec.opponentTeamName) {
       // No ownerId but has a name: merge by name.
@@ -518,11 +574,18 @@ export async function computeTeamStats(
         existing.wins += rec.wins;
         existing.losses += rec.losses;
         existing.ties += rec.ties;
+        mergeContribBuckets(existing.contrib, rec.contrib);
       } else {
-        mergedByName.set(rec.opponentTeamName, { ...rec });
+        mergedByName.set(rec.opponentTeamName, {
+          ...rec,
+          contrib: { ...rec.contrib },
+        });
       }
     } else {
-      orphans.push({ ...rec });
+      orphans.push({
+        ...rec,
+        contrib: { ...rec.contrib },
+      });
     }
   }
 
@@ -536,6 +599,7 @@ export async function computeTeamStats(
       nameEntry.wins += rec.wins;
       nameEntry.losses += rec.losses;
       nameEntry.ties += rec.ties;
+      mergeContribBuckets(nameEntry.contrib, rec.contrib);
       // Prefer the ownerId-keyed version's ownerId on the merged record.
       nameEntry.opponentOwnerId ??= rec.opponentOwnerId;
       ownerKeysToDelete.push(rec.opponentOwnerId!);
@@ -554,6 +618,7 @@ export async function computeTeamStats(
     wins: v.wins,
     losses: v.losses,
     ties: v.ties,
+    contributions: contribBucketToSortedArray(v.contrib ?? {}),
   }));
 
   return {
