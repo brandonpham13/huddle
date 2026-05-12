@@ -533,6 +533,7 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
                   })
                   .map((rec) => {
                     const wl = `${rec.wins}–${rec.losses}${rec.ties ? `–${rec.ties}` : ""}`;
+                    const wlColor = rec.wins > rec.losses ? "text-accent" : rec.wins < rec.losses ? "text-loss" : "text-ink";
                     return (
                       <div
                         key={rec.opponentRosterId}
@@ -541,7 +542,7 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
                         <span className="text-[9.5px] uppercase tracking-wider font-sans text-muted font-semibold">
                           vs {rec.opponentTeamName ?? `#${rec.opponentRosterId}`}
                         </span>
-                        <span className="font-mono text-xs text-ink">{wl}</span>
+                        <span className={`font-mono text-xs ${wlColor}`}>{wl}</span>
                       </div>
                     );
                   })}
