@@ -21,6 +21,11 @@ import {
   useSubmitClaim,
   useRemoveClaim,
 } from "../hooks/useHuddles";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "../components/ui/tooltip";
 import type { Roster, TeamUser } from "../types/fantasy";
 import type { HuddleClaimSummary } from "../types/huddle";
 
@@ -222,13 +227,24 @@ function TeamsTable({
                       {/* Claim owner can unlink themselves; commissioner can unlink anyone. */}
                       {(isMyTeam || isCommissioner) &&
                         confirmRemoveClaimId !== claim.id ? (
-                        <Btn
-                          danger
-                          disabled={selfUnlinkBlocked}
-                          onClick={() => setConfirmRemoveClaimId(claim.id)}
-                        >
-                          Unlink
-                        </Btn>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex">
+                              <Btn
+                                danger
+                                disabled={selfUnlinkBlocked}
+                                onClick={() => setConfirmRemoveClaimId(claim.id)}
+                              >
+                                Unlink
+                              </Btn>
+                            </span>
+                          </TooltipTrigger>
+                          {selfUnlinkBlocked && (
+                            <TooltipContent>
+                              Assign another commissioner before unlinking yourself
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
                       ) : (isMyTeam || isCommissioner) &&
                         confirmRemoveClaimId === claim.id ? (
                         <div className="flex gap-1.5">
