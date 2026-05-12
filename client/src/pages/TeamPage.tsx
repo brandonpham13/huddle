@@ -355,13 +355,17 @@ function CurrentSeason({
 // ─── Section 3: Lifetime Stats ────────────────────────────────────────────────
 
 /**
- * Formats a scoring extreme (highScore / lowScore) or margin extreme
- * (biggestWin / worstLoss) into a concise contextual string like
- * "Season 2023 · Wk 7" shown underneath the main number.
+ * Formats an extreme's subtext: "vs. Opponent · Season 2023 · Wk 7"
  */
-function extremeCtx(e: { season: string; week: number } | null): string {
+function extremeCtx(e: { season: string; week: number; opponentName?: string | null } | null): string {
   if (!e) return "— · —";
-  return `Season ${e.season} · Wk ${e.week}`;
+  const opp = e.opponentName ? `vs. ${e.opponentName} · ` : "";
+  return `${opp}Season ${e.season} · Wk ${e.week}`;
+}
+
+/** Formats a full matchup score string: "135.24 – 112.50" */
+function matchupScore(myPts: number, oppPts: number): string {
+  return `${myPts.toFixed(2)} – ${oppPts.toFixed(2)}`;
 }
 
 function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
@@ -375,25 +379,25 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
   const extremeRows: Array<{ label: string; value: string; ctx: string; valueClass: string }> = [
     {
       label: "High Score",
-      value: stats?.highScore ? stats.highScore.points.toFixed(2) : "—",
+      value: stats?.highScore ? matchupScore(stats.highScore.points, stats.highScore.opponentPoints) : "—",
       ctx: extremeCtx(stats?.highScore ?? null),
       valueClass: "text-accent",
     },
     {
       label: "Low Score",
-      value: stats?.lowScore ? stats.lowScore.points.toFixed(2) : "—",
+      value: stats?.lowScore ? matchupScore(stats.lowScore.points, stats.lowScore.opponentPoints) : "—",
       ctx: extremeCtx(stats?.lowScore ?? null),
       valueClass: "text-loss",
     },
     {
       label: "Biggest Win",
-      value: stats?.biggestWin ? `+${stats.biggestWin.margin.toFixed(2)}` : "—",
+      value: stats?.biggestWin ? matchupScore(stats.biggestWin.myPoints, stats.biggestWin.opponentPoints) : "—",
       ctx: extremeCtx(stats?.biggestWin ?? null),
       valueClass: "text-accent",
     },
     {
       label: "Worst Loss",
-      value: stats?.worstLoss ? `-${stats.worstLoss.margin.toFixed(2)}` : "—",
+      value: stats?.worstLoss ? matchupScore(stats.worstLoss.myPoints, stats.worstLoss.opponentPoints) : "—",
       ctx: extremeCtx(stats?.worstLoss ?? null),
       valueClass: "text-loss",
     },
