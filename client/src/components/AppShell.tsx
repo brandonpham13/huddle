@@ -266,7 +266,7 @@ export function AppShell({ children }: AppShellProps) {
             to="/leagues"
             className="hidden sm:inline text-sm text-muted hover:text-ink transition-colors"
           >
-            Leagues
+            Huddles
           </Link>
           <button
             onClick={() => openAccountModal()}
