@@ -467,20 +467,19 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
               label="Avg Finish"
               value={stats?.avgFinish != null ? `#${stats.avgFinish.toFixed(1)}` : "—"}
             />
-            <Stat
-              label="Longest W Streak"
-              value={stats ? String(stats.longestWinStreak) : "—"}
-              accent
-            />
-            <Stat
-              label="Longest L Streak"
-              value={stats ? String(stats.longestLossStreak) : "—"}
-            />
-            <Stat
-              label="MVP Weeks"
-              value={stats ? String(stats.mvpWeeks) : "—"}
-              accent
-            />
+          </div>
+          <div className="mt-3">
+            <div className="mt-2 grid grid-cols-2 gap-3">
+              <Stat
+                label="Longest W Streak"
+                value={stats ? String(stats.longestWinStreak) : "—"}
+                accent
+              />
+              <Stat
+                label="Longest L Streak"
+                value={stats ? String(stats.longestLossStreak) : "—"}
+              />
+            </div>
           </div>
         </div>
 
@@ -495,6 +494,11 @@ function LifetimeStats({ stats }: { stats: TeamStats | undefined }) {
             <Stat
               label="Avg PA"
               value={stats ? stats.avgPointsAgainst.toFixed(1) : "—"}
+            />
+            <Stat
+              label="MVP Weeks"
+              value={stats?.mvpWeeks != null ? String(stats.mvpWeeks) : "—"}
+              accent
             />
           </div>
           <div className="mt-3">
