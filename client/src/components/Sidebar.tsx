@@ -38,6 +38,8 @@ import {
   ChevronUp,
   Users,
   X,
+  Shield,
+  Settings,
 } from "lucide-react";
 import { useAppSelector } from "../store/hooks";
 import { useLeagueRosters, useLeagueUsers } from "../hooks/useSleeper";
@@ -45,6 +47,7 @@ import { useMyClaimedTeam } from "../hooks/useMyClaimedTeam";
 import { useAllSleeperLeagues } from "../hooks/useSleeper";
 import { getFamilySeasons } from "../utils/leagueFamily";
 import { useMemo } from "react";
+import { useIsCommissioner } from "../pages/CommissionerPage";
 
 const TOP_NAV_ITEMS = [
   { label: "Home", to: "/", icon: Home, end: true },
@@ -86,6 +89,7 @@ export function Sidebar({
   const { data: rosters } = useLeagueRosters(selectedLeagueId);
   const { data: leagueUsers } = useLeagueUsers(selectedLeagueId);
   const { rosterId: myRosterId } = useMyClaimedTeam(currentFamilyLeagueId);
+  const isCommissioner = useIsCommissioner();
 
   const teams = useMemo(() => {
     if (!rosters) return [];
@@ -179,6 +183,46 @@ export function Sidebar({
             </NavLink>
           ))}
 
+          {/* Commissioner-only link */}
+          {isCommissioner && (
+            <NavLink
+              to="/commissioner"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
+              ${
+                isActive
+                  ? "bg-highlight text-ink"
+                  : "text-muted hover:bg-highlight hover:text-ink"
+              }
+              ${renderCollapsed ? "justify-center" : ""}
+              `
+              }
+            >
+              <Shield size={16} className="shrink-0" />
+              {!renderCollapsed && <span>Commissioner</span>}
+            </NavLink>
+          )}
+
+          {/* League settings — visible to all members when a league is selected */}
+          {selectedLeagueId && (
+            <NavLink
+              to="/league-settings"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
+              ${
+                isActive
+                  ? "bg-highlight text-ink"
+                  : "text-muted hover:bg-highlight hover:text-ink"
+              }
+              ${renderCollapsed ? "justify-center" : ""}
+              `
+              }
+            >
+              <Settings size={16} className="shrink-0" />
+              {!renderCollapsed && <span>Settings</span>}
+            </NavLink>
+          )}
+
           {/* Teams collapsible */}
           {selectedLeagueId && (
             <div className="mt-1">
@@ -239,7 +283,7 @@ export function Sidebar({
         {/* Mobile-only secondary actions (mirror items hidden from top nav at sm) */}
         <div className="md:hidden mt-auto p-2 border-t border-line flex flex-col gap-1">
           <NavLink
-            to="/leagues"
+            to="/huddles"
             className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-muted hover:bg-highlight hover:text-ink transition-colors"
           >
             Huddles

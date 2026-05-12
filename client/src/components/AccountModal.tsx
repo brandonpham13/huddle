@@ -282,7 +282,7 @@ function IntegrationsPage() {
 
         {sleeperUsername && (
           <Link
-            to="/leagues"
+            to="/huddles"
             className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
           >
             Manage synced leagues

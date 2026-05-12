@@ -49,7 +49,7 @@ function EmptyState() {
   return (
     <div className="flex-1 flex items-center justify-center">
       <div className="text-center font-serif italic text-muted text-lg">
-        <Link to="/leagues" className="text-accent hover:underline">
+        <Link to="/huddles" className="text-accent hover:underline">
           Create or join a huddle
         </Link>{" "}
         to get started.

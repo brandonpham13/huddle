@@ -61,7 +61,7 @@ export function MyTeamSection({
         <Eyebrow>Your Team</Eyebrow>
         <p className="font-serif italic text-muted text-sm mt-1">
           No claimed team in this league.{" "}
-          <Link to="/leagues" className="text-accent hover:underline">
+          <Link to="/huddles" className="text-accent hover:underline">
             Join a huddle
           </Link>{" "}
           to get started.

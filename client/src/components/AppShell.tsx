@@ -242,7 +242,7 @@ export function AppShell({ children }: AppShellProps) {
 
           {uniqueLeagues.length === 0 && (
             <Link
-              to="/leagues"
+              to="/huddles"
               className="text-[10px] text-accent hover:underline truncate normal-case font-sans tracking-normal"
             >
               Create or join a huddle to get started
@@ -263,7 +263,7 @@ export function AppShell({ children }: AppShellProps) {
             </div>
           )}
           <Link
-            to="/leagues"
+            to="/huddles"
             className="hidden sm:inline text-sm text-muted hover:text-ink transition-colors"
           >
             Huddles
