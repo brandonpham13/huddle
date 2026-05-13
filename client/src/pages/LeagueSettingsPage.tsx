@@ -22,6 +22,7 @@ import {
   useRemoveClaim,
   useAwards,
   usePayouts,
+  useAwardIcons,
 } from "../hooks/useHuddles";
 import {
   Tooltip,
@@ -172,7 +173,15 @@ function PayoutsReadOnly({ huddleId }: { huddleId: string }) {
 }
 
 /** Inline SVG glyph for awards in League Settings — full set matching CommissionerPage. */
-function SettingsGlyphSvg({ kind, color }: { kind: string; color: string }) {
+function SettingsGlyphSvg({ kind, color, iconSvg }: { kind: string; color: string; iconSvg?: string }) {
+  if (kind.startsWith("icon:") && iconSvg) {
+    return (
+      <svg width={28} height={28} viewBox="0 0 36 40" className="mb-1"
+        style={{ color }}
+        dangerouslySetInnerHTML={{ __html: iconSvg.replace(/<svg[^>]*>/, "").replace(/<\/svg>/, "") }}
+      />
+    );
+  }
   const s = { stroke: color, strokeWidth: 1.4, fill: "none", strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   const vb = "0 0 36 40"; const sz = 28;
   if (kind === "cup")    return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><path {...s} d="M8 4 H28 V14 C28 22 24 27 18 27 C12 27 8 22 8 14 Z" fillOpacity={0.15} fill={color} /><path {...s} d="M8 8 H3 C3 14 6 17 9 17" /><path {...s} d="M28 8 H33 C33 14 30 17 27 17" /><path {...s} d="M14 27 V32 H22 V27" /><path {...s} d="M10 36 H26" strokeWidth={2.2} /></svg>;
@@ -197,10 +206,12 @@ function AwardsSection({
   huddleId,
   rosters,
   leagueUsers,
+  iconMap,
 }: {
   huddleId: string;
   rosters: Roster[];
   leagueUsers: TeamUser[];
+  iconMap: Map<string, string>;
 }) {
   const { data: awards } = useAwards(huddleId);
 
@@ -234,7 +245,7 @@ function AwardsSection({
                 {a.season}
               </div>
             )}
-            <SettingsGlyphSvg kind={a.glyph} color={a.color} />
+            <SettingsGlyphSvg kind={a.glyph} color={a.color} iconSvg={a.glyph.startsWith("icon:") ? iconMap.get(a.glyph.replace("icon:", "")) : undefined} />
             <div className="font-serif italic font-bold text-[14px] text-ink leading-tight tracking-tight mt-1">
               {a.title}
             </div>
@@ -523,6 +534,8 @@ export function LeagueSettingsPage() {
   const huddleDetail = useHuddleDetail(huddle?.id ?? null);
   const detail = huddleDetail.data;
   const isCommissioner = !!detail?.huddle.isCommissioner;
+  const { data: iconData = [] } = useAwardIcons();
+  const settingsIconMap = useMemo(() => new Map(iconData.map((ic) => [ic.id, ic.svg])), [iconData]);
 
   if (!selectedLeagueId) return <Navigate to="/" replace />;
 
@@ -574,6 +587,7 @@ export function LeagueSettingsPage() {
               huddleId={huddle.id}
               rosters={rosters ?? []}
               leagueUsers={leagueUsers ?? []}
+              iconMap={settingsIconMap}
             />
           )}
 

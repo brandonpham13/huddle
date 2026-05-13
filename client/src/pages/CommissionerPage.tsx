@@ -44,6 +44,8 @@ import {
   useDeleteAward,
   useActiveTrophies,
   useSetTrophyEnabled,
+  useAwardIcons,
+  type AwardIcon,
   usePayouts,
   useSetPayouts,
 } from "../hooks/useHuddles";
@@ -784,27 +786,42 @@ function DuesTrackerPanel({
 // ── Award glyph definitions (mirrors TrophyGlyph kinds) ─────────────────────
 
 const AWARD_GLYPHS: Array<{ kind: string; label: string }> = [
-  { kind: "cup",     label: "Cup"        },
-  { kind: "crown",   label: "Crown"      },
-  { kind: "medal",   label: "Medal"      },
-  { kind: "ribbon",  label: "Ribbon"     },
-  { kind: "star",    label: "Star"       },
-  { kind: "bolt",    label: "Lightning"  },
-  { kind: "fire",    label: "Fire"       },
-  { kind: "rocket",  label: "Rocket"     },
-  { kind: "skull",   label: "Skull"      },
-  { kind: "trash",   label: "Trash Can"  },
-  { kind: "poop",    label: "Poop"       },
-  { kind: "ghost",   label: "Ghost"      },
-  { kind: "broken",  label: "Heartbreak" },
-  { kind: "deal",    label: "Handshake"  },
+  { kind: "cup",    label: "Cup"       },
+  { kind: "medal",  label: "Medal"     },
+  { kind: "ribbon", label: "Ribbon"    },
+  { kind: "star",   label: "Star"      },
+  { kind: "bolt",   label: "Lightning" },
+  { kind: "trash",  label: "Trash Can" },
 ];
 
 /**
  * Inline SVG glyph — mirrors TrophyGlyph in TeamPage so commissioner awards
  * and stat trophies use identical icons.
  */
-function GlyphSvg({ kind, size = 36 }: { kind: string; size?: number }) {
+function GlyphSvg({
+  kind,
+  size = 36,
+  iconSvg,
+}: {
+  kind: string;
+  size?: number;
+  /** Raw SVG string for icon: prefixed kinds. */
+  iconSvg?: string;
+}) {
+  // Custom icon file — inject the SVG with currentColor applied
+  if (kind.startsWith("icon:") && iconSvg) {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 36 40"
+        dangerouslySetInnerHTML={{ __html: iconSvg
+          .replace(/<svg[^>]*>/, "")  // strip outer <svg> tag
+          .replace(/<\/svg>/, "")    // strip closing tag
+        }}
+      />
+    );
+  }
   const stroke = {
     stroke: "currentColor",
     strokeWidth: 1.4,
@@ -1002,12 +1019,14 @@ function AwardBadge({
   onEdit,
   onDelete,
   deleting,
+  iconSvg,
 }: {
   award: HuddleAward;
   teamName: string;
   onEdit: () => void;
   onDelete: () => void;
   deleting: boolean;
+  iconSvg?: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 border border-line rounded-md p-3 bg-paper">
@@ -1016,7 +1035,7 @@ function AwardBadge({
           className="w-8 h-8 flex items-center justify-center rounded-md shrink-0"
           style={{ backgroundColor: award.color + "22", color: award.color }}
         >
-          <GlyphSvg kind={award.glyph} size={20} />
+          <GlyphSvg kind={award.glyph} size={20} iconSvg={iconSvg} />
         </span>
         <div className="min-w-0">
           <p className="text-[13px] font-semibold text-ink font-sans leading-tight">
@@ -1179,6 +1198,12 @@ function TrophyRoomPanel({
 }) {
   const { data: active } = useActiveTrophies(huddleId);
   const toggle = useSetTrophyEnabled();
+  const { data: icons = [] } = useAwardIcons();
+  // Map icon id → svg content for quick lookup
+  const iconMap = useMemo(
+    () => new Map(icons.map((ic) => [ic.id, ic.svg])),
+    [icons],
+  );
 
   // ── Custom awards state (merged from CustomAwardsPanel) ──────────────────
   const awardsQuery = useAwards(huddleId);
@@ -1312,9 +1337,10 @@ function TrophyRoomPanel({
         <div className="flex flex-col gap-3">
           {/* Glyph picker + colour */}
           <div className="flex items-start gap-3">
-            <div>
+            <div className="flex-1">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">Glyph</p>
-              <div className="grid grid-cols-3 gap-1.5">
+              {/* Built-in glyphs */}
+              <div className="grid grid-cols-6 gap-1.5 mb-1.5">
                 {AWARD_GLYPHS.map((g) => (
                   <button
                     key={g.kind}
@@ -1329,12 +1355,38 @@ function TrophyRoomPanel({
                   </button>
                 ))}
               </div>
+              {/* Custom icon files */}
+              {icons.length > 0 && (
+                <>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
+                    Custom icons
+                  </p>
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {icons.map((ic: AwardIcon) => {
+                      const kind = `icon:${ic.id}`;
+                      return (
+                        <button
+                          key={ic.id}
+                          title={ic.name}
+                          onClick={() => setGlyph(kind)}
+                          className={`flex items-center justify-center w-10 h-10 rounded-md border transition-colors ${
+                            glyph === kind ? "border-ink bg-highlight" : "border-line hover:bg-highlight"
+                          }`}
+                          style={{ color }}
+                        >
+                          <GlyphSvg kind={kind} size={22} iconSvg={ic.svg} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
             <div
               className="w-14 h-14 rounded-lg flex items-center justify-center shrink-0 mt-5"
               style={{ backgroundColor: color + "33", color }}
             >
-              <GlyphSvg kind={glyph} size={32} />
+              <GlyphSvg kind={glyph} size={32} iconSvg={iconMap.get(glyph.replace("icon:", ""))} />
             </div>
             <div className="flex-1">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">Colour</p>
@@ -1428,7 +1480,7 @@ function TrophyRoomPanel({
                   </div>
                 )}
                 <div className="mb-2" style={{ color }}>
-                  <GlyphSvg kind={glyph} size={32} />
+                  <GlyphSvg kind={glyph} size={32} iconSvg={iconMap.get(glyph.replace("icon:", ""))} />
                 </div>
                 <div className="font-serif italic font-bold text-[14px] text-ink leading-tight tracking-tight">
                   {awardTitle}
@@ -1481,6 +1533,7 @@ function TrophyRoomPanel({
                 onEdit={() => startEdit(a)}
                 onDelete={() => deleteAward.mutate({ huddleId, awardId: a.id })}
                 deleting={deleteAward.isPending}
+                iconSvg={a.glyph.startsWith("icon:") ? iconMap.get(a.glyph.replace("icon:", "")) : undefined}
               />
             ))}
             {deleteAward.isError && (

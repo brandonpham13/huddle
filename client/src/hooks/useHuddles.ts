@@ -672,3 +672,22 @@ export function useSetTrophyEnabled() {
     },
   });
 }
+
+// ── Award icons (server-managed SVG files) ────────────────────────────────────
+
+export interface AwardIcon {
+  id: string;
+  name: string;
+  svg: string;
+}
+
+export function useAwardIcons() {
+  return useQuery({
+    queryKey: ["award-icons"],
+    queryFn: async () => {
+      const res = await axios.get<{ icons: AwardIcon[] }>("/api/award-icons");
+      return res.data.icons;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}

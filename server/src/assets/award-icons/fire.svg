@@ -1,0 +1,7 @@
+<svg viewBox="0 0 36 40" xmlns="http://www.w3.org/2000/svg">
+  <path stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"
+    fill-opacity="0.15" fill="currentColor"
+    d="M18 2 C18 2 26 10 26 20 C26 28 22 34 18 36 C14 34 10 28 10 20 C10 10 18 2 18 2 Z" />
+  <path stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"
+    d="M18 14 C18 14 22 19 22 24 C22 28 20 31 18 32 C16 31 14 28 14 24 C14 19 18 14 18 14 Z" />
+</svg>

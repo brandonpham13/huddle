@@ -30,7 +30,7 @@ import { useMyClaimedTeam } from "../hooks/useMyClaimedTeam";
 import { getFamilySeasons } from "../utils/leagueFamily";
 import { sleeperAvatarUrl } from "../utils/sleeperNormalize";
 import { Avatar } from "../components/Avatar";
-import { useMyHuddles, useAwards, useActiveTrophies } from "../hooks/useHuddles";
+import { useMyHuddles, useAwards, useActiveTrophies, useAwardIcons } from "../hooks/useHuddles";
 import type { HuddleAward } from "../types/huddle";
 
 // ─── Shared atoms ─────────────────────────────────────────────────────────────
@@ -971,7 +971,16 @@ function buildTrophies(stats: TeamStats): Trophy[] {
  * Full glyph set for commissioner awards — superset of TrophyGlyph that
  * also includes the funny/superlative icons.
  */
-function CommissionerGlyph({ kind, size = 36 }: { kind: string; size?: number }) {
+function CommissionerGlyph({
+  kind, size = 36, iconSvg,
+}: { kind: string; size?: number; iconSvg?: string }) {
+  if (kind.startsWith("icon:") && iconSvg) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 36 40"
+        dangerouslySetInnerHTML={{ __html: iconSvg.replace(/<svg[^>]*>/, "").replace(/<\/svg>/, "") }}
+      />
+    );
+  }
   const s = {
     stroke: "currentColor", strokeWidth: 1.4, fill: "none",
     strokeLinecap: "round" as const, strokeLinejoin: "round" as const,
@@ -1014,7 +1023,7 @@ function CommissionerGlyph({ kind, size = 36 }: { kind: string; size?: number })
  * Renders commissioner awards as TrophyCard-style tiles using the same
  * TrophyGlyph SVGs so they match the auto-assigned stat trophies visually.
  */
-function HuddleAwardsStrip({ awards }: { awards: HuddleAward[] }) {
+function HuddleAwardsStrip({ awards, iconMap }: { awards: HuddleAward[]; iconMap: Map<string, string> }) {
   if (awards.length === 0) return null;
   return (
     <div className="mt-6">
@@ -1037,7 +1046,7 @@ function HuddleAwardsStrip({ awards }: { awards: HuddleAward[] }) {
               </div>
             )}
             <div className="mb-2" style={{ color: a.color }}>
-              <CommissionerGlyph kind={a.glyph} size={32} />
+              <CommissionerGlyph kind={a.glyph} size={32} iconSvg={a.glyph.startsWith("icon:") ? iconMap.get(a.glyph.replace("icon:", "")) : undefined} />
             </div>
             <div className="font-serif italic font-bold text-[14px] text-ink leading-tight tracking-tight">
               {a.title}
@@ -1097,6 +1106,8 @@ function TrophyRoom({
     huddleId,
     rosterId ?? undefined,
   );
+  const { data: iconData = [] } = useAwardIcons();
+  const iconMap = useMemo(() => new Map(iconData.map((ic) => [ic.id, ic.svg])), [iconData]);
 
   return (
     <section>
@@ -1120,7 +1131,7 @@ function TrophyRoom({
         ))}
       </div>
       {/* Custom huddle awards below the auto-generated trophies */}
-      <HuddleAwardsStrip awards={huddleAwards ?? []} />
+      <HuddleAwardsStrip awards={huddleAwards ?? []} iconMap={iconMap} />
     </section>
   );
 }
