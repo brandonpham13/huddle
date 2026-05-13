@@ -627,3 +627,48 @@ export function useUpdateAward() {
     },
   });
 }
+
+// ── Trophy control ────────────────────────────────────────────────────────────
+
+import type { ActiveTrophies } from "../types/huddle";
+
+export function useActiveTrophies(huddleId: string | null) {
+  const { getToken } = useAuth();
+  return useQuery({
+    queryKey: ["active-trophies", huddleId],
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await axios.get<{ active: ActiveTrophies }>(
+        `/api/huddles/${huddleId}/trophies`,
+        { headers: authHeader(token) },
+      );
+      return res.data.active;
+    },
+    enabled: !!huddleId,
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useSetTrophyEnabled() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      huddleId: string;
+      trophyType: string;
+      enabled: boolean;
+    }) => {
+      const token = await getToken();
+      await axios.put(
+        `/api/huddles/${input.huddleId}/trophies/${input.trophyType}`,
+        { enabled: input.enabled },
+        { headers: authHeader(token) },
+      );
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["active-trophies", variables.huddleId],
+      });
+    },
+  });
+}

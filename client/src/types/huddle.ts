@@ -114,3 +114,6 @@ export interface PayoutEntry {
   createdAt: string;
   updatedAt: string;
 }
+
+/** Map of built-in trophy type → enabled. Missing keys default to true. */
+export type ActiveTrophies = Record<string, boolean>;

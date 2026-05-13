@@ -42,6 +42,8 @@ import {
   useCreateAward,
   useUpdateAward,
   useDeleteAward,
+  useActiveTrophies,
+  useSetTrophyEnabled,
   usePayouts,
   useSetPayouts,
 } from "../hooks/useHuddles";
@@ -51,6 +53,7 @@ import type {
   HuddleClaimSummary,
   HuddleAward,
   UserSummary,
+  ActiveTrophies,
 } from "../types/huddle";
 
 // ─── Access guard ─────────────────────────────────────────────────────────────
@@ -1404,6 +1407,309 @@ function PayoutStructurePanel({ huddleId }: { huddleId: string }) {
   );
 }
 
+// ─── Trophy Room panel ───────────────────────────────────────────────────────
+
+/** Built-in trophy types and their display metadata. */
+const BUILT_IN_TROPHIES: Array<{
+  type: string;
+  label: string;
+  sub: string;
+  kind: string;
+}> = [
+  { type: "champion",       label: "Champion",       sub: "League champion",         kind: "cup"    },
+  { type: "runner_up",      label: "Runner-Up",      sub: "Championship finalist",   kind: "medal"  },
+  { type: "third",          label: "3rd Place",      sub: "Consolation winner",      kind: "medal"  },
+  { type: "high_score",     label: "High Score",     sub: "Top single-week score",   kind: "star"   },
+  { type: "missed_playoffs",label: "Missed Playoffs",sub: "Patience builds character",kind: "ribbon" },
+];
+
+function TrophyRoomPanel({
+  huddleId,
+  rosters,
+  leagueUsers,
+}: {
+  huddleId: string;
+  rosters: Roster[];
+  leagueUsers: TeamUser[];
+}) {
+  const { data: active } = useActiveTrophies(huddleId);
+  const toggle = useSetTrophyEnabled();
+
+  // ── Custom awards state (merged from CustomAwardsPanel) ──────────────────
+  const awardsQuery = useAwards(huddleId);
+  const createAward = useCreateAward();
+  const updateAward = useUpdateAward();
+  const deleteAward = useDeleteAward();
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [glyph, setGlyph] = useState("cup");
+  const [color, setColor] = useState(AWARD_COLORS[4]!.hex);
+  const [awardTitle, setAwardTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [rosterId, setRosterId] = useState<number | "">("");
+  const [season, setSeason] = useState("");
+
+  function startEdit(a: HuddleAward) {
+    setEditingId(a.id);
+    setGlyph(a.glyph);
+    setColor(a.color);
+    setAwardTitle(a.title);
+    setDescription(a.description ?? "");
+    setRosterId(a.rosterId);
+    setSeason(a.season ?? "");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setGlyph("cup");
+    setColor(AWARD_COLORS[4]!.hex);
+    setAwardTitle("");
+    setDescription("");
+    setRosterId("");
+    setSeason("");
+  }
+
+  function handleAwardSubmit() {
+    if (!rosterId || !awardTitle.trim()) return;
+    const payload = {
+      huddleId,
+      rosterId: rosterId as number,
+      glyph,
+      color,
+      title: awardTitle.trim(),
+      description: description.trim() || undefined,
+      season: season.trim() || undefined,
+    };
+    if (editingId) {
+      updateAward.mutate({ ...payload, awardId: editingId }, { onSuccess: cancelEdit });
+    } else {
+      createAward.mutate(payload, { onSuccess: cancelEdit });
+    }
+  }
+
+  const sortedRosters = useMemo(
+    () => [...rosters].sort((a, b) => a.rosterId - b.rosterId),
+    [rosters],
+  );
+
+  function rosterLabel(r: Roster): string {
+    return rosterTeamName(r, leagueUsers);
+  }
+
+  function teamNameForRosterId(id: number): string {
+    const r = rosters.find((x) => x.rosterId === id);
+    return r ? rosterLabel(r) : `Team ${id}`;
+  }
+
+  const awards = awardsQuery.data ?? [];
+
+  return (
+    <Panel>
+      <PanelHeader
+        title="Trophy Room"
+        description="Control which automatic trophies are active and grant custom awards to teams."
+      />
+
+      {/* ── Built-in trophy toggles ─────────────────────────────────── */}
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-2">
+          Built-in trophies
+        </p>
+        <div className="flex flex-col divide-y divide-line">
+          {BUILT_IN_TROPHIES.map((t) => {
+            const enabled = active ? (active[t.type] !== false) : true;
+            return (
+              <div key={t.type} className="flex items-center justify-between py-2.5 gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span
+                    className={`w-7 h-7 flex items-center justify-center rounded-md shrink-0 transition-opacity ${
+                      enabled ? "opacity-100" : "opacity-30"
+                    }`}
+                    style={{ color: enabled ? "#6b7280" : undefined }}
+                  >
+                    <GlyphSvg kind={t.kind} size={20} />
+                  </span>
+                  <div className={`min-w-0 transition-opacity ${enabled ? "opacity-100" : "opacity-40"}`}>
+                    <p className="text-[13px] font-semibold text-ink font-sans leading-tight">
+                      {t.label}
+                    </p>
+                    <p className="text-[11px] text-muted font-sans">{t.sub}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() =>
+                    toggle.mutate({ huddleId, trophyType: t.type, enabled: !enabled })
+                  }
+                  disabled={toggle.isPending}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none disabled:opacity-50 ${
+                    enabled ? "bg-ink" : "bg-line"
+                  }`}
+                  role="switch"
+                  aria-checked={enabled}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                      enabled ? "translate-x-4" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Custom awards ───────────────────────────────────────────── */}
+      <div className="border-t border-line pt-4">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-3">
+          {editingId ? "Edit custom award" : "Grant a custom award"}
+        </p>
+        <div className="flex flex-col gap-3">
+          {/* Glyph picker + colour */}
+          <div className="flex items-start gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">Glyph</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {AWARD_GLYPHS.map((g) => (
+                  <button
+                    key={g.kind}
+                    title={g.label}
+                    onClick={() => setGlyph(g.kind)}
+                    className={`flex items-center justify-center w-10 h-10 rounded-md border transition-colors ${
+                      glyph === g.kind ? "border-ink bg-highlight" : "border-line hover:bg-highlight"
+                    }`}
+                    style={{ color }}
+                  >
+                    <GlyphSvg kind={g.kind} size={22} />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div
+              className="w-14 h-14 rounded-lg flex items-center justify-center shrink-0 mt-5"
+              style={{ backgroundColor: color + "33", color }}
+            >
+              <GlyphSvg kind={glyph} size={32} />
+            </div>
+            <div className="flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">Colour</p>
+              <div className="flex flex-wrap gap-1.5">
+                {AWARD_COLORS.map((c) => (
+                  <button
+                    key={c.hex}
+                    title={c.label}
+                    onClick={() => setColor(c.hex)}
+                    className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${
+                      color === c.hex ? "border-ink scale-110" : "border-transparent"
+                    }`}
+                    style={{ backgroundColor: c.hex }}
+                  />
+                ))}
+              </div>
+              <p className="text-[10px] font-mono text-muted mt-1">{color}</p>
+            </div>
+          </div>
+
+          {/* Title + season */}
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">Title</p>
+              <input
+                value={awardTitle}
+                onChange={(e) => setAwardTitle(e.target.value.slice(0, 80))}
+                maxLength={80}
+                className="w-full text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink"
+                placeholder="e.g. Sacko, Most Improved…"
+              />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">Season</p>
+              <input
+                value={season}
+                onChange={(e) => setSeason(e.target.value.slice(0, 10))}
+                maxLength={10}
+                className="w-20 text-[13px] font-sans border border-line rounded-md px-2 py-1.5 bg-paper text-ink"
+                placeholder={String(new Date().getFullYear())}
+              />
+            </div>
+          </div>
+
+          {/* Team selector */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">Recipient Team</p>
+            <select
+              value={rosterId}
+              onChange={(e) => setRosterId(e.target.value ? Number(e.target.value) : "")}
+              className="w-full text-[13px] font-sans border border-line rounded-md px-2 py-1.5 bg-paper text-ink"
+            >
+              <option value="">Select a team…</option>
+              {sortedRosters.map((r) => (
+                <option key={r.rosterId} value={r.rosterId}>{rosterLabel(r)}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Description */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
+              Description <span className="normal-case">(optional)</span>
+            </p>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value.slice(0, 300))}
+              maxLength={300}
+              rows={2}
+              className="w-full text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink resize-none"
+              placeholder="Brief note about why this award was given…"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2">
+            {(createAward.isError || updateAward.isError) && (
+              <p className="text-[11.5px] text-red-600 font-sans flex-1">
+                {((createAward.error ?? updateAward.error) as Error).message}
+              </p>
+            )}
+            {editingId && <Btn onClick={cancelEdit}>Cancel</Btn>}
+            <BtnPrimary
+              onClick={handleAwardSubmit}
+              disabled={!awardTitle.trim() || !rosterId || createAward.isPending || updateAward.isPending}
+            >
+              {createAward.isPending || updateAward.isPending
+                ? editingId ? "Saving…" : "Granting…"
+                : editingId ? "Save changes" : "Grant award"}
+            </BtnPrimary>
+          </div>
+        </div>
+
+        {/* Existing custom awards list */}
+        {awards.length > 0 && (
+          <div className="flex flex-col gap-2 mt-4 pt-3 border-t border-line">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans">
+              Granted awards ({awards.length})
+            </p>
+            {awards.map((a) => (
+              <AwardBadge
+                key={a.id}
+                award={a}
+                teamName={teamNameForRosterId(a.rosterId)}
+                onEdit={() => startEdit(a)}
+                onDelete={() => deleteAward.mutate({ huddleId, awardId: a.id })}
+                deleting={deleteAward.isPending}
+              />
+            ))}
+            {deleteAward.isError && (
+              <p className="text-[11.5px] text-red-600 font-sans">
+                {(deleteAward.error as Error).message}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
 // ─── Coming-soon stub section ─────────────────────────────────────────────────
 
 function StubSection({
@@ -1521,7 +1827,7 @@ export function CommissionerPage() {
             />
           )}
           {huddle ? (
-            <CustomAwardsPanel
+            <TrophyRoomPanel
               huddleId={huddle.id}
               rosters={rosters ?? []}
               leagueUsers={leagueUsers ?? []}
@@ -1529,8 +1835,8 @@ export function CommissionerPage() {
           ) : (
             <StubSection
               icon={Award}
-              title="Custom Awards"
-              description="Grant one-off trophies to any team: Sacko, Most Improved, Most Transactions, Lucky Schedule — anything your league cares about."
+              title="Trophy Room"
+              description="Enable or disable automatic trophies and grant custom awards to teams."
               tag="Awards"
             />
           )}

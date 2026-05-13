@@ -30,7 +30,7 @@ import { useMyClaimedTeam } from "../hooks/useMyClaimedTeam";
 import { getFamilySeasons } from "../utils/leagueFamily";
 import { sleeperAvatarUrl } from "../utils/sleeperNormalize";
 import { Avatar } from "../components/Avatar";
-import { useMyHuddles, useAwards } from "../hooks/useHuddles";
+import { useMyHuddles, useAwards, useActiveTrophies } from "../hooks/useHuddles";
 import type { HuddleAward } from "../types/huddle";
 
 // ─── Shared atoms ─────────────────────────────────────────────────────────────
@@ -1071,9 +1071,26 @@ function TrophyRoom({
   rosterId: number | null;
 }) {
   // While loading, show placeholder skeleton. Once stats arrive, build real trophies.
-  const trophies = stats ? buildTrophies(stats) : null;
+  const allTrophies = stats ? buildTrophies(stats) : null;
+  const isLoading = allTrophies === null;
+
+  // Filter trophies by commissioner-controlled active settings.
+  // Each trophy id prefix maps to a built-in type key:
+  //   champ-* → champion, ru-* → runner_up, third-* → third,
+  //   high-score → high_score, missed-playoffs → missed_playoffs
+  const { data: activeTrophies } = useActiveTrophies(huddleId);
+  const trophies = allTrophies?.filter((t) => {
+    let type: string | null = null;
+    if (t.id.startsWith("champ-"))          type = "champion";
+    else if (t.id.startsWith("ru-"))        type = "runner_up";
+    else if (t.id.startsWith("third-"))     type = "third";
+    else if (t.id === "high-score")         type = "high_score";
+    else if (t.id === "missed-playoffs")    type = "missed_playoffs";
+    if (!type) return true; // unknown type — always show
+    // Default enabled when no setting saved yet
+    return activeTrophies ? (activeTrophies[type] !== false) : true;
+  }) ?? null;
   const display = trophies ?? PLACEHOLDER_TROPHIES;
-  const isLoading = trophies === null;
 
   // Fetch custom commissioner awards for this roster
   const { data: huddleAwards } = useAwards(
@@ -1089,7 +1106,7 @@ function TrophyRoom({
         rule={
           isLoading
             ? "Superlatives · loading…"
-            : `${trophies!.length} award${trophies!.length !== 1 ? "s" : ""}`
+            : `${(trophies?.length ?? 0) + (huddleAwards?.length ?? 0)} award${((trophies?.length ?? 0) + (huddleAwards?.length ?? 0)) !== 1 ? "s" : ""}`
         }
       />
       {isLoading && (

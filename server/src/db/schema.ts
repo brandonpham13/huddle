@@ -218,3 +218,28 @@ export const huddlePayoutEntries = pgTable(
 
 export type HuddlePayoutEntry = typeof huddlePayoutEntries.$inferSelect;
 export type NewHuddlePayoutEntry = typeof huddlePayoutEntries.$inferInsert;
+
+// ── Active trophy control ─────────────────────────────────────────────────────
+// Commissioners choose which built-in auto-trophies are shown for their league.
+// A row exists for each type the commissioner has explicitly toggled; if no row
+// exists, the trophy is considered enabled (opt-out model, not opt-in).
+
+export const huddleActiveTrophies = pgTable(
+  "huddle_active_trophies",
+  {
+    huddleId: uuid("huddle_id")
+      .notNull()
+      .references(() => huddles.id, { onDelete: "cascade" }),
+    /** Built-in trophy type key, e.g. "champion", "high_score". */
+    trophyType: text("trophy_type").notNull(),
+    enabled: integer("enabled").notNull().default(1), // 1 = on, 0 = off
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.huddleId, t.trophyType] }),
+  }),
+);
+
+export type HuddleActiveTrophy = typeof huddleActiveTrophies.$inferSelect;

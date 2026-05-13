@@ -39,6 +39,7 @@ import {
   deleteAward,
 } from "../services/awardsService.js";
 import { listPayouts, setPayouts } from "../services/payoutsService.js";
+import { getActiveTrophies, setTrophyEnabled } from "../services/trophyControlService.js";
 
 const clerkSecretKey = process.env["CLERK_SECRET_KEY"];
 if (!clerkSecretKey) {
@@ -818,6 +819,45 @@ export function initHuddleRoutes(app: Express) {
         }
         const saved = await setPayouts(req.params.id!, userId!, entries);
         res.json({ entries: saved });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // GET /api/huddles/:id/trophies — any authenticated member
+  app.get(
+    "/api/huddles/:id/trophies",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const active = await getActiveTrophies(req.params.id!);
+        res.json({ active });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // PUT /api/huddles/:id/trophies/:trophyType — commissioner only
+  app.put(
+    "/api/huddles/:id/trophies/:trophyType",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        const { enabled } = req.body as { enabled?: boolean };
+        if (typeof enabled !== "boolean") {
+          res.status(400).json({ error: "enabled (boolean) required" });
+          return;
+        }
+        await setTrophyEnabled(
+          req.params.id!,
+          userId!,
+          req.params.trophyType!,
+          enabled,
+        );
+        res.json({ ok: true });
       } catch (err) {
         handleError(err, res);
       }
