@@ -691,3 +691,49 @@ export function useAwardIcons() {
     staleTime: 5 * 60 * 1000,
   });
 }
+
+// ── Family-aware huddle lookup ────────────────────────────────────────────────
+// Huddles store the leagueId they were linked to (typically the most recent
+// season). When a user switches to a past season, selectedLeagueId changes
+// to that season's ID which never matches directly. This hook resolves the
+// family root of both sides so the huddle is found regardless of which season
+// is selected.
+
+import { useMemo } from "react";
+import { useAppSelector } from "../store/hooks";
+import { useAllSleeperLeagues } from "./useSleeper";
+import { buildFamilyRootMap } from "../utils/leagueFamily";
+
+/**
+ * Returns the huddle linked to any season of the currently-selected league
+ * family. Works correctly when the user switches to a past season.
+ */
+export function useSelectedLeagueHuddle() {
+  const selectedLeagueId = useAppSelector(
+    (state) => state.auth.selectedLeagueId,
+  );
+  const { data: huddles } = useMyHuddles();
+  const { data: allLeagues } = useAllSleeperLeagues();
+
+  return useMemo(() => {
+    if (!huddles || !selectedLeagueId) return null;
+
+    // Fast path: exact match (covers the common case where the selected
+    // season is the same one the huddle was linked to).
+    const exact = huddles.find((h) => h.leagueId === selectedLeagueId);
+    if (exact) return exact;
+
+    // Slow path: resolve family roots and match across seasons.
+    if (!allLeagues) return null;
+    const rootMap = buildFamilyRootMap(allLeagues);
+    const selectedRoot = rootMap.get(selectedLeagueId) ?? selectedLeagueId;
+
+    return (
+      huddles.find((h) => {
+        if (!h.leagueId) return false;
+        const huddleRoot = rootMap.get(h.leagueId) ?? h.leagueId;
+        return huddleRoot === selectedRoot;
+      }) ?? null
+    );
+  }, [huddles, allLeagues, selectedLeagueId]);
+}

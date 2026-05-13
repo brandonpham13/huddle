@@ -30,7 +30,7 @@ import { useMyClaimedTeam } from "../hooks/useMyClaimedTeam";
 import { getFamilySeasons } from "../utils/leagueFamily";
 import { sleeperAvatarUrl } from "../utils/sleeperNormalize";
 import { Avatar } from "../components/Avatar";
-import { useMyHuddles, useAwards, useActiveTrophies, useAwardIcons } from "../hooks/useHuddles";
+import { useMyHuddles, useAwards, useActiveTrophies, useAwardIcons, useSelectedLeagueHuddle } from "../hooks/useHuddles";
 import type { HuddleAward } from "../types/huddle";
 
 // ─── Shared atoms ─────────────────────────────────────────────────────────────
@@ -1192,12 +1192,9 @@ export function TeamPage() {
     [selectedLeagueId, allLeagues],
   );
 
-  // Find the huddle linked to the currently-selected league so we can show custom awards
-  const { data: myHuddles } = useMyHuddles();
-  const selectedLeagueHuddleId = useMemo(
-    () => myHuddles?.find((h) => h.leagueId === selectedLeagueId)?.id ?? null,
-    [myHuddles, selectedLeagueId],
-  );
+  // Find the huddle linked to any season of the selected league family
+  const selectedLeagueHuddle = useSelectedLeagueHuddle();
+  const selectedLeagueHuddleId = selectedLeagueHuddle?.id ?? null;
 
   // Season trail — fetch all scored weeks for this roster
   const seasonLog = useTeamSeasonLog(selectedLeagueId, rosterId, lastWeek);
