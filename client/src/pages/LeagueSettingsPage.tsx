@@ -171,6 +171,25 @@ function PayoutsReadOnly({ huddleId }: { huddleId: string }) {
   );
 }
 
+/** Minimal inline SVG glyph for awards — mirrors TrophyGlyph in TeamPage. */
+function SettingsGlyphSvg({ kind, color }: { kind: string; color: string }) {
+  const stroke = {
+    stroke: color, strokeWidth: 1.4, fill: "none",
+    strokeLinecap: "round" as const, strokeLinejoin: "round" as const,
+  };
+  const vb = "0 0 36 40";
+  const sz = 28;
+  if (kind === "cup")
+    return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><path {...stroke} d="M8 4 H28 V14 C28 22 24 27 18 27 C12 27 8 22 8 14 Z" fillOpacity={0.15} fill={color} /><path {...stroke} d="M8 8 H3 C3 14 6 17 9 17" /><path {...stroke} d="M28 8 H33 C33 14 30 17 27 17" /><path {...stroke} d="M14 27 V32 H22 V27" /><path {...stroke} d="M10 36 H26" strokeWidth={2.2} /></svg>;
+  if (kind === "medal")
+    return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><path {...stroke} d="M12 2 L8 14 M24 2 L28 14" /><circle cx="18" cy="24" r="11" {...stroke} fillOpacity={0.15} fill={color} /><circle cx="18" cy="24" r="6" {...stroke} /></svg>;
+  if (kind === "ribbon")
+    return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><circle cx="18" cy="14" r="9" {...stroke} fillOpacity={0.15} fill={color} /><path {...stroke} d="M11 21 L8 36 L14 32 L18 36 L22 32 L28 36 L25 21" /></svg>;
+  if (kind === "star")
+    return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><path {...stroke} fillOpacity={0.15} fill={color} d="M18 4 L22 14 L33 15 L24 22 L27 33 L18 27 L9 33 L12 22 L3 15 L14 14 Z" /></svg>;
+  return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><rect x="6" y="10" width="24" height="22" {...stroke} fillOpacity={0.15} fill={color} /><path {...stroke} d="M6 16 H30 M6 22 H30 M6 28 H30" /></svg>;
+}
+
 /** Read-only display of all huddle awards — visible to all members. */
 function AwardsSection({
   huddleId,
@@ -198,27 +217,34 @@ function AwardsSection({
         title="Awards"
         description="Custom awards granted by your commissioner."
       />
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {awards.map((a: HuddleAward) => (
           <div
             key={a.id}
-            className="flex items-center gap-2 rounded-lg border border-line px-3 py-2 bg-paper"
+            className="relative flex flex-col p-3.5 border"
+            style={{ borderColor: a.color + "66", backgroundColor: a.color + "11" }}
           >
-            {/* Coloured glyph */}
-            <span
-              className="text-base leading-none w-7 h-7 flex items-center justify-center rounded-md shrink-0 font-bold"
-              style={{ backgroundColor: a.color + "22", color: a.color }}
+            {a.season && (
+              <div
+                className="absolute top-0 right-0 px-1.5 py-0.5 text-[9px] font-bold font-mono tracking-wider text-white"
+                style={{ backgroundColor: a.color }}
+              >
+                {a.season}
+              </div>
+            )}
+            <SettingsGlyphSvg kind={a.glyph} color={a.color} />
+            <div className="font-serif italic font-bold text-[14px] text-ink leading-tight tracking-tight mt-1">
+              {a.title}
+            </div>
+            <div className="font-serif text-xs text-body mt-1 leading-snug">
+              {teamNameForRosterId(a.rosterId)}
+            </div>
+            <div className="flex-1" />
+            <div
+              className="mt-2 pt-1.5 border-t border-dotted border-line text-[9.5px] uppercase tracking-wider font-sans font-semibold"
+              style={{ color: a.color }}
             >
-              {a.glyph}
-            </span>
-            <div className="min-w-0">
-              <p className="text-[12.5px] font-semibold text-ink font-sans leading-tight">
-                {a.title}
-              </p>
-              <p className="text-[10.5px] text-muted font-sans">
-                {teamNameForRosterId(a.rosterId)}
-                {a.season ? ` · ${a.season}` : ""}
-              </p>
+              Commissioner
             </div>
           </div>
         ))}

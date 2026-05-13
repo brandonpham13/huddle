@@ -40,6 +40,7 @@ import {
   useSetDuesPaid,
   useAwards,
   useCreateAward,
+  useUpdateAward,
   useDeleteAward,
   usePayouts,
   useSetPayouts,
@@ -777,6 +778,69 @@ function DuesTrackerPanel({
 /** Preset colour swatches commissioners can choose from. */
 
 /** Preset colour swatches commissioners can choose from. */
+// ── Award glyph definitions (mirrors TrophyGlyph kinds) ─────────────────────
+
+const AWARD_GLYPHS: Array<{ kind: string; label: string }> = [
+  { kind: "cup",    label: "Cup"    },
+  { kind: "medal",  label: "Medal"  },
+  { kind: "ribbon", label: "Ribbon" },
+  { kind: "star",   label: "Star"   },
+  { kind: "wood",   label: "Plank"  },
+];
+
+/**
+ * Inline SVG glyph — mirrors TrophyGlyph in TeamPage so commissioner awards
+ * and stat trophies use identical icons.
+ */
+function GlyphSvg({ kind, size = 36 }: { kind: string; size?: number }) {
+  const stroke = {
+    stroke: "currentColor",
+    strokeWidth: 1.4,
+    fill: "none",
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  const vb = "0 0 36 40";
+  if (kind === "cup")
+    return (
+      <svg width={size} height={size} viewBox={vb}>
+        <path {...stroke} d="M8 4 H28 V14 C28 22 24 27 18 27 C12 27 8 22 8 14 Z" fillOpacity={0.15} fill="currentColor" />
+        <path {...stroke} d="M8 8 H3 C3 14 6 17 9 17" />
+        <path {...stroke} d="M28 8 H33 C33 14 30 17 27 17" />
+        <path {...stroke} d="M14 27 V32 H22 V27" />
+        <path {...stroke} d="M10 36 H26" strokeWidth={2.2} />
+      </svg>
+    );
+  if (kind === "medal")
+    return (
+      <svg width={size} height={size} viewBox={vb}>
+        <path {...stroke} d="M12 2 L8 14 M24 2 L28 14" />
+        <circle cx="18" cy="24" r="11" {...stroke} fillOpacity={0.15} fill="currentColor" />
+        <circle cx="18" cy="24" r="6" {...stroke} />
+      </svg>
+    );
+  if (kind === "ribbon")
+    return (
+      <svg width={size} height={size} viewBox={vb}>
+        <circle cx="18" cy="14" r="9" {...stroke} fillOpacity={0.15} fill="currentColor" />
+        <path {...stroke} d="M11 21 L8 36 L14 32 L18 36 L22 32 L28 36 L25 21" />
+      </svg>
+    );
+  if (kind === "star")
+    return (
+      <svg width={size} height={size} viewBox={vb}>
+        <path {...stroke} fillOpacity={0.15} fill="currentColor" d="M18 4 L22 14 L33 15 L24 22 L27 33 L18 27 L9 33 L12 22 L3 15 L14 14 Z" />
+      </svg>
+    );
+  // "wood" / fallback
+  return (
+    <svg width={size} height={size} viewBox={vb}>
+      <rect x="6" y="10" width="24" height="22" {...stroke} fillOpacity={0.15} fill="currentColor" />
+      <path {...stroke} d="M6 16 H30 M6 22 H30 M6 28 H30" />
+    </svg>
+  );
+}
+
 const AWARD_COLORS = [
   { hex: "#ef4444", label: "Red" },
   { hex: "#f97316", label: "Orange" },
@@ -790,27 +854,28 @@ const AWARD_COLORS = [
   { hex: "#14b8a6", label: "Teal" },
 ];
 
-/** A single award displayed as a colour-coded badge with a delete button. */
+/** A single award displayed as a colour-coded badge with edit + delete buttons. */
 function AwardBadge({
   award,
   teamName,
+  onEdit,
   onDelete,
   deleting,
 }: {
   award: HuddleAward;
   teamName: string;
+  onEdit: () => void;
   onDelete: () => void;
   deleting: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 border border-line rounded-md p-3 bg-paper">
       <div className="flex items-center gap-2.5 min-w-0">
-        {/* Coloured glyph chip */}
         <span
-          className="text-lg leading-none w-8 h-8 flex items-center justify-center rounded-md shrink-0 font-sans font-bold"
+          className="w-8 h-8 flex items-center justify-center rounded-md shrink-0"
           style={{ backgroundColor: award.color + "22", color: award.color }}
         >
-          {award.glyph}
+          <GlyphSvg kind={award.glyph} size={20} />
         </span>
         <div className="min-w-0">
           <p className="text-[13px] font-semibold text-ink font-sans leading-tight">
@@ -827,9 +892,10 @@ function AwardBadge({
           )}
         </div>
       </div>
-      <Btn danger disabled={deleting} onClick={onDelete} className="shrink-0">
-        Remove
-      </Btn>
+      <div className="flex gap-1.5 shrink-0">
+        <Btn onClick={onEdit}>Edit</Btn>
+        <Btn danger disabled={deleting} onClick={onDelete}>Remove</Btn>
+      </div>
     </div>
   );
 }
@@ -845,15 +911,37 @@ function CustomAwardsPanel({
 }) {
   const awardsQuery = useAwards(huddleId);
   const createAward = useCreateAward();
+  const updateAward = useUpdateAward();
   const deleteAward = useDeleteAward();
 
   // Form state
-  const [glyph, setGlyph] = useState("🏆");
-  const [color, setColor] = useState(AWARD_COLORS[4]!.hex); // blue default
+  const [editingId, setEditingId] = useState<string | null>(null); // null = create mode
+  const [glyph, setGlyph] = useState("cup");
+  const [color, setColor] = useState(AWARD_COLORS[4]!.hex);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [rosterId, setRosterId] = useState<number | "">("");
   const [season, setSeason] = useState("");
+
+  function startEdit(a: HuddleAward) {
+    setEditingId(a.id);
+    setGlyph(a.glyph);
+    setColor(a.color);
+    setTitle(a.title);
+    setDescription(a.description ?? "");
+    setRosterId(a.rosterId);
+    setSeason(a.season ?? "");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setGlyph("cup");
+    setColor(AWARD_COLORS[4]!.hex);
+    setTitle("");
+    setDescription("");
+    setRosterId("");
+    setSeason("");
+  }
 
   /** Build a display name for a roster. */
   function rosterLabel(r: Roster): string {
@@ -871,28 +959,24 @@ function CustomAwardsPanel({
   }
 
   function handleSubmit() {
-    if (!rosterId || !title.trim() || !glyph.trim()) return;
-    createAward.mutate(
-      {
-        huddleId,
-        rosterId: rosterId as number,
-        glyph: glyph.trim(),
-        color,
-        title: title.trim(),
-        description: description.trim() || undefined,
-        season: season.trim() || undefined,
-      },
-      {
-        onSuccess: () => {
-          setGlyph("🏆");
-          setColor(AWARD_COLORS[4]!.hex);
-          setTitle("");
-          setDescription("");
-          setRosterId("");
-          setSeason("");
-        },
-      },
-    );
+    if (!rosterId || !title.trim()) return;
+    const payload = {
+      huddleId,
+      rosterId: rosterId as number,
+      glyph,
+      color,
+      title: title.trim(),
+      description: description.trim() || undefined,
+      season: season.trim() || undefined,
+    };
+    if (editingId) {
+      updateAward.mutate(
+        { ...payload, awardId: editingId },
+        { onSuccess: cancelEdit },
+      );
+    } else {
+      createAward.mutate(payload, { onSuccess: cancelEdit });
+    }
   }
 
   const awards = awardsQuery.data ?? [];
@@ -900,32 +984,44 @@ function CustomAwardsPanel({
   return (
     <Panel>
       <PanelHeader
-        title="Custom Awards"
-        description="Grant one-off trophies to any team — Sacko, Most Improved, Lucky Schedule, anything your league cares about."
+        title={editingId ? "Edit Award" : "Custom Awards"}
+        description={editingId ? "Update the award details below, then save." : "Grant one-off trophies to any team — Sacko, Most Improved, Lucky Schedule, anything your league cares about."}
       />
 
       {/* ── Create form ─────────────────────────────────────────────── */}
       <div className="flex flex-col gap-3">
-        {/* Glyph + preview row */}
-        <div className="flex items-center gap-3">
+        {/* Glyph picker + colour row */}
+        <div className="flex items-start gap-3">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
               Glyph
             </p>
-            <input
-              value={glyph}
-              onChange={(e) => setGlyph(e.target.value.slice(0, 4))}
-              maxLength={4}
-              className="w-16 text-center text-2xl border border-line rounded-md py-1.5 bg-paper text-ink font-sans"
-              placeholder="🏆"
-            />
+            <div className="flex flex-col gap-1.5">
+              <div className="grid grid-cols-3 gap-1.5">
+                {AWARD_GLYPHS.map((g) => (
+                  <button
+                    key={g.kind}
+                    title={g.label}
+                    onClick={() => setGlyph(g.kind)}
+                    className={`flex items-center justify-center w-10 h-10 rounded-md border transition-colors ${
+                      glyph === g.kind
+                        ? "border-ink bg-highlight"
+                        : "border-line hover:bg-highlight"
+                    }`}
+                    style={{ color }}
+                  >
+                    <GlyphSvg kind={g.kind} size={22} />
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-          {/* Large preview chip */}
+          {/* Preview */}
           <div
-            className="w-14 h-14 rounded-lg flex items-center justify-center text-3xl leading-none shrink-0 font-bold"
+            className="w-14 h-14 rounded-lg flex items-center justify-center shrink-0 mt-5"
             style={{ backgroundColor: color + "33", color }}
           >
-            {glyph || "?"}
+            <GlyphSvg kind={glyph} size={32} />
           </div>
           <div className="flex-1">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
@@ -1019,13 +1115,16 @@ function CustomAwardsPanel({
               {(createAward.error as Error).message}
             </p>
           )}
+          {editingId && (
+            <Btn onClick={cancelEdit} className="mr-auto">Cancel edit</Btn>
+          )}
           <BtnPrimary
             onClick={handleSubmit}
-            disabled={
-              !title.trim() || !glyph.trim() || !rosterId || createAward.isPending
-            }
+            disabled={!title.trim() || !rosterId || createAward.isPending || updateAward.isPending}
           >
-            {createAward.isPending ? "Granting…" : "Grant award"}
+            {createAward.isPending || updateAward.isPending
+              ? editingId ? "Saving…" : "Granting…"
+              : editingId ? "Save changes" : "Grant award"}
           </BtnPrimary>
         </div>
       </div>
@@ -1041,9 +1140,8 @@ function CustomAwardsPanel({
               key={a.id}
               award={a}
               teamName={teamNameForRosterId(a.rosterId)}
-              onDelete={() =>
-                deleteAward.mutate({ huddleId, awardId: a.id })
-              }
+              onEdit={() => startEdit(a)}
+              onDelete={() => deleteAward.mutate({ huddleId, awardId: a.id })}
               deleting={deleteAward.isPending}
             />
           ))}

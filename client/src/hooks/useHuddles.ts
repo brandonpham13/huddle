@@ -598,3 +598,32 @@ export function useSetPayouts() {
     },
   });
 }
+
+export function useUpdateAward() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      huddleId: string;
+      awardId: string;
+      rosterId: number;
+      glyph: string;
+      color: string;
+      title: string;
+      description?: string;
+      season?: string;
+    }) => {
+      const token = await getToken();
+      const res = await axios.patch<{ award: HuddleAward }>(
+        `/api/huddles/${input.huddleId}/awards/${input.awardId}`,
+        { rosterId: input.rosterId, glyph: input.glyph, color: input.color,
+          title: input.title, description: input.description, season: input.season },
+        { headers: authHeader(token) },
+      );
+      return res.data.award;
+    },
+    onSuccess: (_award, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["awards", variables.huddleId] });
+    },
+  });
+}

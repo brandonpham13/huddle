@@ -967,37 +967,52 @@ function buildTrophies(stats: TeamStats): Trophy[] {
   return trophies;
 }
 
-/** Displays custom huddle awards for a specific roster as a horizontal badge strip. */
+/**
+ * Renders commissioner awards as TrophyCard-style tiles using the same
+ * TrophyGlyph SVGs so they match the auto-assigned stat trophies visually.
+ */
 function HuddleAwardsStrip({ awards }: { awards: HuddleAward[] }) {
   if (awards.length === 0) return null;
   return (
-    <div className="mt-4">
-      <p className="text-[9.5px] font-semibold tracking-[0.18em] uppercase text-muted font-sans mb-2">
+    <div className="mt-6">
+      <p className="text-[9.5px] font-semibold tracking-[0.18em] uppercase text-muted font-sans mb-3">
         Commissioner Awards
       </p>
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
         {awards.map((a) => (
           <div
             key={a.id}
-            className="flex items-center gap-2 rounded-lg border border-line px-3 py-2 bg-paper"
+            className="relative flex flex-col p-3.5 border"
+            style={{ borderColor: a.color + "66", backgroundColor: a.color + "11" }}
           >
-            <span
-              className="text-base leading-none w-7 h-7 flex items-center justify-center rounded-md shrink-0 font-bold"
-              style={{ backgroundColor: a.color + "22", color: a.color }}
+            {a.season && (
+              <div
+                className="absolute top-0 right-0 px-1.5 py-0.5 text-[9px] font-bold font-mono tracking-wider text-white"
+                style={{ backgroundColor: a.color }}
+              >
+                {a.season}
+              </div>
+            )}
+            <div className="mb-2" style={{ color: a.color }}>
+              <TrophyGlyph
+                kind={a.glyph as Trophy["kind"]}
+                className=""
+              />
+            </div>
+            <div className="font-serif italic font-bold text-[14px] text-ink leading-tight tracking-tight">
+              {a.title}
+            </div>
+            {a.description && (
+              <div className="font-serif text-xs text-body mt-1 leading-snug">
+                {a.description}
+              </div>
+            )}
+            <div className="flex-1" />
+            <div
+              className="mt-2 pt-1.5 border-t border-dotted border-line text-[9.5px] uppercase tracking-wider font-sans font-semibold"
+              style={{ color: a.color }}
             >
-              {a.glyph}
-            </span>
-            <div className="min-w-0">
-              <p className="text-[12.5px] font-semibold text-ink font-sans leading-tight">
-                {a.title}
-              </p>
-              {(a.description || a.season) && (
-                <p className="text-[10.5px] text-muted font-sans">
-                  {a.season ?? ""}
-                  {a.season && a.description ? " · " : ""}
-                  {a.description ?? ""}
-                </p>
-              )}
+              Commissioner
             </div>
           </div>
         ))}

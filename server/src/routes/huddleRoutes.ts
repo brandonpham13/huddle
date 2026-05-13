@@ -35,6 +35,7 @@ import {
   listAwards,
   listAwardsForRoster,
   createAward,
+  updateAward,
   deleteAward,
 } from "../services/awardsService.js";
 import { listPayouts, setPayouts } from "../services/payoutsService.js";
@@ -746,6 +747,28 @@ export function initHuddleRoutes(app: Express) {
           season,
         });
         res.status(201).json({ award });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // PATCH /api/huddles/:id/awards/:awardId — commissioner only
+  app.patch(
+    "/api/huddles/:id/awards/:awardId",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        const { rosterId, glyph, color, title, description, season } =
+          req.body as Record<string, unknown>;
+        const award = await updateAward(
+          req.params.id!,
+          req.params.awardId!,
+          userId!,
+          { rosterId, glyph, color, title, description, season },
+        );
+        res.json({ award });
       } catch (err) {
         handleError(err, res);
       }
