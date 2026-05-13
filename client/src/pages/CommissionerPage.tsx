@@ -40,7 +40,12 @@ import {
   useSetDuesPaid,
   useAwards,
   useCreateAward,
+  useUpdateAward,
   useDeleteAward,
+  useActiveTrophies,
+  useSetTrophyEnabled,
+  useAwardIcons,
+  type AwardIcon,
   usePayouts,
   useSetPayouts,
 } from "../hooks/useHuddles";
@@ -50,6 +55,7 @@ import type {
   HuddleClaimSummary,
   HuddleAward,
   UserSummary,
+  ActiveTrophies,
 } from "../types/huddle";
 
 // ─── Access guard ─────────────────────────────────────────────────────────────
@@ -777,6 +783,222 @@ function DuesTrackerPanel({
 /** Preset colour swatches commissioners can choose from. */
 
 /** Preset colour swatches commissioners can choose from. */
+// ── Award glyph definitions (mirrors TrophyGlyph kinds) ─────────────────────
+
+const AWARD_GLYPHS: Array<{ kind: string; label: string }> = [
+  { kind: "cup",    label: "Cup"       },
+  { kind: "medal",  label: "Medal"     },
+  { kind: "ribbon", label: "Ribbon"    },
+  { kind: "star",   label: "Star"      },
+  { kind: "bolt",   label: "Lightning" },
+  { kind: "trash",  label: "Trash Can" },
+];
+
+/**
+ * Inline SVG glyph — mirrors TrophyGlyph in TeamPage so commissioner awards
+ * and stat trophies use identical icons.
+ */
+function GlyphSvg({
+  kind,
+  size = 36,
+  iconSvg,
+}: {
+  kind: string;
+  size?: number;
+  /** Raw SVG string for icon: prefixed kinds. */
+  iconSvg?: string;
+}) {
+  // Custom icon file — inject the SVG with currentColor applied
+  if (kind.startsWith("icon:") && iconSvg) {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 36 40"
+        dangerouslySetInnerHTML={{ __html: iconSvg
+          .replace(/<svg[^>]*>/, "")  // strip outer <svg> tag
+          .replace(/<\/svg>/, "")    // strip closing tag
+        }}
+      />
+    );
+  }
+  const stroke = {
+    stroke: "currentColor",
+    strokeWidth: 1.4,
+    fill: "none",
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  const vb = "0 0 36 40";
+
+  // ── Classic trophies ───────────────────────────────────────────────────────
+  if (kind === "cup")
+    return (
+      <svg width={size} height={size} viewBox={vb}>
+        <path {...stroke} d="M8 4 H28 V14 C28 22 24 27 18 27 C12 27 8 22 8 14 Z" fillOpacity={0.15} fill="currentColor" />
+        <path {...stroke} d="M8 8 H3 C3 14 6 17 9 17" />
+        <path {...stroke} d="M28 8 H33 C33 14 30 17 27 17" />
+        <path {...stroke} d="M14 27 V32 H22 V27" />
+        <path {...stroke} d="M10 36 H26" strokeWidth={2.2} />
+      </svg>
+    );
+  if (kind === "crown")
+    return (
+      <svg width={size} height={size} viewBox={vb}>
+        <path {...stroke} fillOpacity={0.15} fill="currentColor"
+          d="M4 28 L4 32 H32 V28 L28 14 L18 22 L8 14 Z" />
+        <circle cx="4"  cy="13" r="2.5" fill="currentColor" />
+        <circle cx="18" cy="9"  r="2.5" fill="currentColor" />
+        <circle cx="32" cy="13" r="2.5" fill="currentColor" />
+      </svg>
+    );
+  if (kind === "medal")
+    return (
+      <svg width={size} height={size} viewBox={vb}>
+        <path {...stroke} d="M12 2 L8 14 M24 2 L28 14" />
+        <circle cx="18" cy="24" r="11" {...stroke} fillOpacity={0.15} fill="currentColor" />
+        <circle cx="18" cy="24" r="6" {...stroke} />
+      </svg>
+    );
+  if (kind === "ribbon")
+    return (
+      <svg width={size} height={size} viewBox={vb}>
+        <circle cx="18" cy="14" r="9" {...stroke} fillOpacity={0.15} fill="currentColor" />
+        <path {...stroke} d="M11 21 L8 36 L14 32 L18 36 L22 32 L28 36 L25 21" />
+      </svg>
+    );
+  if (kind === "star")
+    return (
+      <svg width={size} height={size} viewBox={vb}>
+        <path {...stroke} fillOpacity={0.15} fill="currentColor"
+          d="M18 4 L22 14 L33 15 L24 22 L27 33 L18 27 L9 33 L12 22 L3 15 L14 14 Z" />
+      </svg>
+    );
+
+  // ── Positive superlatives ──────────────────────────────────────────────────
+  if (kind === "bolt")
+    return (
+      <svg width={size} height={size} viewBox={vb}>
+        <path {...stroke} fillOpacity={0.15} fill="currentColor"
+          d="M22 2 L10 21 H18 L14 38 L28 17 H20 Z" />
+      </svg>
+    );
+  if (kind === "fire")
+    return (
+      <svg width={size} height={size} viewBox={vb}>
+        {/* outer flame */}
+        <path {...stroke} fillOpacity={0.15} fill="currentColor"
+          d="M18 2 C18 2 26 10 26 20 C26 28 22 34 18 36 C14 34 10 28 10 20 C10 10 18 2 18 2 Z" />
+        {/* inner flame */}
+        <path {...stroke}
+          d="M18 14 C18 14 22 19 22 24 C22 28 20 31 18 32 C16 31 14 28 14 24 C14 19 18 14 18 14 Z" />
+      </svg>
+    );
+  if (kind === "rocket")
+    return (
+      <svg width={size} height={size} viewBox={vb}>
+        {/* body */}
+        <path {...stroke} fillOpacity={0.15} fill="currentColor"
+          d="M18 2 C24 2 28 8 28 16 L28 26 L18 30 L8 26 L8 16 C8 8 12 2 18 2 Z" />
+        {/* nose cone */}
+        <path {...stroke} d="M13 8 Q18 3 23 8" />
+        {/* fins */}
+        <path {...stroke} d="M8 22 L4 30 L8 28" />
+        <path {...stroke} d="M28 22 L32 30 L28 28" />
+        {/* exhaust */}
+        <path {...stroke} d="M14 30 Q18 36 22 30" />
+      </svg>
+    );
+
+  // ── Funny / shame superlatives ─────────────────────────────────────────────
+  if (kind === "skull")
+    return (
+      <svg width={size} height={size} viewBox={vb}>
+        {/* cranium */}
+        <path {...stroke} fillOpacity={0.15} fill="currentColor"
+          d="M6 20 C6 10 12 4 18 4 C24 4 30 10 30 20 L30 28 L24 28 L24 32 L12 32 L12 28 L6 28 Z" />
+        {/* eye sockets */}
+        <circle cx="13" cy="19" r="3.5" fill="currentColor" />
+        <circle cx="23" cy="19" r="3.5" fill="currentColor" />
+        {/* nose */}
+        <path {...stroke} d="M17 24 L19 24" />
+      </svg>
+    );
+  if (kind === "trash")
+    return (
+      <svg width={size} height={size} viewBox={vb}>
+        {/* lid */}
+        <path {...stroke} d="M8 10 H28" strokeWidth={2} />
+        <path {...stroke} d="M14 10 V6 H22 V10" />
+        {/* body */}
+        <path {...stroke} fillOpacity={0.12} fill="currentColor"
+          d="M10 12 L11 36 H25 L26 12 Z" />
+        {/* lines */}
+        <path {...stroke} d="M15 16 L15.5 32 M18 16 V32 M21 16 L20.5 32" />
+      </svg>
+    );
+  if (kind === "poop")
+    return (
+      <svg width={size} height={size} viewBox={vb}>
+        {/* swirl top */}
+        <path {...stroke}
+          d="M18 4 C21 4 23 6 22 9 C21 11 18 11 17 13 C16 15 18 16 20 15 C23 14 25 16 24 19 C23 22 20 22 18 22" />
+        {/* base mound */}
+        <path {...stroke} fillOpacity={0.15} fill="currentColor"
+          d="M8 30 C8 24 12 22 18 22 C24 22 28 24 28 30 C28 34 24 36 18 36 C12 36 8 34 8 30 Z" />
+        {/* eyes */}
+        <circle cx="15" cy="29" r="1.2" fill="currentColor" />
+        <circle cx="21" cy="29" r="1.2" fill="currentColor" />
+        {/* smile */}
+        <path {...stroke} d="M14 33 Q18 36 22 33" strokeWidth={1.2} />
+      </svg>
+    );
+  if (kind === "ghost")
+    return (
+      <svg width={size} height={size} viewBox={vb}>
+        {/* body */}
+        <path {...stroke} fillOpacity={0.15} fill="currentColor"
+          d="M6 36 L6 18 C6 8 30 8 30 18 L30 36 L26 32 L22 36 L18 32 L14 36 L10 32 Z" />
+        {/* eyes */}
+        <circle cx="14" cy="20" r="2.5" fill="currentColor" />
+        <circle cx="22" cy="20" r="2.5" fill="currentColor" />
+      </svg>
+    );
+  if (kind === "broken")
+    return (
+      <svg width={size} height={size} viewBox={vb}>
+        <path {...stroke} fillOpacity={0.15} fill="currentColor"
+          d="M18 34 C18 34 4 24 4 14 C4 8 8 4 13 4 C15.5 4 17.5 5.5 18 7 C18.5 5.5 20.5 4 23 4 C28 4 32 8 32 14 C32 24 18 34 18 34 Z" />
+        {/* crack */}
+        <path stroke="currentColor" strokeWidth={1.6} strokeLinecap="round"
+          fill="none" d="M18 8 L15 16 L20 18 L16 26" />
+      </svg>
+    );
+  if (kind === "deal")
+    return (
+      <svg width={size} height={size} viewBox={vb}>
+        {/* left hand */}
+        <path {...stroke} fillOpacity={0.1} fill="currentColor"
+          d="M4 22 C4 18 7 16 10 16 L18 16 L18 28 L10 28 C7 28 4 26 4 22 Z" />
+        {/* right hand */}
+        <path {...stroke} fillOpacity={0.1} fill="currentColor"
+          d="M32 22 C32 18 29 16 26 16 L18 16 L18 28 L26 28 C29 28 32 26 32 22 Z" />
+        {/* fingers left */}
+        <path {...stroke} d="M10 16 L10 10 M13 16 L13 8 M16 16 L16 9" />
+        {/* fingers right */}
+        <path {...stroke} d="M26 16 L26 10 M23 16 L23 8 M20 16 L20 9" />
+      </svg>
+    );
+
+  // fallback
+  return (
+    <svg width={size} height={size} viewBox={vb}>
+      <circle cx="18" cy="20" r="12" {...stroke} fillOpacity={0.15} fill="currentColor" />
+      <path {...stroke} d="M18 14 V21 M18 25 V26" />
+    </svg>
+  );
+}
+
 const AWARD_COLORS = [
   { hex: "#ef4444", label: "Red" },
   { hex: "#f97316", label: "Orange" },
@@ -790,27 +1012,30 @@ const AWARD_COLORS = [
   { hex: "#14b8a6", label: "Teal" },
 ];
 
-/** A single award displayed as a colour-coded badge with a delete button. */
+/** A single award displayed as a colour-coded badge with edit + delete buttons. */
 function AwardBadge({
   award,
   teamName,
+  onEdit,
   onDelete,
   deleting,
+  iconSvg,
 }: {
   award: HuddleAward;
   teamName: string;
+  onEdit: () => void;
   onDelete: () => void;
   deleting: boolean;
+  iconSvg?: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 border border-line rounded-md p-3 bg-paper">
       <div className="flex items-center gap-2.5 min-w-0">
-        {/* Coloured glyph chip */}
         <span
-          className="text-lg leading-none w-8 h-8 flex items-center justify-center rounded-md shrink-0 font-sans font-bold"
+          className="w-8 h-8 flex items-center justify-center rounded-md shrink-0"
           style={{ backgroundColor: award.color + "22", color: award.color }}
         >
-          {award.glyph}
+          <GlyphSvg kind={award.glyph} size={20} iconSvg={iconSvg} />
         </span>
         <div className="min-w-0">
           <p className="text-[13px] font-semibold text-ink font-sans leading-tight">
@@ -827,236 +1052,15 @@ function AwardBadge({
           )}
         </div>
       </div>
-      <Btn danger disabled={deleting} onClick={onDelete} className="shrink-0">
-        Remove
-      </Btn>
+      <div className="flex gap-1.5 shrink-0">
+        <Btn onClick={onEdit}>Edit</Btn>
+        <Btn danger disabled={deleting} onClick={onDelete}>Remove</Btn>
+      </div>
     </div>
   );
 }
 
-function CustomAwardsPanel({
-  huddleId,
-  rosters,
-  leagueUsers,
-}: {
-  huddleId: string;
-  rosters: Roster[];
-  leagueUsers: TeamUser[];
-}) {
-  const awardsQuery = useAwards(huddleId);
-  const createAward = useCreateAward();
-  const deleteAward = useDeleteAward();
 
-  // Form state
-  const [glyph, setGlyph] = useState("🏆");
-  const [color, setColor] = useState(AWARD_COLORS[4]!.hex); // blue default
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [rosterId, setRosterId] = useState<number | "">("");
-  const [season, setSeason] = useState("");
-
-  /** Build a display name for a roster. */
-  function rosterLabel(r: Roster): string {
-    return rosterTeamName(r, leagueUsers);
-  }
-
-  const sortedRosters = useMemo(
-    () => [...rosters].sort((a, b) => a.rosterId - b.rosterId),
-    [rosters],
-  );
-
-  function teamNameForRosterId(id: number): string {
-    const r = rosters.find((x) => x.rosterId === id);
-    return r ? rosterLabel(r) : `Team ${id}`;
-  }
-
-  function handleSubmit() {
-    if (!rosterId || !title.trim() || !glyph.trim()) return;
-    createAward.mutate(
-      {
-        huddleId,
-        rosterId: rosterId as number,
-        glyph: glyph.trim(),
-        color,
-        title: title.trim(),
-        description: description.trim() || undefined,
-        season: season.trim() || undefined,
-      },
-      {
-        onSuccess: () => {
-          setGlyph("🏆");
-          setColor(AWARD_COLORS[4]!.hex);
-          setTitle("");
-          setDescription("");
-          setRosterId("");
-          setSeason("");
-        },
-      },
-    );
-  }
-
-  const awards = awardsQuery.data ?? [];
-
-  return (
-    <Panel>
-      <PanelHeader
-        title="Custom Awards"
-        description="Grant one-off trophies to any team — Sacko, Most Improved, Lucky Schedule, anything your league cares about."
-      />
-
-      {/* ── Create form ─────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-3">
-        {/* Glyph + preview row */}
-        <div className="flex items-center gap-3">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
-              Glyph
-            </p>
-            <input
-              value={glyph}
-              onChange={(e) => setGlyph(e.target.value.slice(0, 4))}
-              maxLength={4}
-              className="w-16 text-center text-2xl border border-line rounded-md py-1.5 bg-paper text-ink font-sans"
-              placeholder="🏆"
-            />
-          </div>
-          {/* Large preview chip */}
-          <div
-            className="w-14 h-14 rounded-lg flex items-center justify-center text-3xl leading-none shrink-0 font-bold"
-            style={{ backgroundColor: color + "33", color }}
-          >
-            {glyph || "?"}
-          </div>
-          <div className="flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
-              Colour
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {AWARD_COLORS.map((c) => (
-                <button
-                  key={c.hex}
-                  title={c.label}
-                  onClick={() => setColor(c.hex)}
-                  className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${
-                    color === c.hex ? "border-ink scale-110" : "border-transparent"
-                  }`}
-                  style={{ backgroundColor: c.hex }}
-                />
-              ))}
-            </div>
-            <p className="text-[10px] font-mono text-muted mt-1">{color}</p>
-          </div>
-        </div>
-
-        {/* Title + team selector row */}
-        <div className="flex gap-2">
-          <div className="flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
-              Title
-            </p>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value.slice(0, 80))}
-              maxLength={80}
-              className="w-full text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink"
-              placeholder="e.g. Sacko, Most Improved…"
-            />
-          </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
-              Season
-            </p>
-            <input
-              value={season}
-              onChange={(e) => setSeason(e.target.value.slice(0, 10))}
-              maxLength={10}
-              className="w-20 text-[13px] font-sans border border-line rounded-md px-2 py-1.5 bg-paper text-ink"
-              placeholder={String(new Date().getFullYear())}
-            />
-          </div>
-        </div>
-
-        {/* Team selector */}
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
-            Recipient Team
-          </p>
-          <select
-            value={rosterId}
-            onChange={(e) =>
-              setRosterId(e.target.value ? Number(e.target.value) : "")
-            }
-            className="w-full text-[13px] font-sans border border-line rounded-md px-2 py-1.5 bg-paper text-ink"
-          >
-            <option value="">Select a team…</option>
-            {sortedRosters.map((r) => (
-              <option key={r.rosterId} value={r.rosterId}>
-                {rosterLabel(r)}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Description */}
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
-            Description{" "}
-            <span className="normal-case text-[10px]">(optional)</span>
-          </p>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value.slice(0, 300))}
-            maxLength={300}
-            rows={2}
-            className="w-full text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink resize-none"
-            placeholder="Brief note about why this award was given…"
-          />
-        </div>
-
-        <div className="flex items-center justify-between gap-3">
-          {createAward.isError && (
-            <p className="text-[11.5px] text-red-600 font-sans">
-              {(createAward.error as Error).message}
-            </p>
-          )}
-          <BtnPrimary
-            onClick={handleSubmit}
-            disabled={
-              !title.trim() || !glyph.trim() || !rosterId || createAward.isPending
-            }
-          >
-            {createAward.isPending ? "Granting…" : "Grant award"}
-          </BtnPrimary>
-        </div>
-      </div>
-
-      {/* ── Existing awards list ─────────────────────────────────────── */}
-      {awards.length > 0 && (
-        <div className="flex flex-col gap-2 border-t border-line pt-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans">
-            Granted awards ({awards.length})
-          </p>
-          {awards.map((a) => (
-            <AwardBadge
-              key={a.id}
-              award={a}
-              teamName={teamNameForRosterId(a.rosterId)}
-              onDelete={() =>
-                deleteAward.mutate({ huddleId, awardId: a.id })
-              }
-              deleting={deleteAward.isPending}
-            />
-          ))}
-          {deleteAward.isError && (
-            <p className="text-[11.5px] text-red-600 font-sans">
-              {(deleteAward.error as Error).message}
-            </p>
-          )}
-        </div>
-      )}
-    </Panel>
-  );
-}
 
 
 // ─── Payout structure panel ──────────────────────────────────────────────────
@@ -1163,6 +1167,382 @@ function PayoutStructurePanel({ huddleId }: { huddleId: string }) {
         <BtnPrimary onClick={handleSave} disabled={setPayouts.isPending}>
           {setPayouts.isPending ? "Saving…" : "Save payouts"}
         </BtnPrimary>
+      </div>
+    </Panel>
+  );
+}
+
+// ─── Trophy Room panel ───────────────────────────────────────────────────────
+
+const BUILT_IN_TROPHIES: Array<{
+  type: string;
+  label: string;
+  sub: string;
+  kind: string;
+}> = [
+  { type: "champion",       label: "Champion",       sub: "League champion",         kind: "cup"    },
+  { type: "runner_up",      label: "Runner-Up",      sub: "Championship finalist",   kind: "medal"  },
+  { type: "third",          label: "3rd Place",      sub: "Consolation winner",      kind: "medal"  },
+  { type: "high_score",     label: "High Score",     sub: "Top single-week score",   kind: "star"   },
+  { type: "missed_playoffs",label: "Missed Playoffs",sub: "Patience builds character",kind: "ribbon" },
+];
+
+function TrophyRoomPanel({
+  huddleId,
+  rosters,
+  leagueUsers,
+}: {
+  huddleId: string;
+  rosters: Roster[];
+  leagueUsers: TeamUser[];
+}) {
+  const { data: active } = useActiveTrophies(huddleId);
+  const toggle = useSetTrophyEnabled();
+  const { data: icons = [] } = useAwardIcons();
+  // Map icon id → svg content for quick lookup
+  const iconMap = useMemo(
+    () => new Map(icons.map((ic) => [ic.id, ic.svg])),
+    [icons],
+  );
+
+  // ── Custom awards state (merged from CustomAwardsPanel) ──────────────────
+  const awardsQuery = useAwards(huddleId);
+  const createAward = useCreateAward();
+  const updateAward = useUpdateAward();
+  const deleteAward = useDeleteAward();
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [glyph, setGlyph] = useState("cup");
+  const [color, setColor] = useState(AWARD_COLORS[4]!.hex);
+  const [awardTitle, setAwardTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [rosterId, setRosterId] = useState<number | "">("");
+  const [season, setSeason] = useState("");
+
+  function startEdit(a: HuddleAward) {
+    setEditingId(a.id);
+    setGlyph(a.glyph);
+    setColor(a.color);
+    setAwardTitle(a.title);
+    setDescription(a.description ?? "");
+    setRosterId(a.rosterId);
+    setSeason(a.season ?? "");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setGlyph("cup");
+    setColor(AWARD_COLORS[4]!.hex);
+    setAwardTitle("");
+    setDescription("");
+    setRosterId("");
+    setSeason("");
+  }
+
+  function handleAwardSubmit() {
+    if (!rosterId || !awardTitle.trim()) return;
+    const payload = {
+      huddleId,
+      rosterId: rosterId as number,
+      glyph,
+      color,
+      title: awardTitle.trim(),
+      description: description.trim() || undefined,
+      season: season.trim() || undefined,
+    };
+    if (editingId) {
+      updateAward.mutate({ ...payload, awardId: editingId }, { onSuccess: cancelEdit });
+    } else {
+      createAward.mutate(payload, { onSuccess: cancelEdit });
+    }
+  }
+
+  const sortedRosters = useMemo(
+    () => [...rosters].sort((a, b) => a.rosterId - b.rosterId),
+    [rosters],
+  );
+
+  function rosterLabel(r: Roster): string {
+    return rosterTeamName(r, leagueUsers);
+  }
+
+  function teamNameForRosterId(id: number): string {
+    const r = rosters.find((x) => x.rosterId === id);
+    return r ? rosterLabel(r) : `Team ${id}`;
+  }
+
+  const awards = awardsQuery.data ?? [];
+
+  return (
+    <Panel>
+      <PanelHeader
+        title="Trophy Room"
+        description="Control which automatic trophies are active and grant custom awards to teams."
+      />
+
+      {/* ── Built-in trophy toggles ─────────────────────────────────── */}
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-2">
+          Built-in trophies
+        </p>
+        <div className="flex flex-col divide-y divide-line">
+          {BUILT_IN_TROPHIES.map((t) => {
+            const enabled = active ? (active[t.type] !== false) : true;
+            return (
+              <div key={t.type} className="flex items-center justify-between py-2.5 gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span
+                    className={`w-7 h-7 flex items-center justify-center rounded-md shrink-0 transition-opacity ${
+                      enabled ? "opacity-100" : "opacity-30"
+                    }`}
+                    style={{ color: enabled ? "#6b7280" : undefined }}
+                  >
+                    <GlyphSvg kind={t.kind} size={20} />
+                  </span>
+                  <div className={`min-w-0 transition-opacity ${enabled ? "opacity-100" : "opacity-40"}`}>
+                    <p className="text-[13px] font-semibold text-ink font-sans leading-tight">
+                      {t.label}
+                    </p>
+                    <p className="text-[11px] text-muted font-sans">{t.sub}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() =>
+                    toggle.mutate({ huddleId, trophyType: t.type, enabled: !enabled })
+                  }
+                  disabled={toggle.isPending}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none disabled:opacity-50 ${
+                    enabled ? "bg-ink" : "bg-line"
+                  }`}
+                  role="switch"
+                  aria-checked={enabled}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                      enabled ? "translate-x-4" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Custom awards ───────────────────────────────────────────── */}
+      <div className="border-t border-line pt-4">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-3">
+          {editingId ? "Edit custom award" : "Grant a custom award"}
+        </p>
+        <div className="flex flex-col gap-3">
+          {/* Glyph picker + colour */}
+          <div className="flex items-start gap-3">
+            <div className="flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">Glyph</p>
+              {/* Built-in glyphs */}
+              <div className="grid grid-cols-6 gap-1.5 mb-1.5">
+                {AWARD_GLYPHS.map((g) => (
+                  <button
+                    key={g.kind}
+                    title={g.label}
+                    onClick={() => setGlyph(g.kind)}
+                    className={`flex items-center justify-center w-10 h-10 rounded-md border transition-colors ${
+                      glyph === g.kind ? "border-ink bg-highlight" : "border-line hover:bg-highlight"
+                    }`}
+                    style={{ color }}
+                  >
+                    <GlyphSvg kind={g.kind} size={22} />
+                  </button>
+                ))}
+              </div>
+              {/* Custom icon files */}
+              {icons.length > 0 && (
+                <>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
+                    Custom icons
+                  </p>
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {icons.map((ic: AwardIcon) => {
+                      const kind = `icon:${ic.id}`;
+                      return (
+                        <button
+                          key={ic.id}
+                          title={ic.name}
+                          onClick={() => setGlyph(kind)}
+                          className={`flex items-center justify-center w-10 h-10 rounded-md border transition-colors ${
+                            glyph === kind ? "border-ink bg-highlight" : "border-line hover:bg-highlight"
+                          }`}
+                          style={{ color }}
+                        >
+                          <GlyphSvg kind={kind} size={22} iconSvg={ic.svg} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+            <div
+              className="w-14 h-14 rounded-lg flex items-center justify-center shrink-0 mt-5"
+              style={{ backgroundColor: color + "33", color }}
+            >
+              <GlyphSvg kind={glyph} size={32} iconSvg={iconMap.get(glyph.replace("icon:", ""))} />
+            </div>
+            <div className="flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">Colour</p>
+              <div className="flex flex-wrap gap-1.5">
+                {AWARD_COLORS.map((c) => (
+                  <button
+                    key={c.hex}
+                    title={c.label}
+                    onClick={() => setColor(c.hex)}
+                    className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${
+                      color === c.hex ? "border-ink scale-110" : "border-transparent"
+                    }`}
+                    style={{ backgroundColor: c.hex }}
+                  />
+                ))}
+              </div>
+              <p className="text-[10px] font-mono text-muted mt-1">{color}</p>
+            </div>
+          </div>
+
+          {/* Title + season */}
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">Title</p>
+              <input
+                value={awardTitle}
+                onChange={(e) => setAwardTitle(e.target.value.slice(0, 80))}
+                maxLength={80}
+                className="w-full text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink"
+                placeholder="e.g. Sacko, Most Improved…"
+              />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">Season</p>
+              <input
+                value={season}
+                onChange={(e) => setSeason(e.target.value.slice(0, 10))}
+                maxLength={10}
+                className="w-20 text-[13px] font-sans border border-line rounded-md px-2 py-1.5 bg-paper text-ink"
+                placeholder={String(new Date().getFullYear())}
+              />
+            </div>
+          </div>
+
+          {/* Team selector */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">Recipient Team</p>
+            <select
+              value={rosterId}
+              onChange={(e) => setRosterId(e.target.value ? Number(e.target.value) : "")}
+              className="w-full text-[13px] font-sans border border-line rounded-md px-2 py-1.5 bg-paper text-ink"
+            >
+              <option value="">Select a team…</option>
+              {sortedRosters.map((r) => (
+                <option key={r.rosterId} value={r.rosterId}>{rosterLabel(r)}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Description */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
+              Description <span className="normal-case">(optional)</span>
+            </p>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value.slice(0, 300))}
+              maxLength={300}
+              rows={2}
+              className="w-full text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink resize-none"
+              placeholder="Brief note about why this award was given…"
+            />
+          </div>
+
+          {/* Full-width live preview — exact replica of a trophy room card */}
+          {awardTitle.trim() && (
+            <div className="rounded-md border border-line bg-highlight/40 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-2">
+                Trophy room preview
+              </p>
+              <div
+                className="relative flex flex-col p-3.5 border w-36"
+                style={{ borderColor: color + "66", backgroundColor: color + "11" }}
+              >
+                {season && (
+                  <div
+                    className="absolute top-0 right-0 px-1.5 py-0.5 text-[9px] font-bold font-mono tracking-wider text-white"
+                    style={{ backgroundColor: color }}
+                  >
+                    {season}
+                  </div>
+                )}
+                <div className="mb-2" style={{ color }}>
+                  <GlyphSvg kind={glyph} size={32} iconSvg={iconMap.get(glyph.replace("icon:", ""))} />
+                </div>
+                <div className="font-serif italic font-bold text-[14px] text-ink leading-tight tracking-tight">
+                  {awardTitle}
+                </div>
+                {description && (
+                  <div className="font-serif text-xs text-body mt-1 leading-snug line-clamp-2">
+                    {description}
+                  </div>
+                )}
+                <div className="flex-1" />
+                <div
+                  className="mt-2 pt-1.5 border-t border-dotted border-line text-[9.5px] uppercase tracking-wider font-sans font-semibold"
+                  style={{ color }}
+                >
+                  Commissioner
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2">
+            {(createAward.isError || updateAward.isError) && (
+              <p className="text-[11.5px] text-red-600 font-sans flex-1">
+                {((createAward.error ?? updateAward.error) as Error).message}
+              </p>
+            )}
+            {editingId && <Btn onClick={cancelEdit}>Cancel</Btn>}
+            <BtnPrimary
+              onClick={handleAwardSubmit}
+              disabled={!awardTitle.trim() || !rosterId || createAward.isPending || updateAward.isPending}
+            >
+              {createAward.isPending || updateAward.isPending
+                ? editingId ? "Saving…" : "Granting…"
+                : editingId ? "Save changes" : "Grant award"}
+            </BtnPrimary>
+          </div>
+        </div>
+
+        {/* Existing custom awards list */}
+        {awards.length > 0 && (
+          <div className="flex flex-col gap-2 mt-4 pt-3 border-t border-line">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans">
+              Granted awards ({awards.length})
+            </p>
+            {awards.map((a) => (
+              <AwardBadge
+                key={a.id}
+                award={a}
+                teamName={teamNameForRosterId(a.rosterId)}
+                onEdit={() => startEdit(a)}
+                onDelete={() => deleteAward.mutate({ huddleId, awardId: a.id })}
+                deleting={deleteAward.isPending}
+                iconSvg={a.glyph.startsWith("icon:") ? iconMap.get(a.glyph.replace("icon:", "")) : undefined}
+              />
+            ))}
+            {deleteAward.isError && (
+              <p className="text-[11.5px] text-red-600 font-sans">
+                {(deleteAward.error as Error).message}
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </Panel>
   );
@@ -1285,7 +1665,7 @@ export function CommissionerPage() {
             />
           )}
           {huddle ? (
-            <CustomAwardsPanel
+            <TrophyRoomPanel
               huddleId={huddle.id}
               rosters={rosters ?? []}
               leagueUsers={leagueUsers ?? []}
@@ -1293,8 +1673,8 @@ export function CommissionerPage() {
           ) : (
             <StubSection
               icon={Award}
-              title="Custom Awards"
-              description="Grant one-off trophies to any team: Sacko, Most Improved, Most Transactions, Lucky Schedule — anything your league cares about."
+              title="Trophy Room"
+              description="Enable or disable automatic trophies and grant custom awards to teams."
               tag="Awards"
             />
           )}

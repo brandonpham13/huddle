@@ -22,6 +22,7 @@ import {
   useRemoveClaim,
   useAwards,
   usePayouts,
+  useAwardIcons,
 } from "../hooks/useHuddles";
 import {
   Tooltip,
@@ -171,15 +172,46 @@ function PayoutsReadOnly({ huddleId }: { huddleId: string }) {
   );
 }
 
+/** Inline SVG glyph for awards in League Settings — full set matching CommissionerPage. */
+function SettingsGlyphSvg({ kind, color, iconSvg }: { kind: string; color: string; iconSvg?: string }) {
+  if (kind.startsWith("icon:") && iconSvg) {
+    return (
+      <svg width={28} height={28} viewBox="0 0 36 40" className="mb-1"
+        style={{ color }}
+        dangerouslySetInnerHTML={{ __html: iconSvg.replace(/<svg[^>]*>/, "").replace(/<\/svg>/, "") }}
+      />
+    );
+  }
+  const s = { stroke: color, strokeWidth: 1.4, fill: "none", strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  const vb = "0 0 36 40"; const sz = 28;
+  if (kind === "cup")    return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><path {...s} d="M8 4 H28 V14 C28 22 24 27 18 27 C12 27 8 22 8 14 Z" fillOpacity={0.15} fill={color} /><path {...s} d="M8 8 H3 C3 14 6 17 9 17" /><path {...s} d="M28 8 H33 C33 14 30 17 27 17" /><path {...s} d="M14 27 V32 H22 V27" /><path {...s} d="M10 36 H26" strokeWidth={2.2} /></svg>;
+  if (kind === "crown")  return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><path {...s} fillOpacity={0.15} fill={color} d="M4 28 L4 32 H32 V28 L28 14 L18 22 L8 14 Z" /><circle cx="4" cy="13" r="2.5" fill={color} /><circle cx="18" cy="9" r="2.5" fill={color} /><circle cx="32" cy="13" r="2.5" fill={color} /></svg>;
+  if (kind === "medal")  return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><path {...s} d="M12 2 L8 14 M24 2 L28 14" /><circle cx="18" cy="24" r="11" {...s} fillOpacity={0.15} fill={color} /><circle cx="18" cy="24" r="6" {...s} /></svg>;
+  if (kind === "ribbon") return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><circle cx="18" cy="14" r="9" {...s} fillOpacity={0.15} fill={color} /><path {...s} d="M11 21 L8 36 L14 32 L18 36 L22 32 L28 36 L25 21" /></svg>;
+  if (kind === "star")   return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><path {...s} fillOpacity={0.15} fill={color} d="M18 4 L22 14 L33 15 L24 22 L27 33 L18 27 L9 33 L12 22 L3 15 L14 14 Z" /></svg>;
+  if (kind === "bolt")   return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><path {...s} fillOpacity={0.15} fill={color} d="M22 2 L10 21 H18 L14 38 L28 17 H20 Z" /></svg>;
+  if (kind === "fire")   return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><path {...s} fillOpacity={0.15} fill={color} d="M18 2 C18 2 26 10 26 20 C26 28 22 34 18 36 C14 34 10 28 10 20 C10 10 18 2 18 2 Z" /><path {...s} d="M18 14 C18 14 22 19 22 24 C22 28 20 31 18 32 C16 31 14 28 14 24 C14 19 18 14 18 14 Z" /></svg>;
+  if (kind === "rocket") return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><path {...s} fillOpacity={0.15} fill={color} d="M18 2 C24 2 28 8 28 16 L28 26 L18 30 L8 26 L8 16 C8 8 12 2 18 2 Z" /><path {...s} d="M13 8 Q18 3 23 8" /><path {...s} d="M8 22 L4 30 L8 28" /><path {...s} d="M28 22 L32 30 L28 28" /><path {...s} d="M14 30 Q18 36 22 30" /></svg>;
+  if (kind === "skull")  return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><path {...s} fillOpacity={0.15} fill={color} d="M6 20 C6 10 12 4 18 4 C24 4 30 10 30 20 L30 28 L24 28 L24 32 L12 32 L12 28 L6 28 Z" /><circle cx="13" cy="19" r="3.5" fill={color} /><circle cx="23" cy="19" r="3.5" fill={color} /><path {...s} d="M17 24 L19 24" /></svg>;
+  if (kind === "trash")  return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><path {...s} d="M8 10 H28" strokeWidth={2} /><path {...s} d="M14 10 V6 H22 V10" /><path {...s} fillOpacity={0.12} fill={color} d="M10 12 L11 36 H25 L26 12 Z" /><path {...s} d="M15 16 L15.5 32 M18 16 V32 M21 16 L20.5 32" /></svg>;
+  if (kind === "poop")   return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><path {...s} d="M18 4 C21 4 23 6 22 9 C21 11 18 11 17 13 C16 15 18 16 20 15 C23 14 25 16 24 19 C23 22 20 22 18 22" /><path {...s} fillOpacity={0.15} fill={color} d="M8 30 C8 24 12 22 18 22 C24 22 28 24 28 30 C28 34 24 36 18 36 C12 36 8 34 8 30 Z" /><circle cx="15" cy="29" r="1.2" fill={color} /><circle cx="21" cy="29" r="1.2" fill={color} /><path {...s} d="M14 33 Q18 36 22 33" strokeWidth={1.2} /></svg>;
+  if (kind === "ghost")  return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><path {...s} fillOpacity={0.15} fill={color} d="M6 36 L6 18 C6 8 30 8 30 18 L30 36 L26 32 L22 36 L18 32 L14 36 L10 32 Z" /><circle cx="14" cy="20" r="2.5" fill={color} /><circle cx="22" cy="20" r="2.5" fill={color} /></svg>;
+  if (kind === "broken") return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><path {...s} fillOpacity={0.15} fill={color} d="M18 34 C18 34 4 24 4 14 C4 8 8 4 13 4 C15.5 4 17.5 5.5 18 7 C18.5 5.5 20.5 4 23 4 C28 4 32 8 32 14 C32 24 18 34 18 34 Z" /><path stroke={color} strokeWidth={1.6} strokeLinecap="round" fill="none" d="M18 8 L15 16 L20 18 L16 26" /></svg>;
+  if (kind === "deal")   return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><path {...s} fillOpacity={0.1} fill={color} d="M4 22 C4 18 7 16 10 16 L18 16 L18 28 L10 28 C7 28 4 26 4 22 Z" /><path {...s} fillOpacity={0.1} fill={color} d="M32 22 C32 18 29 16 26 16 L18 16 L18 28 L26 28 C29 28 32 26 32 22 Z" /><path {...s} d="M10 16 L10 10 M13 16 L13 8 M16 16 L16 9" /><path {...s} d="M26 16 L26 10 M23 16 L23 8 M20 16 L20 9" /></svg>;
+  return <svg width={sz} height={sz} viewBox={vb} className="mb-1"><circle cx="18" cy="20" r="12" {...s} fillOpacity={0.15} fill={color} /><path {...s} d="M18 14 V21 M18 25 V26" /></svg>;
+}
+
 /** Read-only display of all huddle awards — visible to all members. */
 function AwardsSection({
   huddleId,
   rosters,
   leagueUsers,
+  iconMap,
 }: {
   huddleId: string;
   rosters: Roster[];
   leagueUsers: TeamUser[];
+  iconMap: Map<string, string>;
 }) {
   const { data: awards } = useAwards(huddleId);
 
@@ -198,27 +230,34 @@ function AwardsSection({
         title="Awards"
         description="Custom awards granted by your commissioner."
       />
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {awards.map((a: HuddleAward) => (
           <div
             key={a.id}
-            className="flex items-center gap-2 rounded-lg border border-line px-3 py-2 bg-paper"
+            className="relative flex flex-col p-3.5 border"
+            style={{ borderColor: a.color + "66", backgroundColor: a.color + "11" }}
           >
-            {/* Coloured glyph */}
-            <span
-              className="text-base leading-none w-7 h-7 flex items-center justify-center rounded-md shrink-0 font-bold"
-              style={{ backgroundColor: a.color + "22", color: a.color }}
+            {a.season && (
+              <div
+                className="absolute top-0 right-0 px-1.5 py-0.5 text-[9px] font-bold font-mono tracking-wider text-white"
+                style={{ backgroundColor: a.color }}
+              >
+                {a.season}
+              </div>
+            )}
+            <SettingsGlyphSvg kind={a.glyph} color={a.color} iconSvg={a.glyph.startsWith("icon:") ? iconMap.get(a.glyph.replace("icon:", "")) : undefined} />
+            <div className="font-serif italic font-bold text-[14px] text-ink leading-tight tracking-tight mt-1">
+              {a.title}
+            </div>
+            <div className="font-serif text-xs text-body mt-1 leading-snug">
+              {teamNameForRosterId(a.rosterId)}
+            </div>
+            <div className="flex-1" />
+            <div
+              className="mt-2 pt-1.5 border-t border-dotted border-line text-[9.5px] uppercase tracking-wider font-sans font-semibold"
+              style={{ color: a.color }}
             >
-              {a.glyph}
-            </span>
-            <div className="min-w-0">
-              <p className="text-[12.5px] font-semibold text-ink font-sans leading-tight">
-                {a.title}
-              </p>
-              <p className="text-[10.5px] text-muted font-sans">
-                {teamNameForRosterId(a.rosterId)}
-                {a.season ? ` · ${a.season}` : ""}
-              </p>
+              Commissioner
             </div>
           </div>
         ))}
@@ -495,6 +534,8 @@ export function LeagueSettingsPage() {
   const huddleDetail = useHuddleDetail(huddle?.id ?? null);
   const detail = huddleDetail.data;
   const isCommissioner = !!detail?.huddle.isCommissioner;
+  const { data: iconData = [] } = useAwardIcons();
+  const settingsIconMap = useMemo(() => new Map(iconData.map((ic) => [ic.id, ic.svg])), [iconData]);
 
   if (!selectedLeagueId) return <Navigate to="/" replace />;
 
@@ -546,6 +587,7 @@ export function LeagueSettingsPage() {
               huddleId={huddle.id}
               rosters={rosters ?? []}
               leagueUsers={leagueUsers ?? []}
+              iconMap={settingsIconMap}
             />
           )}
 

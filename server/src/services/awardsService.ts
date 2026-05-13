@@ -158,6 +158,45 @@ export async function createAward(
 }
 
 /**
+ * Update an existing award. Only commissioners may call this.
+ */
+export async function updateAward(
+  huddleId: string,
+  awardId: string,
+  userId: string,
+  input: {
+    rosterId: unknown;
+    glyph: unknown;
+    color: unknown;
+    title: unknown;
+    description?: unknown;
+    season?: unknown;
+  },
+): Promise<HuddleAward> {
+  if (!(await isCommissioner(huddleId, userId)))
+    fail(403, "Only a commissioner can update awards");
+
+  const rows = await db
+    .select()
+    .from(huddleAwards)
+    .where(and(eq(huddleAwards.id, awardId), eq(huddleAwards.huddleId, huddleId)))
+    .limit(1);
+
+  if (!rows[0]) fail(404, "Award not found");
+
+  const validated = validateAwardInput(input);
+
+  const [updated] = await db
+    .update(huddleAwards)
+    .set({ ...validated, updatedAt: new Date() })
+    .where(eq(huddleAwards.id, awardId))
+    .returning();
+
+  if (!updated) fail(500, "Failed to update award");
+  return updated!;
+}
+
+/**
  * Delete an award. Only commissioners may call this.
  */
 export async function deleteAward(
