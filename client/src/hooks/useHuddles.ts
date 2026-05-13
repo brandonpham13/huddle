@@ -485,3 +485,70 @@ export function useDeleteAnnouncement() {
     },
   });
 }
+
+// ── Awards ────────────────────────────────────────────────────────────────────
+
+import type { HuddleAward } from "../types/huddle";
+
+export function useAwards(huddleId: string | null, rosterId?: number) {
+  const { getToken } = useAuth();
+  return useQuery({
+    queryKey: ["awards", huddleId, rosterId ?? null],
+    queryFn: async () => {
+      const token = await getToken();
+      const params = rosterId !== undefined ? { rosterId } : {};
+      const res = await axios.get<{ awards: HuddleAward[] }>(
+        `/api/huddles/${huddleId}/awards`,
+        { params, headers: authHeader(token) },
+      );
+      return res.data.awards;
+    },
+    enabled: !!huddleId,
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useCreateAward() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      huddleId: string;
+      rosterId: number;
+      glyph: string;
+      color: string;
+      title: string;
+      description?: string;
+      season?: string;
+    }) => {
+      const token = await getToken();
+      const res = await axios.post<{ award: HuddleAward }>(
+        `/api/huddles/${input.huddleId}/awards`,
+        { rosterId: input.rosterId, glyph: input.glyph, color: input.color,
+          title: input.title, description: input.description, season: input.season },
+        { headers: authHeader(token) },
+      );
+      return res.data.award;
+    },
+    onSuccess: (_award, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["awards", variables.huddleId] });
+    },
+  });
+}
+
+export function useDeleteAward() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { huddleId: string; awardId: string }) => {
+      const token = await getToken();
+      await axios.delete(
+        `/api/huddles/${input.huddleId}/awards/${input.awardId}`,
+        { headers: authHeader(token) },
+      );
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["awards", variables.huddleId] });
+    },
+  });
+}

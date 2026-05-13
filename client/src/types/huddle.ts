@@ -92,3 +92,15 @@ export interface DuesResponse {
   config: DuesConfig | null;
   payments: DuesPayment[];
 }
+
+export interface HuddleAward {
+  id: string;
+  huddleId: string;
+  rosterId: number;
+  glyph: string;
+  color: string;
+  title: string;
+  description: string | null;
+  season: string | null;
+  createdAt: string;
+}

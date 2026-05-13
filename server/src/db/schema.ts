@@ -159,3 +159,35 @@ export type HuddleAnnouncement = typeof huddleAnnouncements.$inferSelect;
 export type NewHuddleAnnouncement = typeof huddleAnnouncements.$inferInsert;
 export type HuddleDuesConfig = typeof huddleDuesConfig.$inferSelect;
 export type HuddleDuesPayment = typeof huddleDuesPayments.$inferSelect;
+
+// ── Custom awards ─────────────────────────────────────────────────────────────
+
+export const huddleAwards = pgTable(
+  "huddle_awards",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    huddleId: uuid("huddle_id")
+      .notNull()
+      .references(() => huddles.id, { onDelete: "cascade" }),
+    rosterId: integer("roster_id").notNull(),
+    glyph: text("glyph").notNull(),
+    color: text("color").notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    grantedBy: text("granted_by").notNull(),
+    season: text("season"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    byHuddle: index("huddle_awards_huddle_idx").on(t.huddleId),
+    byHuddleRoster: index("huddle_awards_huddle_roster_idx").on(t.huddleId, t.rosterId),
+  }),
+);
+
+export type HuddleAward = typeof huddleAwards.$inferSelect;
+export type NewHuddleAward = typeof huddleAwards.$inferInsert;
