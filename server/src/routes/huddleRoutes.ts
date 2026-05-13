@@ -31,6 +31,12 @@ import {
   setDuesConfig,
   setDuesPaid,
 } from "../services/duesService.js";
+import {
+  listAwards,
+  listAwardsForRoster,
+  createAward,
+  deleteAward,
+} from "../services/awardsService.js";
 
 const clerkSecretKey = process.env["CLERK_SECRET_KEY"];
 if (!clerkSecretKey) {
@@ -688,6 +694,72 @@ export function initHuddleRoutes(app: Express) {
           note,
         );
         res.json({ payment });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // GET /api/huddles/:id/awards — all members; ?rosterId=N for team-page filter
+  app.get(
+    "/api/huddles/:id/awards",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const huddleId = req.params.id!;
+        const rosterIdParam = req.query["rosterId"];
+        let awards;
+        if (rosterIdParam !== undefined) {
+          const rosterId = Number(rosterIdParam);
+          if (!Number.isInteger(rosterId) || rosterId < 1) {
+            res.status(400).json({ error: "rosterId must be a positive integer" });
+            return;
+          }
+          awards = await listAwardsForRoster(huddleId, rosterId);
+        } else {
+          awards = await listAwards(huddleId);
+        }
+        res.json({ awards });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // POST /api/huddles/:id/awards — commissioner only
+  app.post(
+    "/api/huddles/:id/awards",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        const huddleId = req.params.id!;
+        const { rosterId, glyph, color, title, description, season } =
+          req.body as Record<string, unknown>;
+        const award = await createAward(huddleId, userId!, {
+          rosterId,
+          glyph,
+          color,
+          title,
+          description,
+          season,
+        });
+        res.status(201).json({ award });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // DELETE /api/huddles/:id/awards/:awardId — commissioner only
+  app.delete(
+    "/api/huddles/:id/awards/:awardId",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        await deleteAward(req.params.id!, req.params.awardId!, userId!);
+        res.status(204).end();
       } catch (err) {
         handleError(err, res);
       }

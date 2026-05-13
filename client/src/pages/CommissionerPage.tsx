@@ -38,11 +38,15 @@ import {
   useDues,
   useSetDuesConfig,
   useSetDuesPaid,
+  useAwards,
+  useCreateAward,
+  useDeleteAward,
 } from "../hooks/useHuddles";
 import type { Roster, TeamUser } from "../types/fantasy";
 import type {
   CommissionerSummary,
   HuddleClaimSummary,
+  HuddleAward,
   UserSummary,
 } from "../types/huddle";
 
@@ -767,6 +771,292 @@ function DuesTrackerPanel({
   );
 }
 
+
+/** Preset colour swatches commissioners can choose from. */
+
+/** Preset colour swatches commissioners can choose from. */
+const AWARD_COLORS = [
+  { hex: "#ef4444", label: "Red" },
+  { hex: "#f97316", label: "Orange" },
+  { hex: "#eab308", label: "Yellow" },
+  { hex: "#22c55e", label: "Green" },
+  { hex: "#3b82f6", label: "Blue" },
+  { hex: "#8b5cf6", label: "Purple" },
+  { hex: "#ec4899", label: "Pink" },
+  { hex: "#6b7280", label: "Gray" },
+  { hex: "#f59e0b", label: "Amber" },
+  { hex: "#14b8a6", label: "Teal" },
+];
+
+/** A single award displayed as a colour-coded badge with a delete button. */
+function AwardBadge({
+  award,
+  teamName,
+  onDelete,
+  deleting,
+}: {
+  award: HuddleAward;
+  teamName: string;
+  onDelete: () => void;
+  deleting: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 border border-line rounded-md p-3 bg-paper">
+      <div className="flex items-center gap-2.5 min-w-0">
+        {/* Coloured glyph chip */}
+        <span
+          className="text-lg leading-none w-8 h-8 flex items-center justify-center rounded-md shrink-0 font-sans font-bold"
+          style={{ backgroundColor: award.color + "22", color: award.color }}
+        >
+          {award.glyph}
+        </span>
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold text-ink font-sans leading-tight">
+            {award.title}
+          </p>
+          <p className="text-[11px] text-muted font-sans">
+            {teamName}
+            {award.season ? ` · ${award.season}` : ""}
+          </p>
+          {award.description && (
+            <p className="text-[11px] text-muted font-sans italic truncate">
+              {award.description}
+            </p>
+          )}
+        </div>
+      </div>
+      <Btn danger disabled={deleting} onClick={onDelete} className="shrink-0">
+        Remove
+      </Btn>
+    </div>
+  );
+}
+
+function CustomAwardsPanel({
+  huddleId,
+  rosters,
+  leagueUsers,
+}: {
+  huddleId: string;
+  rosters: Roster[];
+  leagueUsers: TeamUser[];
+}) {
+  const awardsQuery = useAwards(huddleId);
+  const createAward = useCreateAward();
+  const deleteAward = useDeleteAward();
+
+  // Form state
+  const [glyph, setGlyph] = useState("🏆");
+  const [color, setColor] = useState(AWARD_COLORS[4]!.hex); // blue default
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [rosterId, setRosterId] = useState<number | "">("");
+  const [season, setSeason] = useState("");
+
+  /** Build a display name for a roster. */
+  function rosterLabel(r: Roster): string {
+    return rosterTeamName(r, leagueUsers);
+  }
+
+  const sortedRosters = useMemo(
+    () => [...rosters].sort((a, b) => a.rosterId - b.rosterId),
+    [rosters],
+  );
+
+  function teamNameForRosterId(id: number): string {
+    const r = rosters.find((x) => x.rosterId === id);
+    return r ? rosterLabel(r) : `Team ${id}`;
+  }
+
+  function handleSubmit() {
+    if (!rosterId || !title.trim() || !glyph.trim()) return;
+    createAward.mutate(
+      {
+        huddleId,
+        rosterId: rosterId as number,
+        glyph: glyph.trim(),
+        color,
+        title: title.trim(),
+        description: description.trim() || undefined,
+        season: season.trim() || undefined,
+      },
+      {
+        onSuccess: () => {
+          setGlyph("🏆");
+          setColor(AWARD_COLORS[4]!.hex);
+          setTitle("");
+          setDescription("");
+          setRosterId("");
+          setSeason("");
+        },
+      },
+    );
+  }
+
+  const awards = awardsQuery.data ?? [];
+
+  return (
+    <Panel>
+      <PanelHeader
+        title="Custom Awards"
+        description="Grant one-off trophies to any team — Sacko, Most Improved, Lucky Schedule, anything your league cares about."
+      />
+
+      {/* ── Create form ─────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-3">
+        {/* Glyph + preview row */}
+        <div className="flex items-center gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
+              Glyph
+            </p>
+            <input
+              value={glyph}
+              onChange={(e) => setGlyph(e.target.value.slice(0, 4))}
+              maxLength={4}
+              className="w-16 text-center text-2xl border border-line rounded-md py-1.5 bg-paper text-ink font-sans"
+              placeholder="🏆"
+            />
+          </div>
+          {/* Large preview chip */}
+          <div
+            className="w-14 h-14 rounded-lg flex items-center justify-center text-3xl leading-none shrink-0 font-bold"
+            style={{ backgroundColor: color + "33", color }}
+          >
+            {glyph || "?"}
+          </div>
+          <div className="flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
+              Colour
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {AWARD_COLORS.map((c) => (
+                <button
+                  key={c.hex}
+                  title={c.label}
+                  onClick={() => setColor(c.hex)}
+                  className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${
+                    color === c.hex ? "border-ink scale-110" : "border-transparent"
+                  }`}
+                  style={{ backgroundColor: c.hex }}
+                />
+              ))}
+            </div>
+            <p className="text-[10px] font-mono text-muted mt-1">{color}</p>
+          </div>
+        </div>
+
+        {/* Title + team selector row */}
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
+              Title
+            </p>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value.slice(0, 80))}
+              maxLength={80}
+              className="w-full text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink"
+              placeholder="e.g. Sacko, Most Improved…"
+            />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
+              Season
+            </p>
+            <input
+              value={season}
+              onChange={(e) => setSeason(e.target.value.slice(0, 10))}
+              maxLength={10}
+              className="w-20 text-[13px] font-sans border border-line rounded-md px-2 py-1.5 bg-paper text-ink"
+              placeholder={String(new Date().getFullYear())}
+            />
+          </div>
+        </div>
+
+        {/* Team selector */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
+            Recipient Team
+          </p>
+          <select
+            value={rosterId}
+            onChange={(e) =>
+              setRosterId(e.target.value ? Number(e.target.value) : "")
+            }
+            className="w-full text-[13px] font-sans border border-line rounded-md px-2 py-1.5 bg-paper text-ink"
+          >
+            <option value="">Select a team…</option>
+            {sortedRosters.map((r) => (
+              <option key={r.rosterId} value={r.rosterId}>
+                {rosterLabel(r)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Description */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
+            Description{" "}
+            <span className="normal-case text-[10px]">(optional)</span>
+          </p>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value.slice(0, 300))}
+            maxLength={300}
+            rows={2}
+            className="w-full text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink resize-none"
+            placeholder="Brief note about why this award was given…"
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          {createAward.isError && (
+            <p className="text-[11.5px] text-red-600 font-sans">
+              {(createAward.error as Error).message}
+            </p>
+          )}
+          <BtnPrimary
+            onClick={handleSubmit}
+            disabled={
+              !title.trim() || !glyph.trim() || !rosterId || createAward.isPending
+            }
+          >
+            {createAward.isPending ? "Granting…" : "Grant award"}
+          </BtnPrimary>
+        </div>
+      </div>
+
+      {/* ── Existing awards list ─────────────────────────────────────── */}
+      {awards.length > 0 && (
+        <div className="flex flex-col gap-2 border-t border-line pt-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans">
+            Granted awards ({awards.length})
+          </p>
+          {awards.map((a) => (
+            <AwardBadge
+              key={a.id}
+              award={a}
+              teamName={teamNameForRosterId(a.rosterId)}
+              onDelete={() =>
+                deleteAward.mutate({ huddleId, awardId: a.id })
+              }
+              deleting={deleteAward.isPending}
+            />
+          ))}
+          {deleteAward.isError && (
+            <p className="text-[11.5px] text-red-600 font-sans">
+              {(deleteAward.error as Error).message}
+            </p>
+          )}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+
 // ─── Coming-soon stub section ─────────────────────────────────────────────────
 
 function StubSection({
@@ -879,12 +1169,20 @@ export function CommissionerPage() {
             description="Define how the prize pool is distributed — 1st, 2nd, 3rd place, most points, best regular-season record, or any split you like."
             tag="Finance"
           />
-          <StubSection
-            icon={Award}
-            title="Custom Awards"
-            description="Grant one-off trophies to any team: Sacko, Most Improved, Most Transactions, Lucky Schedule — anything your league cares about."
-            tag="Awards"
-          />
+          {huddle ? (
+            <CustomAwardsPanel
+              huddleId={huddle.id}
+              rosters={rosters ?? []}
+              leagueUsers={leagueUsers ?? []}
+            />
+          ) : (
+            <StubSection
+              icon={Award}
+              title="Custom Awards"
+              description="Grant one-off trophies to any team: Sacko, Most Improved, Most Transactions, Lucky Schedule — anything your league cares about."
+              tag="Awards"
+            />
+          )}
 
           {/* ── Huddle management (live) ───────────────────────────────── */}
           {huddle && detail ? (
