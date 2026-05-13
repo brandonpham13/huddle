@@ -6,8 +6,7 @@
  * Placement: above the 3-column grid in DashboardPage, between
  * MyTeamSection and the grid.
  */
-import { useMyHuddles, useAnnouncements } from "../../hooks/useHuddles";
-import { useAppSelector } from "../../store/hooks";
+import { useSelectedLeagueHuddle, useAnnouncements } from "../../hooks/useHuddles";
 import { SectionHead } from "./_shared";
 import type { HuddleAnnouncement } from "../../types/huddle";
 
@@ -66,14 +65,7 @@ function AnnouncementsFeed({ huddleId }: { huddleId: string }) {
  * announcements. Returns null when there's no matching huddle or no posts.
  */
 export function Announcements() {
-  const selectedLeagueId = useAppSelector(
-    (state) => state.auth.selectedLeagueId,
-  );
-  const { data: huddles } = useMyHuddles();
-
-  const huddle = huddles?.find((h) => h.leagueId === selectedLeagueId);
-
+  const huddle = useSelectedLeagueHuddle();
   if (!huddle) return null;
-
   return <AnnouncementsFeed huddleId={huddle.id} />;
 }
