@@ -16,13 +16,13 @@ import { useAuth } from "@clerk/clerk-react";
 import { useAppSelector } from "../store/hooks";
 import { useLeagueRosters, useLeagueUsers } from "../hooks/useSleeper";
 import {
-  useMyHuddles,
   useHuddleDetail,
   useSubmitClaim,
   useRemoveClaim,
   useAwards,
   usePayouts,
   useAwardIcons,
+  useSelectedLeagueHuddle,
 } from "../hooks/useHuddles";
 import {
   Tooltip,
@@ -526,11 +526,7 @@ export function LeagueSettingsPage() {
   const { data: rosters } = useLeagueRosters(selectedLeagueId);
   const { data: leagueUsers } = useLeagueUsers(selectedLeagueId);
 
-  const { data: huddles } = useMyHuddles();
-  const huddle = useMemo(
-    () => huddles?.find((h) => h.leagueId === selectedLeagueId) ?? null,
-    [huddles, selectedLeagueId],
-  );
+  const huddle = useSelectedLeagueHuddle();
   const huddleDetail = useHuddleDetail(huddle?.id ?? null);
   const detail = huddleDetail.data;
   const isCommissioner = !!detail?.huddle.isCommissioner;

@@ -45,6 +45,7 @@ import {
   useActiveTrophies,
   useSetTrophyEnabled,
   useAwardIcons,
+  useSelectedLeagueHuddle,
   type AwardIcon,
   usePayouts,
   useSetPayouts,
@@ -79,19 +80,6 @@ export function useIsCommissioner(): boolean {
   );
 }
 
-/**
- * Returns the huddle linked to the currently-selected league, or null.
- */
-function useSelectedLeagueHuddle() {
-  const selectedLeagueId = useAppSelector(
-    (state) => state.auth.selectedLeagueId,
-  );
-  const { data: huddles } = useMyHuddles();
-  return useMemo(
-    () => huddles?.find((h) => h.leagueId === selectedLeagueId) ?? null,
-    [huddles, selectedLeagueId],
-  );
-}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
