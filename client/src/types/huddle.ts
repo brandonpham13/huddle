@@ -104,3 +104,13 @@ export interface HuddleAward {
   season: string | null;
   createdAt: string;
 }
+
+export interface PayoutEntry {
+  id: string;
+  label: string;
+  /** Amount in cents. */
+  amount: number;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
