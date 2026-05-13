@@ -1041,261 +1041,7 @@ function AwardBadge({
   );
 }
 
-function CustomAwardsPanel({
-  huddleId,
-  rosters,
-  leagueUsers,
-}: {
-  huddleId: string;
-  rosters: Roster[];
-  leagueUsers: TeamUser[];
-}) {
-  const awardsQuery = useAwards(huddleId);
-  const createAward = useCreateAward();
-  const updateAward = useUpdateAward();
-  const deleteAward = useDeleteAward();
 
-  // Form state
-  const [editingId, setEditingId] = useState<string | null>(null); // null = create mode
-  const [glyph, setGlyph] = useState("cup");
-  const [color, setColor] = useState(AWARD_COLORS[4]!.hex);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [rosterId, setRosterId] = useState<number | "">("");
-  const [season, setSeason] = useState("");
-
-  function startEdit(a: HuddleAward) {
-    setEditingId(a.id);
-    setGlyph(a.glyph);
-    setColor(a.color);
-    setTitle(a.title);
-    setDescription(a.description ?? "");
-    setRosterId(a.rosterId);
-    setSeason(a.season ?? "");
-  }
-
-  function cancelEdit() {
-    setEditingId(null);
-    setGlyph("cup");
-    setColor(AWARD_COLORS[4]!.hex);
-    setTitle("");
-    setDescription("");
-    setRosterId("");
-    setSeason("");
-  }
-
-  /** Build a display name for a roster. */
-  function rosterLabel(r: Roster): string {
-    return rosterTeamName(r, leagueUsers);
-  }
-
-  const sortedRosters = useMemo(
-    () => [...rosters].sort((a, b) => a.rosterId - b.rosterId),
-    [rosters],
-  );
-
-  function teamNameForRosterId(id: number): string {
-    const r = rosters.find((x) => x.rosterId === id);
-    return r ? rosterLabel(r) : `Team ${id}`;
-  }
-
-  function handleSubmit() {
-    if (!rosterId || !title.trim()) return;
-    const payload = {
-      huddleId,
-      rosterId: rosterId as number,
-      glyph,
-      color,
-      title: title.trim(),
-      description: description.trim() || undefined,
-      season: season.trim() || undefined,
-    };
-    if (editingId) {
-      updateAward.mutate(
-        { ...payload, awardId: editingId },
-        { onSuccess: cancelEdit },
-      );
-    } else {
-      createAward.mutate(payload, { onSuccess: cancelEdit });
-    }
-  }
-
-  const awards = awardsQuery.data ?? [];
-
-  return (
-    <Panel>
-      <PanelHeader
-        title={editingId ? "Edit Award" : "Custom Awards"}
-        description={editingId ? "Update the award details below, then save." : "Grant one-off trophies to any team — Sacko, Most Improved, Lucky Schedule, anything your league cares about."}
-      />
-
-      {/* ── Create form ─────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-3">
-        {/* Glyph picker + colour row */}
-        <div className="flex items-start gap-3">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
-              Glyph
-            </p>
-            <div className="flex flex-col gap-1.5">
-              <div className="grid grid-cols-3 gap-1.5">
-                {AWARD_GLYPHS.map((g) => (
-                  <button
-                    key={g.kind}
-                    title={g.label}
-                    onClick={() => setGlyph(g.kind)}
-                    className={`flex items-center justify-center w-10 h-10 rounded-md border transition-colors ${
-                      glyph === g.kind
-                        ? "border-ink bg-highlight"
-                        : "border-line hover:bg-highlight"
-                    }`}
-                    style={{ color }}
-                  >
-                    <GlyphSvg kind={g.kind} size={22} />
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          {/* Preview */}
-          <div
-            className="w-14 h-14 rounded-lg flex items-center justify-center shrink-0 mt-5"
-            style={{ backgroundColor: color + "33", color }}
-          >
-            <GlyphSvg kind={glyph} size={32} />
-          </div>
-          <div className="flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
-              Colour
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {AWARD_COLORS.map((c) => (
-                <button
-                  key={c.hex}
-                  title={c.label}
-                  onClick={() => setColor(c.hex)}
-                  className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${
-                    color === c.hex ? "border-ink scale-110" : "border-transparent"
-                  }`}
-                  style={{ backgroundColor: c.hex }}
-                />
-              ))}
-            </div>
-            <p className="text-[10px] font-mono text-muted mt-1">{color}</p>
-          </div>
-        </div>
-
-        {/* Title + team selector row */}
-        <div className="flex gap-2">
-          <div className="flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
-              Title
-            </p>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value.slice(0, 80))}
-              maxLength={80}
-              className="w-full text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink"
-              placeholder="e.g. Sacko, Most Improved…"
-            />
-          </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
-              Season
-            </p>
-            <input
-              value={season}
-              onChange={(e) => setSeason(e.target.value.slice(0, 10))}
-              maxLength={10}
-              className="w-20 text-[13px] font-sans border border-line rounded-md px-2 py-1.5 bg-paper text-ink"
-              placeholder={String(new Date().getFullYear())}
-            />
-          </div>
-        </div>
-
-        {/* Team selector */}
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
-            Recipient Team
-          </p>
-          <select
-            value={rosterId}
-            onChange={(e) =>
-              setRosterId(e.target.value ? Number(e.target.value) : "")
-            }
-            className="w-full text-[13px] font-sans border border-line rounded-md px-2 py-1.5 bg-paper text-ink"
-          >
-            <option value="">Select a team…</option>
-            {sortedRosters.map((r) => (
-              <option key={r.rosterId} value={r.rosterId}>
-                {rosterLabel(r)}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Description */}
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-1">
-            Description{" "}
-            <span className="normal-case text-[10px]">(optional)</span>
-          </p>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value.slice(0, 300))}
-            maxLength={300}
-            rows={2}
-            className="w-full text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink resize-none"
-            placeholder="Brief note about why this award was given…"
-          />
-        </div>
-
-        <div className="flex items-center justify-between gap-3">
-          {createAward.isError && (
-            <p className="text-[11.5px] text-red-600 font-sans">
-              {(createAward.error as Error).message}
-            </p>
-          )}
-          {editingId && (
-            <Btn onClick={cancelEdit} className="mr-auto">Cancel edit</Btn>
-          )}
-          <BtnPrimary
-            onClick={handleSubmit}
-            disabled={!title.trim() || !rosterId || createAward.isPending || updateAward.isPending}
-          >
-            {createAward.isPending || updateAward.isPending
-              ? editingId ? "Saving…" : "Granting…"
-              : editingId ? "Save changes" : "Grant award"}
-          </BtnPrimary>
-        </div>
-      </div>
-
-      {/* ── Existing awards list ─────────────────────────────────────── */}
-      {awards.length > 0 && (
-        <div className="flex flex-col gap-2 border-t border-line pt-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans">
-            Granted awards ({awards.length})
-          </p>
-          {awards.map((a) => (
-            <AwardBadge
-              key={a.id}
-              award={a}
-              teamName={teamNameForRosterId(a.rosterId)}
-              onEdit={() => startEdit(a)}
-              onDelete={() => deleteAward.mutate({ huddleId, awardId: a.id })}
-              deleting={deleteAward.isPending}
-            />
-          ))}
-          {deleteAward.isError && (
-            <p className="text-[11.5px] text-red-600 font-sans">
-              {(deleteAward.error as Error).message}
-            </p>
-          )}
-        </div>
-      )}
-    </Panel>
-  );
-}
 
 
 // ─── Payout structure panel ──────────────────────────────────────────────────
@@ -1409,7 +1155,6 @@ function PayoutStructurePanel({ huddleId }: { huddleId: string }) {
 
 // ─── Trophy Room panel ───────────────────────────────────────────────────────
 
-/** Built-in trophy types and their display metadata. */
 const BUILT_IN_TROPHIES: Array<{
   type: string;
   label: string;
@@ -1663,6 +1408,46 @@ function TrophyRoomPanel({
               placeholder="Brief note about why this award was given…"
             />
           </div>
+
+          {/* Full-width live preview — exact replica of a trophy room card */}
+          {awardTitle.trim() && (
+            <div className="rounded-md border border-line bg-highlight/40 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted font-sans mb-2">
+                Trophy room preview
+              </p>
+              <div
+                className="relative flex flex-col p-3.5 border w-36"
+                style={{ borderColor: color + "66", backgroundColor: color + "11" }}
+              >
+                {season && (
+                  <div
+                    className="absolute top-0 right-0 px-1.5 py-0.5 text-[9px] font-bold font-mono tracking-wider text-white"
+                    style={{ backgroundColor: color }}
+                  >
+                    {season}
+                  </div>
+                )}
+                <div className="mb-2" style={{ color }}>
+                  <GlyphSvg kind={glyph} size={32} />
+                </div>
+                <div className="font-serif italic font-bold text-[14px] text-ink leading-tight tracking-tight">
+                  {awardTitle}
+                </div>
+                {description && (
+                  <div className="font-serif text-xs text-body mt-1 leading-snug line-clamp-2">
+                    {description}
+                  </div>
+                )}
+                <div className="flex-1" />
+                <div
+                  className="mt-2 pt-1.5 border-t border-dotted border-line text-[9.5px] uppercase tracking-wider font-sans font-semibold"
+                  style={{ color }}
+                >
+                  Commissioner
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-end gap-2">
             {(createAward.isError || updateAward.isError) && (
