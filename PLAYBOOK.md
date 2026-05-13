@@ -257,7 +257,13 @@ Columns with a `sortValue` are clickable — first click sorts desc, second clic
 
 ## Adding a custom award to the Trophy Room
 
-All trophy logic lives in `client/src/pages/TeamPage.tsx`. Three things control the Trophy Room:
+The Trophy Room has two layers: **auto-generated stat trophies** (computed from `TeamStats`) and **commissioner awards** (stored in the DB and granted per-team). Both render as the same `TrophyCard`-style grid.
+
+---
+
+### Auto-generated stat trophies
+
+All auto-trophy logic lives in `client/src/pages/TeamPage.tsx`.
 
 | Thing | What it does |
 |---|---|
@@ -267,7 +273,7 @@ All trophy logic lives in `client/src/pages/TeamPage.tsx`. Three things control 
 
 All you need to do is push a new `Trophy` object into the array inside `buildTrophies`. The `TrophyCard` component and grid rendering are automatic.
 
-### 1. Pick a tier and glyph
+#### Tier + glyph reference
 
 | Tier | Glyph | When to use |
 |---|---|---|
@@ -275,46 +281,81 @@ All you need to do is push a new `Trophy` object into the array inside `buildTro
 | `silver` / `medal` | Olympic medal | Runner-up |
 | `bronze` / `medal` | Olympic medal | 3rd place |
 | `ribbon` / `star` | Star badge | Stat superlatives (high score, etc.) |
-| `ribbon` / `ribbon` | Ribbon rosette | Participation / other honourable mentions |
+| `ribbon` / `ribbon` | Ribbon rosette | Participation / honourable mentions |
 | `wood` / `wood` | Plank / data grid | Shame awards, consolation, career counts |
 
-### 2. Add your entry to `buildTrophies`
+#### Adding a stat trophy
 
-Open `client/src/pages/TeamPage.tsx` and find the `buildTrophies` function. Push a `Trophy` object:
+Open `buildTrophies` in `TeamPage.tsx` and push a `Trophy` object:
 
 ```ts
-// Example: "Scorigami" award for a unique score no one else has hit
 if (stats.highScore && stats.highScore.points > 200) {
   trophies.push({
-    id: "scorigami",                        // must be unique across all trophies
-    title: "Scorigami",                     // bold serif heading on the card
-    sub: `${stats.highScore.points.toFixed(2)} pts in a single week`,  // body line
-    detail: "200-point club",               // small caps footer rule
-    year: stats.highScore.season,           // top-right badge (season year or "Career")
-    tier: "gold",                           // visual style
-    kind: "star",                           // glyph
+    id: "scorigami",        // must be unique across all trophies
+    title: "Scorigami",
+    sub: `${stats.highScore.points.toFixed(2)} pts in a single week`,
+    detail: "200-point club",
+    year: stats.highScore.season,
+    tier: "gold",
+    kind: "star",
   });
 }
 ```
 
-Or for a career-aggregate award:
+#### Commissioner trophy controls
+
+Each auto-trophy type can be **enabled or disabled per-huddle** by the commissioner from the Trophy Room panel in the Commissioner dashboard. The active state is stored in `huddle_active_trophies` and fetched via `useActiveTrophies(huddleId)`. `buildTrophies` output is filtered against this before rendering.
+
+Type keys (must match `BUILT_IN_TROPHY_TYPES` in `trophyControlService.ts`):
+- `champion`, `runner_up`, `third`, `high_score`, `missed_playoffs`
+
+---
+
+### Commissioner custom awards
+
+Commissioners grant one-off awards to specific teams from the Commissioner dashboard → Trophy Room panel. Awards are stored in `huddle_awards` and displayed alongside auto-trophies in the team's Trophy Room.
+
+#### Schema
+
+```
+huddle_awards: id, huddleId, rosterId, glyph, color (hex), title, description, grantedBy, season
+```
+
+#### API
+
+- `GET /api/huddles/:id/awards` — all awards; `?rosterId=N` for a specific team
+- `POST /api/huddles/:id/awards` — create (commissioner only)
+- `PATCH /api/huddles/:id/awards/:awardId` — update (commissioner only)
+- `DELETE /api/huddles/:id/awards/:awardId` — delete (commissioner only)
+
+#### Hooks
 
 ```ts
-// Example: "Veteran" award for playing 5+ seasons
-if (stats.seasons.length >= 5) {
-  trophies.push({
-    id: "veteran",
-    title: "Veteran",
-    sub: `${stats.seasons.length} seasons in the league`,
-    detail: "Long-term member",
-    year: "Career",
-    tier: "ribbon",
-    kind: "ribbon",
-  });
-}
+useAwards(huddleId, rosterId?)   // fetch awards
+useCreateAward()                 // POST
+useUpdateAward()                 // PATCH
+useDeleteAward()                 // DELETE
 ```
 
-### 3. Data available in `buildTrophies(stats: TeamStats)`
+#### Glyph system
+
+Glyphs are SVG icons rendered in the award card. There are two kinds:
+
+**Built-in glyphs** — hardcoded SVGs in `GlyphSvg` (CommissionerPage), `CommissionerGlyph` (TeamPage), and `SettingsGlyphSvg` (LeagueSettingsPage). Current set: `cup`, `medal`, `ribbon`, `star`, `bolt`, `trash`.
+
+**Custom icon files** — SVG files dropped into `server/src/assets/award-icons/`. These appear in the picker automatically (no restart needed). The `glyph` field is stored as `icon:<filename-without-extension>` (e.g. `icon:crown`).
+
+To add a new icon:
+1. Drop a `.svg` file into `server/src/assets/award-icons/`
+2. Use `viewBox="0 0 36 40"`, `currentColor` for stroke/fill, `stroke-width="1.4"`, round caps/joins
+3. It appears in the picker immediately — see the README in that directory for the full format spec
+
+To add a new built-in glyph:
+1. Add `{ kind: "mykind", label: "My Label" }` to `AWARD_GLYPHS` in `CommissionerPage.tsx`
+2. Add an `if (kind === "mykind") return (<svg>…</svg>)` branch in `GlyphSvg`, `CommissionerGlyph`, and `SettingsGlyphSvg`
+3. Follow the same 36×40 viewBox / `currentColor` / 1.4px stroke convention
+
+#### Data available in `TeamStats` for `buildTrophies`
 
 ```ts
 stats.seasons[]          // per-season: record, PF, PA, seed, postseason result
@@ -324,33 +365,23 @@ stats.playoffAppearances
 stats.championships
 stats.runnerUps
 stats.thirdPlace
-stats.avgFinish          // average seed across all seasons (null if no data)
+stats.avgFinish          // average seed across all seasons
 stats.avgPointsFor
 stats.avgPointsAgainst
 stats.highScore          // { points, season, week, opponentRosterId }
-stats.lowScore           // same shape
+stats.lowScore
 stats.biggestWin         // { margin, season, week, opponentRosterId }
-stats.worstLoss          // same shape
-stats.longestWinStreak   // number of consecutive wins
+stats.worstLoss
+stats.longestWinStreak
 stats.longestLossStreak
-stats.h2h[]              // per-opponent: { opponentRosterId, wins, losses, ties }
+stats.h2h[]              // { opponentRosterId, wins, losses, ties }
 ```
 
-### 4. Add a new glyph (optional)
-
-If none of the five existing glyphs fit, add a new `kind` value:
-
-1. Extend the union type: `type Trophy["kind"] = "cup" | "medal" | ... | "mykind"`
-2. Add a new `if (kind === "mykind") return (<svg>…</svg>)` branch in `TrophyGlyph`
-3. Reference it in your `buildTrophies` entry
-
-Keep glyphs as inline SVGs (no external deps). Use 36×40 viewBox and `stroke="currentColor"` so dark mode works for free.
-
-### Notes
-- IDs must be unique — collisions cause React key warnings
-- Cards render in push order, so put more prestigious awards first
-- `year` is always a string or number; use `"Career"` for aggregate awards
-- The section header automatically updates its rule from `"… awards"` so no manual count tracking needed
+#### Notes
+- Auto-trophy IDs must be unique — collisions cause React key warnings
+- Cards render in push order — put prestigious awards first
+- `year` is always string or number; use `"Career"` for aggregate awards
+- The Trophy Room section header count includes both auto-trophies and commissioner awards
 
 ---
 
@@ -386,6 +417,7 @@ User metadata flows: **Clerk `unsafeMetadata` → `AuthGuard` → Redux `auth` s
 | Redux auth slice | `client/src/store/slices/authSlice.ts` |
 | Redux store + persistence | `client/src/store/index.ts` |
 | Sleeper data hooks | `client/src/hooks/useSleeper.ts` |
+| Huddle hooks (claims, awards, dues, payouts, trophies) | `client/src/hooks/useHuddles.ts` |
 | Dashboard orchestrator | `client/src/pages/DashboardPage.tsx` |
 | Dashboard widgets | `client/src/widgets/dashboard/*.tsx` |
 | Dashboard shared atoms | `client/src/widgets/dashboard/_shared.tsx` |
@@ -396,4 +428,9 @@ User metadata flows: **Clerk `unsafeMetadata` → `AuthGuard` → Redux `auth` s
 | Power rankings service | `server/src/services/powerRankingsService.ts` |
 | Power ranking algorithms | `server/src/algorithms/` |
 | Provider routes | `server/src/routes/providerRoutes.ts` |
+| Huddle routes | `server/src/routes/huddleRoutes.ts` |
 | DB schema | `server/src/db/schema.ts` |
+| DB migrations | `server/drizzle/` |
+| Awards service | `server/src/services/awardsService.ts` |
+| Trophy control service | `server/src/services/trophyControlService.ts` |
+| Custom icon files | `server/src/assets/award-icons/` |
