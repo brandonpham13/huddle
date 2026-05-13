@@ -665,26 +665,7 @@ export function useSetTrophyEnabled() {
         { headers: authHeader(token) },
       );
     },
-    // Optimistic update — flip the toggle immediately in the cache so the UI
-    // responds instantly without waiting for the server round-trip.
-    onMutate: async (variables) => {
-      const key = ["active-trophies", variables.huddleId];
-      await queryClient.cancelQueries({ queryKey: key });
-      const previous = queryClient.getQueryData(key);
-      queryClient.setQueryData(key, (old: Record<string, boolean> | undefined) => ({
-        ...(old ?? {}),
-        [variables.trophyType]: variables.enabled,
-      }));
-      return { previous };
-    },
-    onError: (_err, variables, context: any) => {
-      // Roll back on failure
-      queryClient.setQueryData(
-        ["active-trophies", variables.huddleId],
-        context?.previous,
-      );
-    },
-    onSettled: (_data, _err, variables) => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: ["active-trophies", variables.huddleId],
       });
