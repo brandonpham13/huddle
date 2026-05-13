@@ -103,12 +103,10 @@ export function DashboardPage() {
     selectedLeague.season === nflState.season &&
     nflState.season_type === "regular";
 
-  const week = isLeagueCurrent
-    ? (nflState!.display_week ?? nflState!.week ?? 1)
-    : 17;
-  const season = selectedLeague?.season ?? nflState?.season ?? "2024";
-  const nextWeek = isLeagueCurrent && week < 18 ? week + 1 : week;
-
+  // Derive per-league settings before computing `week` so we can use
+  // last_scored_leg as the default display week for past seasons instead of
+  // hardcoding 17. Leagues with custom playoff lengths, early endings, or
+  // 2-week championship formats all set last_scored_leg correctly.
   const leagueSettings = selectedLeague?.settings ?? {};
   const playoffWeekStart =
     typeof leagueSettings["playoff_week_start"] === "number"
@@ -129,6 +127,16 @@ export function DashboardPage() {
   const lastWeek = isLeagueUnstarted
     ? 0
     : (lastScoredLeg ?? (playoffWeekStart ? playoffWeekStart + 2 : 17));
+
+  // For the active season use the live NFL display week. For past seasons (or
+  // the off-season) default to the last week that actually had scored matchups
+  // rather than hardcoding 17 — leagues with custom playoff lengths or early
+  // endings would otherwise open on an empty week.
+  const week = isLeagueCurrent
+    ? (nflState!.display_week ?? nflState!.week ?? 1)
+    : (lastWeek || 17);
+  const season = selectedLeague?.season ?? nflState?.season ?? "2024";
+  const nextWeek = isLeagueCurrent && week < 18 ? week + 1 : week;
 
   // -----------------------------------------------------------------------
   // Step 4: Per-league data fetches keyed off `(selectedLeagueId, week)`.
