@@ -9,7 +9,7 @@
  *
  * Initial value resolution order:
  *   1. `huddle-theme` in localStorage (if the user has flipped it before)
- *   2. The OS `prefers-color-scheme` media query
+ *   2. Light mode (default — we don't follow the OS preference)
  *
  * Wired into the global provider stack in `providers/AppProviders.tsx`,
  * and the toggle is exposed in the top nav via AppShell.
@@ -38,9 +38,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
     const stored = localStorage.getItem("huddle-theme") as Theme | null;
     if (stored === "light" || stored === "dark") return stored;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
+    return "light";
   });
 
   useEffect(() => {
