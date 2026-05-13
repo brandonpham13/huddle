@@ -191,3 +191,30 @@ export const huddleAwards = pgTable(
 
 export type HuddleAward = typeof huddleAwards.$inferSelect;
 export type NewHuddleAward = typeof huddleAwards.$inferInsert;
+
+// ── Payout structure ──────────────────────────────────────────────────────────
+
+export const huddlePayoutEntries = pgTable(
+  "huddle_payout_entries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    huddleId: uuid("huddle_id")
+      .notNull()
+      .references(() => huddles.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    amount: integer("amount").notNull().default(0),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    byHuddle: index("huddle_payout_entries_huddle_idx").on(t.huddleId),
+  }),
+);
+
+export type HuddlePayoutEntry = typeof huddlePayoutEntries.$inferSelect;
+export type NewHuddlePayoutEntry = typeof huddlePayoutEntries.$inferInsert;

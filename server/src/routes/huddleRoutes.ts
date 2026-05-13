@@ -37,6 +37,7 @@ import {
   createAward,
   deleteAward,
 } from "../services/awardsService.js";
+import { listPayouts, setPayouts } from "../services/payoutsService.js";
 
 const clerkSecretKey = process.env["CLERK_SECRET_KEY"];
 if (!clerkSecretKey) {
@@ -760,6 +761,40 @@ export function initHuddleRoutes(app: Express) {
         const { userId } = getAuth(req);
         await deleteAward(req.params.id!, req.params.awardId!, userId!);
         res.status(204).end();
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // GET /api/huddles/:id/payouts — any authenticated member
+  app.get(
+    "/api/huddles/:id/payouts",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const entries = await listPayouts(req.params.id!);
+        res.json({ entries });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // PUT /api/huddles/:id/payouts — commissioner only, replaces all entries
+  app.put(
+    "/api/huddles/:id/payouts",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        const { entries } = req.body as { entries: Array<{ label: string; amount: number }> };
+        if (!Array.isArray(entries)) {
+          res.status(400).json({ error: "entries must be an array" });
+          return;
+        }
+        const saved = await setPayouts(req.params.id!, userId!, entries);
+        res.json({ entries: saved });
       } catch (err) {
         handleError(err, res);
       }

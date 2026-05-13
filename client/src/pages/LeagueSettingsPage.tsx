@@ -21,6 +21,7 @@ import {
   useSubmitClaim,
   useRemoveClaim,
   useAwards,
+  usePayouts,
 } from "../hooks/useHuddles";
 import {
   Tooltip,
@@ -132,6 +133,42 @@ function rosterTeamName(roster: Roster, leagueUsers: TeamUser[]): string {
 function describeUser(u: { id: string; username: string | null; email: string | null } | null | undefined): string {
   if (!u) return "Unknown";
   return u.username ?? u.email ?? u.id;
+}
+
+function PayoutsReadOnly({ huddleId }: { huddleId: string }) {
+  const { data: entries } = usePayouts(huddleId);
+  if (!entries || entries.length === 0) return null;
+
+  const totalCents = entries.reduce((s, e) => s + e.amount, 0);
+  const fmt = (cents: number) =>
+    `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
+
+  return (
+    <Panel>
+      <PanelHeader
+        title="Payout Structure"
+        description="How the prize pool is distributed this season."
+      />
+      <div className="flex flex-col divide-y divide-line">
+        {entries.map((e) => (
+          <div key={e.id} className="flex items-center justify-between py-2.5">
+            <span className="text-[13px] font-sans text-ink">{e.label}</span>
+            <span className="text-[13px] font-mono font-semibold text-ink">
+              {fmt(e.amount)}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-between items-center pt-1 border-t border-line">
+        <span className="text-[11px] font-bold uppercase tracking-widest text-muted font-sans">
+          Total pool
+        </span>
+        <span className="text-[13px] font-mono font-semibold text-ink">
+          {fmt(totalCents)}
+        </span>
+      </div>
+    </Panel>
+  );
 }
 
 /** Read-only display of all huddle awards — visible to all members. */
@@ -499,6 +536,9 @@ export function LeagueSettingsPage() {
                 : "No huddle is linked to this league. Ask your commissioner to set one up."}
             </div>
           )}
+
+          {/* Payout structure — read-only for members */}
+          {huddle && <PayoutsReadOnly huddleId={huddle.id} />}
 
           {/* Awards — read-only, only shown when awards exist */}
           {huddle && rosters && leagueUsers && (
