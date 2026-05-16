@@ -243,3 +243,52 @@ export const huddleActiveTrophies = pgTable(
 );
 
 export type HuddleActiveTrophy = typeof huddleActiveTrophies.$inferSelect;
+
+// ── Side bets ──────────────────────────────────────────────────────────────────
+// League members propose bets against each other, tied to a specific week.
+// The lifecycle is: pending → accepted/rejected, then accepted → settled/cancelled.
+
+export const sideBetStatus = pgEnum("side_bet_status", [
+  "pending",    // proposed, awaiting opponent response
+  "accepted",   // both parties agreed
+  "rejected",   // opponent declined
+  "cancelled",  // withdrawn by either party after acceptance (or by proposer before)
+  "settled",    // winner determined
+]);
+
+export const sideBets = pgTable(
+  "side_bets",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    huddleId: uuid("huddle_id")
+      .notNull()
+      .references(() => huddles.id, { onDelete: "cascade" }),
+    proposerId: text("proposer_id").notNull(),
+    opponentId: text("opponent_id").notNull(),
+    proposerRosterId: integer("proposer_roster_id"),
+    opponentRosterId: integer("opponent_roster_id"),
+    week: integer("week").notNull(),
+    season: text("season").notNull(),
+    description: text("description").notNull(),
+    /** Amount in cents. 0 means no monetary stake (bragging rights only). */
+    amount: integer("amount").notNull().default(0),
+    status: sideBetStatus("status").notNull().default("pending"),
+    /** Clerk userId of the winner. Null until settled. */
+    winnerId: text("winner_id"),
+    settlementNote: text("settlement_note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    byHuddle: index("side_bets_huddle_idx").on(t.huddleId),
+    byProposer: index("side_bets_proposer_idx").on(t.huddleId, t.proposerId),
+    byOpponent: index("side_bets_opponent_idx").on(t.huddleId, t.opponentId),
+  }),
+);
+
+export type SideBet = typeof sideBets.$inferSelect;
+export type NewSideBet = typeof sideBets.$inferInsert;
