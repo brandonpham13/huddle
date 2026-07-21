@@ -117,3 +117,26 @@ export interface PayoutEntry {
 
 /** Map of built-in trophy type → enabled. Missing keys default to true. */
 export type ActiveTrophies = Record<string, boolean>;
+
+// ── Side bets ──────────────────────────────────────────────────────────────────
+
+export type SideBetStatus = "pending" | "accepted" | "rejected" | "cancelled" | "settled";
+
+export interface SideBet {
+  id: string;
+  huddleId: string;
+  proposerId: string;
+  opponentId: string;
+  proposerRosterId: number | null;
+  opponentRosterId: number | null;
+  week: number;
+  season: string;
+  description: string;
+  /** Amount in cents. 0 = bragging rights only. */
+  amount: number;
+  status: SideBetStatus;
+  winnerId: string | null;
+  settlementNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
