@@ -406,6 +406,39 @@ User metadata flows: **Clerk `unsafeMetadata` → `AuthGuard` → Redux `auth` s
 
 ---
 
+## Database changes
+
+`schema.ts` is the source of truth. The running app reads it directly — Drizzle's query builder never looks at `drizzle/`. Migrations exist only to move an *existing* database from one state to the next.
+
+> **The prod database is the one in your root `.env`.** There is no staging. Applying a migration locally *is* a production schema change — land schema changes before the code that depends on them.
+
+### The loop
+
+1. Edit `server/src/db/schema.ts`.
+2. `npm run db:generate --prefix server` — writes a new `.sql` **and** updates `drizzle/meta/`.
+3. **Read the generated SQL.** Drizzle guesses, and its guesses can be destructive (see below). This review is the whole point of the generate workflow.
+4. Apply it: `psql "$DATABASE_URL" -f server/drizzle/<file>.sql`
+5. Commit the `.sql` and `meta/` **together, in the same commit.** They are one unit.
+
+### Rules
+
+- **Never hand-write a migration.** A hand-written file doesn't update the snapshot, so the next `db:generate` diffs against a lie. This is exactly how the meta went stale before the 2026-07-21 re-baseline. If you dislike the generated SQL, edit the generated file — the snapshot still gets written correctly.
+- **Never `db:push` against prod.** Push skips migrations and doesn't update the snapshot, reintroducing drift. It's fine against a scratch database; just don't mix push and generate on the same one.
+- **Never run `0000_baseline.sql` against prod.** It describes the full current schema for provisioning empty databases only. Pre-baseline migrations are in `drizzle/archive/` for history.
+
+### Sharp edges
+
+| Change | Watch for |
+|---|---|
+| Renaming a column | Drizzle sees drop + add and generates `DROP`/`ADD`, silently discarding data. Resolve as a rename, or hand-edit to `ALTER ... RENAME`. |
+| Adding `NOT NULL` | Fails on a populated table unless you give it a default. |
+| Removing an enum value | Postgres can add values but not drop them; requires recreating the type. |
+| Deploys | Never auto-migrate on boot — Vercel serverless would race on every cold start. Migrations are always run deliberately. |
+
+Legacy artifact: the primary key on `huddles` is still named `groups_pkey`, because `0001` renamed the table but Postgres keeps constraint names. Harmless; rename if you're ever touching that table.
+
+---
+
 ## Key file locations
 
 | What | Where |
