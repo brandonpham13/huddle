@@ -255,6 +255,41 @@ Columns with a `sortValue` are clickable — first click sorts desc, second clic
 
 ---
 
+## Adding a sub-page under a Sidebar section
+
+`Sidebar.tsx` has one nav item per top-level route — there's no nested sidebar
+menu. When a section needs multiple pages (first example: Schedule, which
+grew a "Schedule Generator" alongside the season schedule view), nest routes
+under the parent path and surface the sub-pages as an in-page tab strip
+instead of adding sidebar entries. See `client/src/pages/ScheduleLayout.tsx`.
+
+1. **Wrap the section in a layout component** that renders a tab strip
+   (`NavLink` to each sub-route, styled like `SideBetsPage.tsx`'s filter
+   tabs) plus an `<Outlet />`:
+```tsx
+const TABS = [
+  { to: "/schedule", label: "Season Schedule", end: true },
+  { to: "/schedule/generator", label: "Schedule Generator", end: false },
+];
+// <NavLink to={to} end={end} className={({isActive}) => ...}>{label}</NavLink>
+// <Outlet />
+```
+2. **Nest the routes** in `App.tsx` under the layout, with the original page
+   as the `index` route:
+```tsx
+<Route path="/schedule" element={<ScheduleLayout />}>
+  <Route index element={<SchedulePage />} />
+  <Route path="generator" element={<ScheduleGeneratorPage />} />
+</Route>
+```
+3. Leave the `Sidebar.tsx` entry pointing at the parent path with `end: false`
+   — it stays highlighted for every sub-route automatically.
+
+Reuse this shape rather than inventing a new one when the next section needs
+more than one page.
+
+---
+
 ## Adding a custom award to the Trophy Room
 
 The Trophy Room has two layers: **auto-generated stat trophies** (computed from `TeamStats`) and **commissioner awards** (stored in the DB and granted per-team). Both render as the same `TrophyCard`-style grid.
@@ -454,6 +489,10 @@ Legacy artifact: the primary key on `huddles` is still named `groups_pkey`, beca
 | Dashboard orchestrator | `client/src/pages/DashboardPage.tsx` |
 | Dashboard widgets | `client/src/widgets/dashboard/*.tsx` |
 | Dashboard shared atoms | `client/src/widgets/dashboard/_shared.tsx` |
+| Sub-page layout example (tabs + Outlet) | `client/src/pages/ScheduleLayout.tsx` |
+| Schedule generator page (orchestrator) | `client/src/pages/ScheduleGeneratorPage.tsx` |
+| Schedule generator widgets | `client/src/widgets/scheduleGenerator/*.tsx` |
+| Schedule generator algorithm (pure, client-side) | `client/src/utils/scheduleGenerator.ts` |
 | Shared `Avatar` | `client/src/components/Avatar.tsx` |
 | Sortable hook + types | `client/src/components/sortable.ts` |
 | Generic `SortableTable` | `client/src/components/SortableTable.tsx` |
