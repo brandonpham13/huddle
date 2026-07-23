@@ -140,7 +140,7 @@ function NewBetForm({
   onClose: () => void;
 }) {
   const [opponentId, setOpponentId] = useState(opponents[0]?.clerkUserId ?? "");
-  const [week, setWeek] = useState(currentWeek);
+  const [week, setWeek] = useState(Math.max(1, currentWeek));
   const [description, setDescription] = useState("");
   const [amountDollars, setAmountDollars] = useState("");
   const [error, setError] = useState<string | null>(null);
