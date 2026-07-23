@@ -5,6 +5,7 @@ import {
   text,
   timestamp,
   integer,
+  boolean,
   pgEnum,
   uniqueIndex,
   index,
@@ -293,3 +294,22 @@ export const sideBets = pgTable(
 
 export type SideBet = typeof sideBets.$inferSelect;
 export type NewSideBet = typeof sideBets.$inferInsert;
+
+// ── Countdown widget ─────────────────────────────────────────────────────────
+// Commissioner-configured countdown shown on the dashboard, e.g. counting down
+// to draft night or the trade deadline. One row per huddle.
+
+export const huddleCountdownConfig = pgTable("huddle_countdown_config", {
+  huddleId: uuid("huddle_id")
+    .primaryKey()
+    .references(() => huddles.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  subtitle: text("subtitle"),
+  targetAt: timestamp("target_at", { withTimezone: true }).notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export type HuddleCountdownConfig = typeof huddleCountdownConfig.$inferSelect;

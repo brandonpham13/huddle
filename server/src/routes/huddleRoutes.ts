@@ -40,6 +40,7 @@ import {
 } from "../services/awardsService.js";
 import { listPayouts, setPayouts } from "../services/payoutsService.js";
 import { getActiveTrophies, setTrophyEnabled } from "../services/trophyControlService.js";
+import { getCountdownConfig, setCountdownConfig } from "../services/countdownService.js";
 
 const clerkSecretKey = process.env["CLERK_SECRET_KEY"];
 if (!clerkSecretKey) {
@@ -664,6 +665,58 @@ export function initHuddleRoutes(app: Express) {
           amount,
           season,
           note,
+        });
+        res.json({ config });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // GET /api/huddles/:id/countdown — any authenticated member
+  app.get(
+    "/api/huddles/:id/countdown",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const config = await getCountdownConfig(req.params.id!);
+        res.json({ config });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // PUT /api/huddles/:id/countdown — commissioner only
+  app.put(
+    "/api/huddles/:id/countdown",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        const { title, subtitle, targetAt, enabled } = req.body as {
+          title?: unknown;
+          subtitle?: string | null;
+          targetAt?: unknown;
+          enabled?: unknown;
+        };
+        if (typeof title !== "string") {
+          res.status(400).json({ error: "title (string) required" });
+          return;
+        }
+        if (typeof targetAt !== "string") {
+          res.status(400).json({ error: "targetAt (ISO date string) required" });
+          return;
+        }
+        if (typeof enabled !== "boolean") {
+          res.status(400).json({ error: "enabled (boolean) required" });
+          return;
+        }
+        const config = await setCountdownConfig(req.params.id!, userId!, {
+          title,
+          subtitle,
+          targetAt,
+          enabled,
         });
         res.json({ config });
       } catch (err) {
