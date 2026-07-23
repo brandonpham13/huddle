@@ -3,6 +3,7 @@
  *
  * League members can propose bets against each other for a given week.
  * Lifecycle: pending → accepted | rejected; accepted → settled | cancelled.
+ * Rejected and cancelled bets are deleted rather than kept as rows.
  */
 import { and, eq, or } from "drizzle-orm";
 import { db } from "../db/client.js";
@@ -86,9 +87,14 @@ export async function respondToBet(opts: {
   if (bet.opponentId !== opts.userId) fail(403, "Only the opponent can respond to this bet");
   if (bet.status !== "pending") fail(409, `Bet is already ${bet.status}`);
 
+  if (opts.response === "rejected") {
+    await db.delete(sideBets).where(eq(sideBets.id, opts.betId));
+    return { ...bet, status: "rejected" };
+  }
+
   const [updated] = await db
     .update(sideBets)
-    .set({ status: opts.response, updatedAt: new Date() })
+    .set({ status: "accepted", updatedAt: new Date() })
     .where(eq(sideBets.id, opts.betId))
     .returning();
   return updated!;
@@ -116,12 +122,8 @@ export async function cancelBet(opts: {
   if (bet.status === "pending" && bet.proposerId !== opts.userId && !commish)
     fail(403, "Only the proposer (or a commissioner) can cancel a pending bet");
 
-  const [updated] = await db
-    .update(sideBets)
-    .set({ status: "cancelled", updatedAt: new Date() })
-    .where(eq(sideBets.id, opts.betId))
-    .returning();
-  return updated!;
+  await db.delete(sideBets).where(eq(sideBets.id, opts.betId));
+  return { ...bet, status: "cancelled" };
 }
 
 export async function settleBet(opts: {
