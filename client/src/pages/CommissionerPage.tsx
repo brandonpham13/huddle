@@ -19,7 +19,7 @@
  */
 import { useState, useMemo } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Megaphone, DollarSign, Trophy, Award, Plus, Trash2 } from "lucide-react";
+import { Megaphone, DollarSign, Trophy, Award, Plus, Trash2, Timer } from "lucide-react";
 import { useAppSelector } from "../store/hooks";
 import { useLeagueUsers, useLeagueRosters } from "../hooks/useSleeper";
 import {
@@ -38,6 +38,8 @@ import {
   useDues,
   useSetDuesConfig,
   useSetDuesPaid,
+  useCountdownConfig,
+  useSetCountdownConfig,
   useAwards,
   useCreateAward,
   useUpdateAward,
@@ -618,6 +620,115 @@ function AnnouncementsPanel({ huddleId }: { huddleId: string }) {
           ))}
         </div>
       )}
+    </Panel>
+  );
+}
+
+// ─── Countdown widget panel ──────────────────────────────────────────────────
+
+/** Converts an ISO timestamp to the local-time value a `datetime-local` input expects. */
+function toDatetimeLocalValue(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function CountdownConfigPanel({ huddleId }: { huddleId: string }) {
+  const { data: config } = useCountdownConfig(huddleId);
+  const setConfig = useSetCountdownConfig();
+
+  const [title, setTitle] = useState("");
+  const [subtitle, setSubtitle] = useState("");
+  const [targetAtLocal, setTargetAtLocal] = useState("");
+  const [enabled, setEnabled] = useState(true);
+  const [configInitialized, setConfigInitialized] = useState(false);
+
+  useMemo(() => {
+    if (config && !configInitialized) {
+      setTitle(config.title);
+      setSubtitle(config.subtitle ?? "");
+      setTargetAtLocal(toDatetimeLocalValue(config.targetAt));
+      setEnabled(config.enabled);
+      setConfigInitialized(true);
+    }
+  }, [config, configInitialized]);
+
+  const canSave = title.trim().length > 0 && targetAtLocal.length > 0;
+
+  return (
+    <Panel>
+      <PanelHeader
+        title="Countdown"
+        description="Show a countdown to a date/time (e.g. draft night) on the dashboard."
+      />
+
+      <div className="flex flex-col gap-2">
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Title (e.g. Draft Night)"
+          maxLength={60}
+          className="text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink"
+        />
+        <input
+          value={subtitle}
+          onChange={(e) => setSubtitle(e.target.value)}
+          placeholder="Subtitle (optional)"
+          maxLength={120}
+          className="text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink"
+        />
+        <input
+          type="datetime-local"
+          value={targetAtLocal}
+          onChange={(e) => setTargetAtLocal(e.target.value)}
+          className="text-[13px] font-sans border border-line rounded-md px-3 py-1.5 bg-paper text-ink"
+        />
+
+        <div className="flex items-center justify-between gap-3 pt-1">
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setEnabled((v) => !v)}
+              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${
+                enabled ? "bg-ink" : "bg-line"
+              }`}
+              role="switch"
+              aria-checked={enabled}
+            >
+              <span
+                className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                  enabled ? "translate-x-4" : "translate-x-0"
+                }`}
+              />
+            </button>
+            <span className="text-[12.5px] font-sans text-ink">Show on dashboard</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {setConfig.isError && (
+              <p className="text-[11.5px] text-red-600 font-sans">
+                {(setConfig.error as Error).message}
+              </p>
+            )}
+            {setConfig.isSuccess && (
+              <p className="text-[11.5px] text-accent font-sans">Saved!</p>
+            )}
+            <BtnPrimary
+              onClick={() =>
+                setConfig.mutate({
+                  huddleId,
+                  title: title.trim(),
+                  subtitle: subtitle.trim() || null,
+                  targetAt: new Date(targetAtLocal).toISOString(),
+                  enabled,
+                })
+              }
+              disabled={!canSave || setConfig.isPending}
+            >
+              {setConfig.isPending ? "Saving…" : "Save config"}
+            </BtnPrimary>
+          </div>
+        </div>
+      </div>
     </Panel>
   );
 }
@@ -1625,6 +1736,16 @@ export function CommissionerPage() {
               icon={Megaphone}
               title="Announcements"
               description="Post a message that gets pinned to the top of every member's dashboard. Use it for trade deadlines, playoff reminders, or trash talk."
+              tag="League communications"
+            />
+          )}
+          {huddle ? (
+            <CountdownConfigPanel huddleId={huddle.id} />
+          ) : (
+            <StubSection
+              icon={Timer}
+              title="Countdown"
+              description="Show a countdown to a date/time — draft night, trade deadline, playoffs — on every member's dashboard."
               tag="League communications"
             />
           )}

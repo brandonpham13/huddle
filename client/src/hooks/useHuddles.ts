@@ -17,6 +17,7 @@ import type {
   DuesConfig,
   DuesPayment,
   DuesResponse,
+  CountdownConfig,
 } from "../types/huddle";
 
 function authHeader(token: string | null): Record<string, string> {
@@ -371,6 +372,59 @@ export function useSetDuesConfig() {
     },
     onSuccess: (_config, variables) => {
       queryClient.invalidateQueries({ queryKey: ["dues", variables.huddleId] });
+    },
+  });
+}
+
+/** Fetch the countdown widget config for a huddle, or null if none is set. */
+export function useCountdownConfig(huddleId: string | null) {
+  const { getToken } = useAuth();
+  return useQuery({
+    queryKey: ["countdown", huddleId],
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await axios.get<{ config: CountdownConfig | null }>(
+        `/api/huddles/${huddleId}/countdown`,
+        { headers: authHeader(token) },
+      );
+      return res.data.config;
+    },
+    enabled: !!huddleId,
+    staleTime: 30 * 1000,
+  });
+}
+
+/** Commissioner: upsert the countdown widget config. */
+export function useSetCountdownConfig() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      huddleId: string;
+      title: string;
+      subtitle?: string | null;
+      targetAt: string;
+      enabled: boolean;
+    }) => {
+      const token = await getToken();
+      try {
+        const res = await axios.put<{ config: CountdownConfig }>(
+          `/api/huddles/${input.huddleId}/countdown`,
+          {
+            title: input.title,
+            subtitle: input.subtitle,
+            targetAt: input.targetAt,
+            enabled: input.enabled,
+          },
+          { headers: authHeader(token) },
+        );
+        return res.data.config;
+      } catch (err) {
+        throw new Error(errorMessage(err, "Failed to save countdown config"));
+      }
+    },
+    onSuccess: (_config, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["countdown", variables.huddleId] });
     },
   });
 }

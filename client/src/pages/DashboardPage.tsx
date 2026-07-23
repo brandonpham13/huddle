@@ -37,6 +37,7 @@ import { useMyHuddles } from "../hooks/useHuddles";
 import { Ticker } from "../widgets/dashboard/Ticker";
 import { Masthead } from "../widgets/dashboard/Masthead";
 import { Announcements } from "../widgets/dashboard/Announcements";
+import { CountdownWidget } from "../widgets/dashboard/CountdownWidget";
 import { MyTeamSection } from "../widgets/dashboard/MyTeamSection";
 import { TopPerformers } from "../widgets/dashboard/TopPerformers";
 import { LeagueTable } from "../widgets/dashboard/LeagueTable";
@@ -214,6 +215,7 @@ export function DashboardPage() {
   //   │ <Masthead>  league name + "Established" │
   //   ├─────────────────────────────────────────┤
   //   │ <MyTeamSection>  hero, claimed team     │
+  //   │ <Announcements>  <CountdownWidget>      │ ← 2-col on lg+
   //   │ <TopPerformers>  5-up player grid       │
   //   │ <LeagueTable>  <Scoreboard>  <PowerRk>  │ ← 3-col on lg+
   //   └─────────────────────────────────────────┘
@@ -254,7 +256,10 @@ export function DashboardPage() {
 
             <div className="h-4" />
 
-            <Announcements />
+            <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-6 items-start">
+              <Announcements />
+              <CountdownWidget />
+            </div>
 
             <div className="h-4" />
 
