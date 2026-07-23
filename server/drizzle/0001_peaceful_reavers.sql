@@ -1,0 +1,1 @@
+ALTER TABLE "side_bets" ADD COLUMN "prize_description" text;

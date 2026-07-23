@@ -116,6 +116,10 @@ function formatAmount(cents: number): string {
   return `$${dollars % 1 === 0 ? dollars.toFixed(0) : dollars.toFixed(2)}`;
 }
 
+function formatWager(bet: Pick<SideBet, "amount" | "prizeDescription">): string {
+  return bet.prizeDescription ? bet.prizeDescription : formatAmount(bet.amount);
+}
+
 // ── New Bet Form ──────────────────────────────────────────────────────────────
 
 interface OpponentOption {
@@ -141,8 +145,9 @@ function NewBetForm({
 }) {
   const [opponentId, setOpponentId] = useState(opponents[0]?.clerkUserId ?? "");
   const [week, setWeek] = useState(Math.max(1, currentWeek));
-  const [description, setDescription] = useState("");
+  const [wagerType, setWagerType] = useState<"cash" | "prize">("cash");
   const [amountDollars, setAmountDollars] = useState("");
+  const [prizeText, setPrizeText] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const proposeBet = useProposeBet();
@@ -153,10 +158,21 @@ function NewBetForm({
     e.preventDefault();
     setError(null);
 
-    const amount = amountDollars === "" ? 0 : Math.round(parseFloat(amountDollars) * 100);
-    if (amountDollars !== "" && (isNaN(amount) || amount < 0)) {
-      setError("Enter a valid dollar amount (or leave blank for bragging rights).");
-      return;
+    let amount = 0;
+    let prizeDescription: string | undefined;
+
+    if (wagerType === "cash") {
+      amount = amountDollars === "" ? 0 : Math.round(parseFloat(amountDollars) * 100);
+      if (amountDollars !== "" && (isNaN(amount) || amount < 0)) {
+        setError("Enter a valid dollar amount (or leave blank for bragging rights).");
+        return;
+      }
+    } else {
+      prizeDescription = prizeText.trim();
+      if (!prizeDescription) {
+        setError("Describe the prize being wagered.");
+        return;
+      }
     }
 
     try {
@@ -167,8 +183,8 @@ function NewBetForm({
         opponentRosterId: selectedOpponent?.rosterId,
         week,
         season,
-        description: description.trim(),
         amount,
+        prizeDescription,
       });
       onClose();
     } catch (err) {
@@ -221,39 +237,55 @@ function NewBetForm({
           />
         </div>
 
-        {/* Amount */}
+        {/* Wager type */}
         <div className="flex flex-col gap-1">
           <label className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-            Amount (leave blank for bragging rights)
+            Wager
           </label>
-          <div className="flex items-center gap-1">
-            <span className="text-muted text-sm">$</span>
-            <input
-              type="number"
-              min={0}
-              step={0.01}
-              placeholder="0.00"
-              value={amountDollars}
-              onChange={(e) => setAmountDollars(e.target.value)}
-              className="border border-line rounded-md px-3 py-1.5 text-sm bg-paper text-ink focus:outline-none focus:ring-1 focus:ring-ink/30 w-32"
-            />
-          </div>
+          <select
+            value={wagerType}
+            onChange={(e) => setWagerType(e.target.value as "cash" | "prize")}
+            className="border border-line rounded-md px-3 py-1.5 text-sm bg-paper text-ink focus:outline-none focus:ring-1 focus:ring-ink/30"
+          >
+            <option value="cash">Cash</option>
+            <option value="prize">Other prize</option>
+          </select>
         </div>
 
-        {/* Description */}
-        <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-            What's the bet?
-          </label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="e.g. My team beats yours this week"
-            rows={2}
-            required
-            className="border border-line rounded-md px-3 py-1.5 text-sm bg-paper text-ink focus:outline-none focus:ring-1 focus:ring-ink/30 resize-none"
-          />
-        </div>
+        {/* Amount or prize, depending on wager type */}
+        {wagerType === "cash" ? (
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+              Amount (leave blank for bragging rights)
+            </label>
+            <div className="flex items-center gap-1">
+              <span className="text-muted text-sm">$</span>
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                placeholder="0.00"
+                value={amountDollars}
+                onChange={(e) => setAmountDollars(e.target.value)}
+                className="border border-line rounded-md px-3 py-1.5 text-sm bg-paper text-ink focus:outline-none focus:ring-1 focus:ring-ink/30 w-32"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+              Prize
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Loser buys dinner"
+              value={prizeText}
+              onChange={(e) => setPrizeText(e.target.value)}
+              required
+              className="border border-line rounded-md px-3 py-1.5 text-sm bg-paper text-ink focus:outline-none focus:ring-1 focus:ring-ink/30"
+            />
+          </div>
+        )}
 
         {error && <p className="text-red-600 text-xs">{error}</p>}
 
@@ -380,19 +412,14 @@ function BetCard({
       {/* Header row */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-col gap-0.5">
-          <p className="text-[13px] font-semibold text-ink leading-snug">{bet.description}</p>
+          <p className="text-[13px] font-semibold text-ink leading-snug">
+            {proposerName} vs. {opponentName}
+          </p>
           <p className="text-[11px] text-muted font-sans">
-            Week {bet.week} · {formatAmount(bet.amount)}
+            Week {bet.week} · {formatWager(bet)}
           </p>
         </div>
         <StatusBadge status={bet.status} />
-      </div>
-
-      {/* Parties */}
-      <div className="flex items-center gap-2 text-[12px] font-sans text-muted">
-        <span className="text-ink font-medium">{proposerName}</span>
-        <span>challenged</span>
-        <span className="text-ink font-medium">{opponentName}</span>
       </div>
 
       {/* Settlement note or winner */}

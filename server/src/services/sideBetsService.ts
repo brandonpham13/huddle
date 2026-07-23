@@ -39,15 +39,18 @@ export async function proposeBet(opts: {
   opponentRosterId?: number;
   week: number;
   season: string;
-  description: string;
   amount: number;
+  prizeDescription?: string;
 }): Promise<SideBet> {
   if (opts.proposerId === opts.opponentId) fail(400, "Cannot bet against yourself");
   if (!Number.isInteger(opts.amount) || opts.amount < 0)
     fail(400, "amount must be a non-negative integer (cents)");
-  if (!opts.description.trim()) fail(400, "description is required");
   if (!Number.isInteger(opts.week) || opts.week < 1)
     fail(400, "week must be a positive integer");
+
+  const prizeDescription = opts.prizeDescription?.trim() || null;
+  if (prizeDescription && opts.amount > 0)
+    fail(400, "a bet cannot have both a cash amount and a prize description");
 
   const [row] = await db
     .insert(sideBets)
@@ -59,8 +62,8 @@ export async function proposeBet(opts: {
       opponentRosterId: opts.opponentRosterId ?? null,
       week: opts.week,
       season: opts.season,
-      description: opts.description.trim(),
       amount: opts.amount,
+      prizeDescription,
       status: "pending",
     })
     .returning();
