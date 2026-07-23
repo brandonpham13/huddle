@@ -47,6 +47,7 @@ export function useProposeBet() {
       season: string;
       description: string;
       amount: number;
+      prizeDescription?: string;
     }) => {
       const token = await getToken();
       try {
@@ -60,6 +61,7 @@ export function useProposeBet() {
             season: input.season,
             description: input.description,
             amount: input.amount,
+            prizeDescription: input.prizeDescription,
           },
           { headers: authHeader(token) },
         );

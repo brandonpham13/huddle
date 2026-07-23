@@ -270,8 +270,10 @@ export const sideBets = pgTable(
     week: integer("week").notNull(),
     season: text("season").notNull(),
     description: text("description").notNull(),
-    /** Amount in cents. 0 means no monetary stake (bragging rights only). */
+    /** Amount in cents. 0 means no monetary stake (bragging rights, or a non-cash prize). */
     amount: integer("amount").notNull().default(0),
+    /** Free-text prize description when the wager isn't cash (e.g. "loser buys dinner"). Null for cash bets. */
+    prizeDescription: text("prize_description"),
     status: sideBetStatus("status").notNull().default("pending"),
     /** Clerk userId of the winner. Null until settled. */
     winnerId: text("winner_id"),

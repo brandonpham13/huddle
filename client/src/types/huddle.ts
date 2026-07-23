@@ -132,8 +132,10 @@ export interface SideBet {
   week: number;
   season: string;
   description: string;
-  /** Amount in cents. 0 = bragging rights only. */
+  /** Amount in cents. 0 = bragging rights only (or a non-cash prize). */
   amount: number;
+  /** Free-text prize description when the wager isn't cash. Null for cash bets. */
+  prizeDescription: string | null;
   status: SideBetStatus;
   winnerId: string | null;
   settlementNote: string | null;
