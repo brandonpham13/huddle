@@ -34,6 +34,8 @@ import { LeaguesPage } from "./pages/LeaguesPage";
 import { TeamPage } from "./pages/TeamPage";
 import { LeaguePage } from "./pages/LeaguePage";
 import { SchedulePage } from "./pages/SchedulePage";
+import { ScheduleLayout } from "./pages/ScheduleLayout";
+import { ScheduleGeneratorPage } from "./pages/ScheduleGeneratorPage";
 import { DraftPage } from "./pages/DraftPage";
 import { CommissionerPage } from "./pages/CommissionerPage";
 import { LeagueSettingsPage } from "./pages/LeagueSettingsPage";
@@ -63,7 +65,10 @@ export default function App() {
             }
           >
             <Route path="/league" element={<LeaguePage />} />
-            <Route path="/schedule" element={<SchedulePage />} />
+            <Route path="/schedule" element={<ScheduleLayout />}>
+              <Route index element={<SchedulePage />} />
+              <Route path="generator" element={<ScheduleGeneratorPage />} />
+            </Route>
             <Route path="/draft" element={<DraftPage />} />
             <Route path="/huddles" element={<LeaguesPage />} />
             <Route path="/teams/:rosterId" element={<TeamPage />} />
