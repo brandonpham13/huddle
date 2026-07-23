@@ -52,7 +52,6 @@ export function initSideBetRoutes(app: Express) {
           opponentRosterId,
           week,
           season,
-          description,
           amount,
           prizeDescription,
         } = req.body as Record<string, unknown>;
@@ -63,8 +62,6 @@ export function initSideBetRoutes(app: Express) {
           return void res.status(400).json({ error: "week (number) required" });
         if (typeof season !== "string" || !season)
           return void res.status(400).json({ error: "season required" });
-        if (typeof description !== "string" || !description.trim())
-          return void res.status(400).json({ error: "description required" });
         if (typeof amount !== "number")
           return void res.status(400).json({ error: "amount (number, cents) required" });
 
@@ -76,7 +73,6 @@ export function initSideBetRoutes(app: Express) {
           opponentRosterId: typeof opponentRosterId === "number" ? opponentRosterId : undefined,
           week,
           season,
-          description,
           amount,
           prizeDescription: typeof prizeDescription === "string" ? prizeDescription : undefined,
         });

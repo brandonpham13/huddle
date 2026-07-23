@@ -145,7 +145,6 @@ function NewBetForm({
 }) {
   const [opponentId, setOpponentId] = useState(opponents[0]?.clerkUserId ?? "");
   const [week, setWeek] = useState(Math.max(1, currentWeek));
-  const [description, setDescription] = useState("");
   const [wagerType, setWagerType] = useState<"cash" | "prize">("cash");
   const [amountDollars, setAmountDollars] = useState("");
   const [prizeText, setPrizeText] = useState("");
@@ -184,7 +183,6 @@ function NewBetForm({
         opponentRosterId: selectedOpponent?.rosterId,
         week,
         season,
-        description: description.trim(),
         amount,
         prizeDescription,
       });
@@ -288,21 +286,6 @@ function NewBetForm({
             />
           </div>
         )}
-
-        {/* Description */}
-        <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-            What's the bet?
-          </label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="e.g. My team beats yours this week"
-            rows={2}
-            required
-            className="border border-line rounded-md px-3 py-1.5 text-sm bg-paper text-ink focus:outline-none focus:ring-1 focus:ring-ink/30 resize-none"
-          />
-        </div>
 
         {error && <p className="text-red-600 text-xs">{error}</p>}
 
@@ -429,19 +412,14 @@ function BetCard({
       {/* Header row */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-col gap-0.5">
-          <p className="text-[13px] font-semibold text-ink leading-snug">{bet.description}</p>
+          <p className="text-[13px] font-semibold text-ink leading-snug">
+            {proposerName} vs. {opponentName}
+          </p>
           <p className="text-[11px] text-muted font-sans">
             Week {bet.week} · {formatWager(bet)}
           </p>
         </div>
         <StatusBadge status={bet.status} />
-      </div>
-
-      {/* Parties */}
-      <div className="flex items-center gap-2 text-[12px] font-sans text-muted">
-        <span className="text-ink font-medium">{proposerName}</span>
-        <span>challenged</span>
-        <span className="text-ink font-medium">{opponentName}</span>
       </div>
 
       {/* Settlement note or winner */}

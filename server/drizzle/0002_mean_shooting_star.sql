@@ -1,0 +1,1 @@
+ALTER TABLE "side_bets" DROP COLUMN "description";

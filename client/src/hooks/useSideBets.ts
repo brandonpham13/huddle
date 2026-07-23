@@ -45,7 +45,6 @@ export function useProposeBet() {
       opponentRosterId?: number;
       week: number;
       season: string;
-      description: string;
       amount: number;
       prizeDescription?: string;
     }) => {
@@ -59,7 +58,6 @@ export function useProposeBet() {
             opponentRosterId: input.opponentRosterId,
             week: input.week,
             season: input.season,
-            description: input.description,
             amount: input.amount,
             prizeDescription: input.prizeDescription,
           },
