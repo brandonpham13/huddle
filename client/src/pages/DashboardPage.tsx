@@ -38,6 +38,7 @@ import { Ticker } from "../widgets/dashboard/Ticker";
 import { Masthead } from "../widgets/dashboard/Masthead";
 import { Announcements } from "../widgets/dashboard/Announcements";
 import { CountdownWidget } from "../widgets/dashboard/CountdownWidget";
+import { PollWidget } from "../widgets/dashboard/PollWidget";
 import { MyTeamSection } from "../widgets/dashboard/MyTeamSection";
 import { TopPerformers } from "../widgets/dashboard/TopPerformers";
 import { LeagueTable } from "../widgets/dashboard/LeagueTable";
@@ -225,6 +226,7 @@ export function DashboardPage() {
   //   ├─────────────────────────────────────────┤
   //   │ <MyTeamSection>  hero, claimed team     │
   //   │ <Announcements>  <CountdownWidget>      │ ← 2-col on lg+
+  //   │ <PollWidget>  commissioner poll         │
   //   │ <TopPerformers>  5-up player grid       │
   //   │ <LeagueTable>  <Scoreboard>  <PowerRk>  │ ← 3-col on lg+
   //   └─────────────────────────────────────────┘
@@ -269,6 +271,10 @@ export function DashboardPage() {
               <Announcements />
               <CountdownWidget isCurrentSeason={isCurrentSeason} />
             </div>
+
+            <div className="h-4" />
+
+            <PollWidget isCurrentSeason={isCurrentSeason} />
 
             <div className="h-4" />
 

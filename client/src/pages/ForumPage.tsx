@@ -15,6 +15,8 @@ import { useAppSelector } from "../store/hooks";
 import { useLeagueRosters, useLeagueUsers } from "../hooks/useSleeper";
 import { useSelectedLeagueHuddle, useHuddleDetail } from "../hooks/useHuddles";
 import { useForumTopics, useCreateTopic } from "../hooks/useForum";
+import { PollComposer, EMPTY_POLL_INPUT } from "../components/PollComposer";
+import type { NewPollInput } from "../types/huddle";
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
@@ -99,6 +101,8 @@ function NewTopicForm({
 }) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [addPoll, setAddPoll] = useState(false);
+  const [poll, setPoll] = useState<NewPollInput>(EMPTY_POLL_INPUT);
   const [error, setError] = useState<string | null>(null);
   const createTopic = useCreateTopic();
 
@@ -106,7 +110,12 @@ function NewTopicForm({
     e.preventDefault();
     setError(null);
     try {
-      const topic = await createTopic.mutateAsync({ huddleId, title: title.trim(), body: body.trim() });
+      const topic = await createTopic.mutateAsync({
+        huddleId,
+        title: title.trim(),
+        body: body.trim(),
+        poll: addPoll ? poll : undefined,
+      });
       onCreated(topic.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to post topic.");
@@ -141,6 +150,19 @@ function NewTopicForm({
             className="border border-line rounded-md px-3 py-1.5 text-sm bg-paper text-ink focus:outline-none focus:ring-1 focus:ring-ink/30 resize-none"
           />
         </div>
+
+        <label className="flex items-center gap-2 text-[12.5px] text-ink">
+          <input
+            type="checkbox"
+            checked={addPoll}
+            onChange={(e) => setAddPoll(e.target.checked)}
+            className="accent-ink"
+          />
+          Add a poll
+        </label>
+
+        {addPoll && <PollComposer value={poll} onChange={setPoll} />}
+
         {error && <p className="text-red-600 text-xs">{error}</p>}
         <div className="flex gap-2 pt-1">
           <Btn variant="primary" disabled={createTopic.isPending}>

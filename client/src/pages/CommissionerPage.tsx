@@ -19,7 +19,7 @@
  */
 import { useState, useMemo } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Megaphone, DollarSign, Trophy, Award, Plus, Trash2, Timer } from "lucide-react";
+import { Megaphone, DollarSign, Trophy, Award, Plus, Trash2, Timer, BarChart3 } from "lucide-react";
 import { useAppSelector } from "../store/hooks";
 import { useLeagueUsers, useLeagueRosters } from "../hooks/useSleeper";
 import {
@@ -52,6 +52,10 @@ import {
   usePayouts,
   useSetPayouts,
 } from "../hooks/useHuddles";
+import { useDashboardPoll, useSetDashboardPoll } from "../hooks/usePolls";
+import { PollComposer, EMPTY_POLL_INPUT } from "../components/PollComposer";
+import { PollCard } from "../components/PollCard";
+import type { NewPollInput } from "../types/huddle";
 import type { Roster, TeamUser } from "../types/fantasy";
 import type {
   CommissionerSummary,
@@ -728,6 +732,55 @@ function CountdownConfigPanel({ huddleId }: { huddleId: string }) {
             </BtnPrimary>
           </div>
         </div>
+      </div>
+    </Panel>
+  );
+}
+
+// ─── Dashboard poll panel ────────────────────────────────────────────────────
+
+function DashboardPollPanel({ huddleId }: { huddleId: string }) {
+  const { data: currentPoll } = useDashboardPoll(huddleId);
+  const setPoll = useSetDashboardPoll();
+  const [poll, setPollInput] = useState<NewPollInput>(EMPTY_POLL_INPUT);
+
+  const filledOptions = poll.options.map((o) => o.trim()).filter(Boolean);
+  const canSave = poll.question.trim().length > 0 && filledOptions.length >= 2;
+
+  return (
+    <Panel>
+      <PanelHeader
+        title="Homepage Poll"
+        description="Ask the league a question — shown on everyone's dashboard. Creating a new poll retires the current one (its votes are kept, it just stops showing)."
+      />
+
+      {currentPoll && (
+        <div className="border-b border-line pb-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-2">
+            Currently showing
+          </p>
+          <PollCard poll={currentPoll} onVote={() => {}} voting={false} readOnly />
+        </div>
+      )}
+
+      <PollComposer value={poll} onChange={setPollInput} />
+
+      <div className="flex items-center justify-end gap-3">
+        {setPoll.isError && (
+          <p className="text-[11.5px] text-red-600 font-sans">{(setPoll.error as Error).message}</p>
+        )}
+        {setPoll.isSuccess && <p className="text-[11.5px] text-accent font-sans">Saved!</p>}
+        <BtnPrimary
+          onClick={() =>
+            setPoll.mutate(
+              { huddleId, ...poll, options: filledOptions },
+              { onSuccess: () => setPollInput(EMPTY_POLL_INPUT) },
+            )
+          }
+          disabled={!canSave || setPoll.isPending}
+        >
+          {setPoll.isPending ? "Saving…" : currentPoll ? "Replace poll" : "Post poll"}
+        </BtnPrimary>
       </div>
     </Panel>
   );
@@ -1746,6 +1799,16 @@ export function CommissionerPage() {
               icon={Timer}
               title="Countdown"
               description="Show a countdown to a date/time — draft night, trade deadline, playoffs — on every member's dashboard."
+              tag="League communications"
+            />
+          )}
+          {huddle ? (
+            <DashboardPollPanel huddleId={huddle.id} />
+          ) : (
+            <StubSection
+              icon={BarChart3}
+              title="Homepage Poll"
+              description="Ask the league a question and show live results on every member's dashboard."
               tag="League communications"
             />
           )}

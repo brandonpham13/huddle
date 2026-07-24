@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-react";
 import axios, { AxiosError } from "axios";
-import type { ForumTopic, ForumReply } from "../types/huddle";
+import type { ForumTopic, ForumReply, Poll, NewPollInput } from "../types/huddle";
 
 function authHeader(token: string | null): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -37,12 +37,17 @@ export function useCreateTopic() {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { huddleId: string; title: string; body: string }) => {
+    mutationFn: async (input: {
+      huddleId: string;
+      title: string;
+      body: string;
+      poll?: NewPollInput;
+    }) => {
       const token = await getToken();
       try {
         const res = await axios.post<{ topic: ForumTopic }>(
           `/api/huddles/${input.huddleId}/forum/topics`,
-          { title: input.title, body: input.body },
+          { title: input.title, body: input.body, poll: input.poll },
           { headers: authHeader(token) },
         );
         return res.data.topic;
@@ -56,21 +61,51 @@ export function useCreateTopic() {
   });
 }
 
-/** A single topic (the opening post). */
+/** A single topic (the opening post) plus its attached poll, if any. */
 export function useForumTopic(huddleId: string | null, topicId: string | null) {
   const { getToken } = useAuth();
   return useQuery({
     queryKey: ["forum-topic", huddleId, topicId],
     queryFn: async () => {
       const token = await getToken();
-      const res = await axios.get<{ topic: ForumTopic }>(
+      const res = await axios.get<{ topic: ForumTopic; poll: Poll | null }>(
         `/api/huddles/${huddleId}/forum/topics/${topicId}`,
         { headers: authHeader(token) },
       );
-      return res.data.topic;
+      return res.data;
     },
     enabled: !!huddleId && !!topicId,
     staleTime: 30 * 1000,
+  });
+}
+
+/** Vote (or change vote) on the poll attached to a forum topic. */
+export function useVoteOnTopicPoll() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      huddleId: string;
+      topicId: string;
+      optionIds: string[];
+    }) => {
+      const token = await getToken();
+      try {
+        const res = await axios.post<{ poll: Poll }>(
+          `/api/huddles/${input.huddleId}/forum/topics/${input.topicId}/poll/vote`,
+          { optionIds: input.optionIds },
+          { headers: authHeader(token) },
+        );
+        return res.data.poll;
+      } catch (err) {
+        throw new Error(errorMessage(err, "Failed to vote"));
+      }
+    },
+    onSuccess: (_poll, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["forum-topic", variables.huddleId, variables.topicId],
+      });
+    },
   });
 }
 
