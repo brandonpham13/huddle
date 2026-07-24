@@ -26,7 +26,7 @@ const MAX_OPTION_LEN = 100;
 const MIN_OPTIONS = 2;
 const MAX_OPTIONS = 10;
 
-export type ResultsVisibility = "always" | "after_vote";
+export type ResultsVisibility = "always" | "after_vote" | "after_close";
 
 export interface NewPollInput {
   question: string;
@@ -34,6 +34,8 @@ export interface NewPollInput {
   allowMultiple: boolean;
   allowVoteChanges: boolean;
   resultsVisibility: ResultsVisibility;
+  /** ISO 8601 timestamp, or null for a poll that never auto-closes. */
+  closesAt: string | null;
 }
 
 export interface PollWithResults {
@@ -46,6 +48,9 @@ export interface PollWithResults {
   allowMultiple: boolean;
   allowVoteChanges: boolean;
   resultsVisibility: ResultsVisibility;
+  closesAt: Date | null;
+  /** True once closesAt has passed. Voting is locked once closed. */
+  isClosed: boolean;
   createdAt: Date;
   options: { id: string; label: string; votes: number | null }[];
   /** Distinct voters. Null when results are hidden from this viewer. */
@@ -77,7 +82,12 @@ export async function getPollWithResults(
   const myOptionIds = myVoteRows.map((v) => v.optionId);
   const hasVoted = myOptionIds.length > 0;
 
-  const resultsVisible = poll.resultsVisibility === "always" || hasVoted;
+  const isClosed = poll.closesAt !== null && poll.closesAt.getTime() <= Date.now();
+
+  const resultsVisible =
+    poll.resultsVisibility === "always" ||
+    (poll.resultsVisibility === "after_vote" && hasVoted) ||
+    (poll.resultsVisibility === "after_close" && isClosed);
 
   let voteCounts = new Map<string, number>();
   let totalVoters = 0;
@@ -106,6 +116,8 @@ export async function getPollWithResults(
     allowMultiple: poll.allowMultiple,
     allowVoteChanges: poll.allowVoteChanges,
     resultsVisibility: poll.resultsVisibility,
+    closesAt: poll.closesAt,
+    isClosed,
     createdAt: poll.createdAt,
     options: optionRows.map((o) => ({
       id: o.id,
@@ -159,7 +171,9 @@ export async function getDashboardPoll(
 
 // ── Mutations ──────────────────────────────────────────────────────────────────
 
-function validateNewPoll(input: NewPollInput): { question: string; options: string[] } {
+function validateNewPoll(
+  input: NewPollInput,
+): { question: string; options: string[]; closesAt: Date | null } {
   const question = input.question.trim();
   if (!question || question.length > MAX_QUESTION_LEN)
     fail(400, `question is required (max ${MAX_QUESTION_LEN} chars)`);
@@ -170,7 +184,16 @@ function validateNewPoll(input: NewPollInput): { question: string; options: stri
   if (options.some((o) => o.length > MAX_OPTION_LEN))
     fail(400, `each option is limited to ${MAX_OPTION_LEN} chars`);
 
-  return { question, options };
+  let closesAt: Date | null = null;
+  if (input.closesAt) {
+    closesAt = new Date(input.closesAt);
+    if (isNaN(closesAt.getTime())) fail(400, "closesAt must be a valid date");
+  }
+
+  if (input.resultsVisibility === "after_close" && !closesAt)
+    fail(400, "an end date is required to show results after the poll closes");
+
+  return { question, options, closesAt };
 }
 
 /** Creates a poll (and its options). Used for both forum-attached and
@@ -185,8 +208,9 @@ export async function createPoll(opts: {
   allowMultiple: boolean;
   allowVoteChanges: boolean;
   resultsVisibility: ResultsVisibility;
+  closesAt: string | null;
 }): Promise<PollWithResults> {
-  const { question, options } = validateNewPoll(opts);
+  const { question, options, closesAt } = validateNewPoll(opts);
 
   const [pollRow] = await db
     .insert(huddlePolls)
@@ -199,6 +223,7 @@ export async function createPoll(opts: {
       allowMultiple: opts.allowMultiple,
       allowVoteChanges: opts.allowVoteChanges,
       resultsVisibility: opts.resultsVisibility,
+      closesAt,
     })
     .returning();
   if (!pollRow) fail(500, "Failed to create poll");
@@ -251,6 +276,8 @@ export async function castVote(opts: {
     .where(and(eq(huddlePolls.id, opts.pollId), eq(huddlePolls.huddleId, opts.huddleId)))
     .limit(1);
   if (!poll) return fail(404, "Poll not found");
+  if (poll.closesAt && poll.closesAt.getTime() <= Date.now())
+    fail(409, "Voting has closed on this poll");
 
   const optionIds = [...new Set(opts.optionIds)];
   if (optionIds.length === 0) fail(400, "Select at least one option");

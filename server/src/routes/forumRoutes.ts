@@ -30,9 +30,13 @@ function parsePollInput(body: Record<string, unknown>): NewPollInput | undefined
     : [];
   const allowMultiple = p["allowMultiple"] === true;
   const allowVoteChanges = p["allowVoteChanges"] !== false;
-  const resultsVisibility = p["resultsVisibility"] === "after_vote" ? "after_vote" : "always";
+  const resultsVisibility =
+    p["resultsVisibility"] === "after_vote" || p["resultsVisibility"] === "after_close"
+      ? p["resultsVisibility"]
+      : "always";
+  const closesAt = typeof p["closesAt"] === "string" ? p["closesAt"] : null;
 
-  return { question, options, allowMultiple, allowVoteChanges, resultsVisibility };
+  return { question, options, allowMultiple, allowVoteChanges, resultsVisibility, closesAt };
 }
 
 function handleError(err: unknown, res: Response): void {

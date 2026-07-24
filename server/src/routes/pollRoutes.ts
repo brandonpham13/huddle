@@ -36,7 +36,7 @@ export function initPollRoutes(app: Express) {
     async (req: Request, res: Response) => {
       try {
         const { userId } = getAuth(req);
-        const { question, options, allowMultiple, allowVoteChanges, resultsVisibility } =
+        const { question, options, allowMultiple, allowVoteChanges, resultsVisibility, closesAt } =
           req.body as Record<string, unknown>;
 
         if (typeof question !== "string") {
@@ -53,7 +53,11 @@ export function initPollRoutes(app: Express) {
           options,
           allowMultiple: allowMultiple === true,
           allowVoteChanges: allowVoteChanges !== false,
-          resultsVisibility: resultsVisibility === "after_vote" ? "after_vote" : "always",
+          resultsVisibility:
+            resultsVisibility === "after_vote" || resultsVisibility === "after_close"
+              ? resultsVisibility
+              : "always",
+          closesAt: typeof closesAt === "string" ? closesAt : null,
         });
         res.json({ poll });
       } catch (err) {

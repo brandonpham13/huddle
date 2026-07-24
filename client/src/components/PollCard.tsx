@@ -8,6 +8,15 @@
 import { useEffect, useState } from "react";
 import type { Poll } from "../types/huddle";
 
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export function PollCard({
   poll,
   onVote,
@@ -31,7 +40,7 @@ export function PollCard({
   }, [poll.id, poll.myOptionIds.join(",")]);
 
   const resultsVisible = poll.totalVoters !== null;
-  const locked = readOnly || (poll.hasVoted && !poll.allowVoteChanges);
+  const locked = readOnly || poll.isClosed || (poll.hasVoted && !poll.allowVoteChanges);
 
   function toggleOption(optionId: string) {
     if (poll.allowMultiple) {
@@ -103,9 +112,18 @@ export function PollCard({
         })}
       </div>
 
-      {resultsVisible && (
+      {(resultsVisible || poll.closesAt) && (
         <p className="text-[11px] text-muted font-sans">
-          {poll.totalVoters} {poll.totalVoters === 1 ? "vote" : "votes"}
+          {resultsVisible && (
+            <>
+              {poll.totalVoters} {poll.totalVoters === 1 ? "vote" : "votes"}
+            </>
+          )}
+          {resultsVisible && poll.closesAt && " · "}
+          {poll.closesAt &&
+            (poll.isClosed
+              ? `Voting closed ${formatDateTime(poll.closesAt)}`
+              : `Voting closes ${formatDateTime(poll.closesAt)}`)}
         </p>
       )}
 

@@ -49,6 +49,7 @@ export function useSetDashboardPoll() {
             allowMultiple: input.allowMultiple,
             allowVoteChanges: input.allowVoteChanges,
             resultsVisibility: input.resultsVisibility,
+            closesAt: input.closesAt,
           },
           { headers: authHeader(token) },
         );

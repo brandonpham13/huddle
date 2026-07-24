@@ -56,6 +56,7 @@ import { useDashboardPoll, useSetDashboardPoll } from "../hooks/usePolls";
 import { PollComposer, EMPTY_POLL_INPUT } from "../components/PollComposer";
 import { PollCard } from "../components/PollCard";
 import type { NewPollInput } from "../types/huddle";
+import { toDatetimeLocalValue } from "../utils/datetime";
 import type { Roster, TeamUser } from "../types/fantasy";
 import type {
   CommissionerSummary,
@@ -629,13 +630,6 @@ function AnnouncementsPanel({ huddleId }: { huddleId: string }) {
 }
 
 // ─── Countdown widget panel ──────────────────────────────────────────────────
-
-/** Converts an ISO timestamp to the local-time value a `datetime-local` input expects. */
-function toDatetimeLocalValue(iso: string): string {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 function CountdownConfigPanel({ huddleId }: { huddleId: string }) {
   const { data: config } = useCountdownConfig(huddleId);

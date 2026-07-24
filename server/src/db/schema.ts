@@ -388,6 +388,7 @@ export type HuddleForumReply = typeof huddleForumReplies.$inferSelect;
 export const pollResultsVisibility = pgEnum("poll_results_visibility", [
   "always", // results visible to everyone, even before voting
   "after_vote", // results hidden until you cast a vote
+  "after_close", // results hidden until the poll's closesAt has passed
 ]);
 
 export const huddlePolls = pgTable(
@@ -404,6 +405,8 @@ export const huddlePolls = pgTable(
     allowMultiple: boolean("allow_multiple").notNull().default(false),
     allowVoteChanges: boolean("allow_vote_changes").notNull().default(true),
     resultsVisibility: pollResultsVisibility("results_visibility").notNull().default("always"),
+    /** Voting closes once this passes. Null means the poll never auto-closes. */
+    closesAt: timestamp("closes_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
