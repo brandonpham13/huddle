@@ -33,6 +33,9 @@ import { SignUpPage } from "./pages/SignUpPage";
 import { LeaguesPage } from "./pages/LeaguesPage";
 import { TeamPage } from "./pages/TeamPage";
 import { LeaguePage } from "./pages/LeaguePage";
+import { LeagueLayout } from "./pages/LeagueLayout";
+import { ForumPage } from "./pages/ForumPage";
+import { ForumTopicPage } from "./pages/ForumTopicPage";
 import { SchedulePage } from "./pages/SchedulePage";
 import { ScheduleLayout } from "./pages/ScheduleLayout";
 import { ScheduleGeneratorPage } from "./pages/ScheduleGeneratorPage";
@@ -64,7 +67,11 @@ export default function App() {
               </AuthGuard>
             }
           >
-            <Route path="/league" element={<LeaguePage />} />
+            <Route path="/league" element={<LeagueLayout />}>
+              <Route index element={<LeaguePage />} />
+              <Route path="forum" element={<ForumPage />} />
+              <Route path="forum/:topicId" element={<ForumTopicPage />} />
+            </Route>
             <Route path="/schedule" element={<ScheduleLayout />}>
               <Route index element={<SchedulePage />} />
               <Route path="generator" element={<ScheduleGeneratorPage />} />
