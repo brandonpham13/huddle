@@ -93,6 +93,17 @@ export interface DuesResponse {
   payments: DuesPayment[];
 }
 
+/** Countdown widget configuration set by the commissioner. */
+export interface CountdownConfig {
+  huddleId: string;
+  title: string;
+  subtitle: string | null;
+  /** ISO 8601 timestamp of the target date/time. */
+  targetAt: string;
+  enabled: boolean;
+  updatedAt: string;
+}
+
 export interface HuddleAward {
   id: string;
   huddleId: string;
