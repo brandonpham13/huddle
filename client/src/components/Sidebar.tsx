@@ -21,12 +21,20 @@
  * currently-selected league (from Redux) and shares its data with the
  * dashboard via TanStack Query's cache.
  *
+ * `TOP_NAV_ITEMS` entries can carry an optional `subItems` array (see
+ * League, Schedule) to render an expandable group mirroring that section's
+ * in-page tab strip (e.g. `ScheduleLayout.tsx`, `LeagueLayout.tsx`) — the two
+ * lists aren't derived from one another and must be kept in sync by hand,
+ * see PLAYBOOK.md. `expandedGroups` tracks open/closed state per group and
+ * auto-expands a group when the current route falls under it.
+ *
+
  * The mobile-only footer at the bottom mirrors the items hidden from
  * AppShell's top nav at `<sm` (Leagues link, Account button), so the user
  * still has reach to them when those labels are clipped from the top bar.
  */
-import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   Home,
   Trophy,
@@ -52,8 +60,26 @@ import { useIsCommissioner } from "../pages/CommissionerPage";
 
 const TOP_NAV_ITEMS = [
   { label: "Home", to: "/", icon: Home, end: true },
-  { label: "League", to: "/league", icon: Trophy, end: false },
-  { label: "Schedule", to: "/schedule", icon: Calendar, end: false },
+  {
+    label: "League",
+    to: "/league",
+    icon: Trophy,
+    end: true,
+    subItems: [
+      { label: "Overview", to: "/league", end: true },
+      { label: "Forum", to: "/league/forum", end: false },
+    ],
+  },
+  {
+    label: "Schedule",
+    to: "/schedule",
+    icon: Calendar,
+    end: true,
+    subItems: [
+      { label: "Season Schedule", to: "/schedule", end: true },
+      { label: "Schedule Generator", to: "/schedule/generator", end: false },
+    ],
+  },
   { label: "Draft", to: "/draft", icon: ClipboardList, end: false },
 ];
 
@@ -70,6 +96,50 @@ export function Sidebar({
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [teamsOpen, setTeamsOpen] = useState(true);
+
+  const location = useLocation();
+
+  // Sub-nav groups (League, Schedule) auto-expand when the current route
+  // falls under them, so navigating to a sub-page (e.g. via a card link,
+  // not the sidebar itself) doesn't leave its group looking collapsed.
+  // Lazy-initialized from the route present at mount to avoid a flash of
+  // the group appearing collapsed before this effect runs.
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
+    const initial = new Set<string>();
+    for (const item of TOP_NAV_ITEMS) {
+      if (!item.subItems) continue;
+      if (location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)) {
+        initial.add(item.label);
+      }
+    }
+    return initial;
+  });
+
+  useEffect(() => {
+    setExpandedGroups((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      for (const item of TOP_NAV_ITEMS) {
+        if (!item.subItems) continue;
+        const underItem =
+          location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
+        if (underItem && !next.has(item.label)) {
+          next.add(item.label);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [location.pathname]);
+
+  function toggleGroup(label: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }
 
   const selectedLeagueId = useAppSelector(
     (state) => state.auth.selectedLeagueId,
@@ -163,26 +233,64 @@ export function Sidebar({
         </button>
 
         <nav className="flex flex-col gap-1 p-2 mt-8 md:mt-2">
-          {TOP_NAV_ITEMS.map(({ label, to, icon: Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
-              ${
-                isActive
-                  ? "bg-highlight text-ink"
-                  : "text-muted hover:bg-highlight hover:text-ink"
-              }
-              ${renderCollapsed ? "justify-center" : ""}
-              `
-              }
-            >
-              <Icon size={16} className="shrink-0" />
-              {!renderCollapsed && <span>{label}</span>}
-            </NavLink>
-          ))}
+          {TOP_NAV_ITEMS.map(({ label, to, icon: Icon, end, subItems }) => {
+            const isExpanded = expandedGroups.has(label);
+            return (
+              <div key={to}>
+                <div className="flex items-center gap-0.5">
+                  <NavLink
+                    to={to}
+                    end={end}
+                    className={({ isActive }) =>
+                      `flex-1 flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
+                    ${
+                      isActive
+                        ? "bg-highlight text-ink"
+                        : "text-muted hover:bg-highlight hover:text-ink"
+                    }
+                    ${renderCollapsed ? "justify-center" : ""}
+                    `
+                    }
+                  >
+                    <Icon size={16} className="shrink-0" />
+                    {!renderCollapsed && <span>{label}</span>}
+                  </NavLink>
+                  {subItems && !renderCollapsed && (
+                    <button
+                      onClick={() => toggleGroup(label)}
+                      className="p-2 rounded-md text-muted hover:bg-highlight hover:text-ink transition-colors"
+                      aria-label={isExpanded ? `Collapse ${label}` : `Expand ${label}`}
+                    >
+                      {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                    </button>
+                  )}
+                </div>
+
+                {subItems && !renderCollapsed && isExpanded && (
+                  <div className="mt-0.5 ml-2 flex flex-col gap-0.5">
+                    {subItems.map((sub) => (
+                      <NavLink
+                        key={sub.to}
+                        to={sub.to}
+                        end={sub.end}
+                        className={({ isActive }) =>
+                          `pl-8 pr-2 py-1.5 rounded-md text-xs transition-colors truncate
+                        ${
+                          isActive
+                            ? "bg-highlight text-ink font-medium"
+                            : "text-muted hover:bg-highlight hover:text-ink"
+                        }
+                        `
+                        }
+                      >
+                        {sub.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
 
           {/* Commissioner-only link */}
           {isCommissioner && (

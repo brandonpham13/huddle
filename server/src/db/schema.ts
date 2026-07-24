@@ -313,3 +313,66 @@ export const huddleCountdownConfig = pgTable("huddle_countdown_config", {
 });
 
 export type HuddleCountdownConfig = typeof huddleCountdownConfig.$inferSelect;
+
+// ── League forum ──────────────────────────────────────────────────────────────
+// Message-board style discussion, scoped to a huddle (persists across seasons).
+// A topic is its own opening post; replies are separate rows underneath it.
+// Deletes are soft (deletedAt/deletedBy) so pagination stays stable and
+// moderation leaves an audit trail.
+
+export const huddleForumTopics = pgTable(
+  "huddle_forum_topics",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    huddleId: uuid("huddle_id")
+      .notNull()
+      .references(() => huddles.id, { onDelete: "cascade" }),
+    authorId: text("author_id").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    /** Bumped whenever a reply is posted, for "recent activity" sort. */
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    /** Denormalized count so the topic list doesn't need a join per row. */
+    replyCount: integer("reply_count").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: text("deleted_by"),
+  },
+  (t) => ({
+    byHuddleActivity: index("huddle_forum_topics_huddle_updated_idx").on(
+      t.huddleId,
+      t.updatedAt,
+    ),
+  }),
+);
+
+export const huddleForumReplies = pgTable(
+  "huddle_forum_replies",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    topicId: uuid("topic_id")
+      .notNull()
+      .references(() => huddleForumTopics.id, { onDelete: "cascade" }),
+    /** Denormalized from the topic so replies can be queried/indexed directly. */
+    huddleId: uuid("huddle_id")
+      .notNull()
+      .references(() => huddles.id, { onDelete: "cascade" }),
+    authorId: text("author_id").notNull(),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: text("deleted_by"),
+  },
+  (t) => ({
+    byTopic: index("huddle_forum_replies_topic_idx").on(t.topicId, t.createdAt),
+  }),
+);
+
+export type HuddleForumTopic = typeof huddleForumTopics.$inferSelect;
+export type HuddleForumReply = typeof huddleForumReplies.$inferSelect;

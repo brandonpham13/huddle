@@ -257,11 +257,18 @@ Columns with a `sortValue` are clickable — first click sorts desc, second clic
 
 ## Adding a sub-page under a Sidebar section
 
-`Sidebar.tsx` has one nav item per top-level route — there's no nested sidebar
-menu. When a section needs multiple pages (first example: Schedule, which
-grew a "Schedule Generator" alongside the season schedule view), nest routes
-under the parent path and surface the sub-pages as an in-page tab strip
-instead of adding sidebar entries. See `client/src/pages/ScheduleLayout.tsx`.
+When a section needs multiple pages (first example: Schedule, which grew a
+"Schedule Generator" alongside the season schedule view; second: League,
+which grew a Forum), nest routes under the parent path with an in-page tab
+strip, **and** mirror the same sub-pages as an expandable group in
+`Sidebar.tsx`. See `client/src/pages/ScheduleLayout.tsx` /
+`client/src/pages/LeagueLayout.tsx` for the tab strip, and `Sidebar.tsx`'s
+`TOP_NAV_ITEMS` for the expandable group.
+
+These are two independent, manually-synced representations of the same
+sub-page list (the layout's `TABS` array and the sidebar's `subItems` array)
+— there's no shared source of data between them. Update both when adding or
+renaming a sub-page.
 
 1. **Wrap the section in a layout component** that renders a tab strip
    (`NavLink` to each sub-route, styled like `SideBetsPage.tsx`'s filter
@@ -282,8 +289,26 @@ const TABS = [
   <Route path="generator" element={<ScheduleGeneratorPage />} />
 </Route>
 ```
-3. Leave the `Sidebar.tsx` entry pointing at the parent path with `end: false`
-   — it stays highlighted for every sub-route automatically.
+3. **Add a `subItems` array to the item's entry** in `Sidebar.tsx`'s
+   `TOP_NAV_ITEMS`, and set the parent item's own `end: true` (its NavLink
+   now only highlights on the exact index route — the sub-items carry their
+   own highlight state instead):
+```tsx
+{
+  label: "Schedule",
+  to: "/schedule",
+  icon: Calendar,
+  end: true,
+  subItems: [
+    { label: "Season Schedule", to: "/schedule", end: true },
+    { label: "Schedule Generator", to: "/schedule/generator", end: false },
+  ],
+},
+```
+   The rendering, expand/collapse state (`expandedGroups`), and
+   auto-expand-on-matching-route behavior are already generic over
+   `TOP_NAV_ITEMS` — no other `Sidebar.tsx` changes are needed. A group with
+   no `subItems` (e.g. Draft) renders exactly as before.
 
 Reuse this shape rather than inventing a new one when the next section needs
 more than one page.

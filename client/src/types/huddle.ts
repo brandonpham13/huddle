@@ -104,6 +104,28 @@ export interface CountdownConfig {
   updatedAt: string;
 }
 
+// ── League forum ──────────────────────────────────────────────────────────────
+
+export interface ForumTopic {
+  id: string;
+  huddleId: string;
+  authorId: string;
+  title: string;
+  body: string;
+  updatedAt: string;
+  replyCount: number;
+  createdAt: string;
+}
+
+export interface ForumReply {
+  id: string;
+  topicId: string;
+  huddleId: string;
+  authorId: string;
+  body: string;
+  createdAt: string;
+}
+
 export interface HuddleAward {
   id: string;
   huddleId: string;
