@@ -104,6 +104,15 @@ export function DashboardPage() {
     selectedLeague.season === nflState.season &&
     nflState.season_type === "regular";
 
+  // Season match only (no season_type restriction) — used to gate widgets
+  // like CountdownWidget that are relevant year-round for the current
+  // season (e.g. a draft-night countdown set during the offseason), but
+  // shouldn't show up when viewing an archived past season.
+  const isCurrentSeason =
+    !!selectedLeague?.season &&
+    !!nflState?.season &&
+    selectedLeague.season === nflState.season;
+
   // Derive per-league settings before computing `week` so we can use
   // last_scored_leg as the default display week for past seasons instead of
   // hardcoding 17. Leagues with custom playoff lengths, early endings, or
@@ -258,7 +267,7 @@ export function DashboardPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-6 items-start">
               <Announcements />
-              <CountdownWidget />
+              <CountdownWidget isCurrentSeason={isCurrentSeason} />
             </div>
 
             <div className="h-4" />

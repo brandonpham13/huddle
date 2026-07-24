@@ -3,7 +3,9 @@
  * (e.g. draft night, trade deadline), shown on the dashboard.
  *
  * Renders null when there's no huddle linked to the selected league, no
- * countdown has been configured, or the commissioner has disabled it.
+ * countdown has been configured, the commissioner has disabled it, or the
+ * user is viewing a past season (the countdown is only relevant to the huddle's
+ * current season, e.g. draft night or a trade deadline coming up).
  *
  * Placement: to the right of Announcements in DashboardPage.
  */
@@ -62,9 +64,9 @@ function CountdownDisplay({ config }: { config: CountdownConfig }) {
   );
 }
 
-export function CountdownWidget() {
+export function CountdownWidget({ isCurrentSeason }: { isCurrentSeason: boolean }) {
   const huddle = useSelectedLeagueHuddle();
   const { data: config } = useCountdownConfig(huddle?.id ?? null);
-  if (!config || !config.enabled) return null;
+  if (!isCurrentSeason || !config || !config.enabled) return null;
   return <CountdownDisplay config={config} />;
 }
