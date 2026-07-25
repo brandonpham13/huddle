@@ -1793,92 +1793,98 @@ export function CommissionerPage() {
               title="Dashboard"
               description="Shown on every member's homepage."
             />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-              {huddle ? (
-                <AnnouncementsPanel huddleId={huddle.id} />
-              ) : (
-                <StubSection
-                  icon={Megaphone}
-                  title="Announcements"
-                  description="Post a message that gets pinned to the top of every member's dashboard. Use it for trade deadlines, playoff reminders, or trash talk."
-                  tag="League communications"
-                />
-              )}
-              {huddle ? (
-                <DashboardPollPanel huddleId={huddle.id} />
-              ) : (
-                <StubSection
-                  icon={BarChart3}
-                  title="Homepage Poll"
-                  description="Ask the league a question and show live results on every member's dashboard."
-                  tag="League communications"
-                />
-              )}
-              {huddle ? (
-                <CountdownConfigPanel huddleId={huddle.id} />
-              ) : (
-                <StubSection
-                  icon={Timer}
-                  title="Countdown"
-                  description="Show a countdown to a date/time — draft night, trade deadline, playoffs — on every member's dashboard."
-                  tag="League communications"
-                />
-              )}
+            <div className="columns-1 lg:columns-2 gap-5">
+              <div className="break-inside-avoid mb-5">
+                {huddle ? (
+                  <AnnouncementsPanel huddleId={huddle.id} />
+                ) : (
+                  <StubSection
+                    icon={Megaphone}
+                    title="Announcements"
+                    description="Post a message that gets pinned to the top of every member's dashboard. Use it for trade deadlines, playoff reminders, or trash talk."
+                    tag="League communications"
+                  />
+                )}
+              </div>
+              <div className="break-inside-avoid mb-5">
+                {huddle ? (
+                  <DashboardPollPanel huddleId={huddle.id} />
+                ) : (
+                  <StubSection
+                    icon={BarChart3}
+                    title="Homepage Poll"
+                    description="Ask the league a question and show live results on every member's dashboard."
+                    tag="League communications"
+                  />
+                )}
+              </div>
+              <div className="break-inside-avoid mb-5">
+                {huddle ? (
+                  <CountdownConfigPanel huddleId={huddle.id} />
+                ) : (
+                  <StubSection
+                    icon={Timer}
+                    title="Countdown"
+                    description="Show a countdown to a date/time — draft night, trade deadline, playoffs — on every member's dashboard."
+                    tag="League communications"
+                  />
+                )}
+              </div>
             </div>
           </section>
 
           {/* ── Treasury ─────────────────────────────────────────────────── */}
           <section>
             <SectionHeading title="Treasury" description="Dues and prize payouts." />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-              {huddle ? (
-                <DuesTrackerPanel
-                  huddleId={huddle.id}
-                  rosters={rosters ?? []}
-                  leagueUsers={leagueUsers ?? []}
-                />
-              ) : (
-                <StubSection
-                  icon={DollarSign}
-                  title="Dues Tracker"
-                  description="Set the buy-in amount and mark who has paid. Members can see their own status; only you see the full picture."
-                  tag="Finance"
-                />
-              )}
-              {huddle ? (
-                <PayoutStructurePanel huddleId={huddle.id} />
-              ) : (
-                <StubSection
-                  icon={Trophy}
-                  title="Payout Structure"
-                  description="Define how the prize pool is distributed — 1st, 2nd, 3rd place, most points, best regular-season record, or any split you like."
-                  tag="Finance"
-                />
-              )}
-            </div>
-          </section>
-
-          {/* ── Awards ───────────────────────────────────────────────────── */}
-          <section>
-            <SectionHeading title="Awards" description="Trophies and custom team awards." />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-              <div className="lg:col-span-2">
+            <div className="columns-1 lg:columns-2 gap-5">
+              <div className="break-inside-avoid mb-5">
                 {huddle ? (
-                  <TrophyRoomPanel
+                  <DuesTrackerPanel
                     huddleId={huddle.id}
                     rosters={rosters ?? []}
                     leagueUsers={leagueUsers ?? []}
                   />
                 ) : (
                   <StubSection
-                    icon={Award}
-                    title="Trophy Room"
-                    description="Enable or disable automatic trophies and grant custom awards to teams."
-                    tag="Awards"
+                    icon={DollarSign}
+                    title="Dues Tracker"
+                    description="Set the buy-in amount and mark who has paid. Members can see their own status; only you see the full picture."
+                    tag="Finance"
+                  />
+                )}
+              </div>
+              <div className="break-inside-avoid mb-5">
+                {huddle ? (
+                  <PayoutStructurePanel huddleId={huddle.id} />
+                ) : (
+                  <StubSection
+                    icon={Trophy}
+                    title="Payout Structure"
+                    description="Define how the prize pool is distributed — 1st, 2nd, 3rd place, most points, best regular-season record, or any split you like."
+                    tag="Finance"
                   />
                 )}
               </div>
             </div>
+          </section>
+
+          {/* ── Awards ───────────────────────────────────────────────────── */}
+          <section>
+            <SectionHeading title="Awards" description="Trophies and custom team awards." />
+            {huddle ? (
+              <TrophyRoomPanel
+                huddleId={huddle.id}
+                rosters={rosters ?? []}
+                leagueUsers={leagueUsers ?? []}
+              />
+            ) : (
+              <StubSection
+                icon={Award}
+                title="Trophy Room"
+                description="Enable or disable automatic trophies and grant custom awards to teams."
+                tag="Awards"
+              />
+            )}
           </section>
 
           {/* ── Membership ───────────────────────────────────────────────── */}
@@ -1887,32 +1893,36 @@ export function CommissionerPage() {
               title="Membership"
               description="Claims, invites, and who else can manage this huddle."
             />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-              {huddle && detail ? (
-                <>
+            {huddle && detail ? (
+              <div className="columns-1 lg:columns-2 gap-5">
+                <div className="break-inside-avoid mb-5">
                   <PendingClaimsPanel
                     huddleId={huddle.id}
                     rosters={rosters ?? []}
                     leagueUsers={leagueUsers ?? []}
                   />
+                </div>
+                <div className="break-inside-avoid mb-5">
                   <InviteCodePanel
                     huddleId={huddle.id}
                     inviteCode={detail.huddle.inviteCode}
                   />
+                </div>
+                <div className="break-inside-avoid mb-5">
                   <ManageCommissionersPanel
                     huddleId={huddle.id}
                     commissioners={detail.huddle.commissioners}
                     claims={detail.claims}
                   />
-                </>
-              ) : (
-                <div className="lg:col-span-2 border border-line rounded-lg p-6 text-center text-[13px] text-muted font-sans bg-paper">
-                  {huddle
-                    ? "Loading huddle…"
-                    : "No huddle is linked to this league yet. Create one from the Huddles page."}
                 </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="border border-line rounded-lg p-6 text-center text-[13px] text-muted font-sans bg-paper">
+                {huddle
+                  ? "Loading huddle…"
+                  : "No huddle is linked to this league yet. Create one from the Huddles page."}
+              </div>
+            )}
           </section>
 
           {/* ── Danger Zone ──────────────────────────────────────────────── */}
