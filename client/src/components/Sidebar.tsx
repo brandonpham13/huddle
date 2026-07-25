@@ -258,7 +258,7 @@ export function Sidebar({
                   {subItems && !renderCollapsed && (
                     <button
                       onClick={() => toggleGroup(label)}
-                      className="p-2 rounded-md text-muted hover:bg-highlight hover:text-ink transition-colors"
+                      className="px-3 py-2 rounded-md text-muted hover:bg-highlight hover:text-ink transition-colors"
                       aria-label={isExpanded ? `Collapse ${label}` : `Expand ${label}`}
                     >
                       {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
