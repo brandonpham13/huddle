@@ -1758,7 +1758,7 @@ export function CommissionerPage() {
 
   return (
     <div className="min-h-full bg-paper text-ink font-sans">
-      <div className="max-w-3xl mx-auto px-4 sm:px-8 py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-8 py-8">
 
         {/* Page header */}
         <div className="mb-8 pb-5 border-b border-line">
@@ -1773,7 +1773,7 @@ export function CommissionerPage() {
           </p>
         </div>
 
-        <div className="flex flex-col gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
 
           {/* ── League management (coming soon) ───────────────────────── */}
           {huddle ? (
@@ -1862,13 +1862,15 @@ export function CommissionerPage() {
                 commissioners={detail.huddle.commissioners}
                 claims={detail.claims}
               />
-              <DangerZonePanel
-                huddleId={huddle.id}
-                groupName={detail.huddle.name}
-              />
+              <div className="lg:col-span-2">
+                <DangerZonePanel
+                  huddleId={huddle.id}
+                  groupName={detail.huddle.name}
+                />
+              </div>
             </>
           ) : (
-            <div className="border border-line rounded-lg p-6 text-center text-[13px] text-muted font-sans bg-paper">
+            <div className="lg:col-span-2 border border-line rounded-lg p-6 text-center text-[13px] text-muted font-sans bg-paper">
               {huddle
                 ? "Loading huddle…"
                 : "No huddle is linked to this league yet. Create one from the Huddles page."}
