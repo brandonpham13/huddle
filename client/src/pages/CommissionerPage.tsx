@@ -1808,24 +1808,24 @@ export function CommissionerPage() {
               </div>
               <div className="break-inside-avoid mb-5">
                 {huddle ? (
-                  <DashboardPollPanel huddleId={huddle.id} />
-                ) : (
-                  <StubSection
-                    icon={BarChart3}
-                    title="Homepage Poll"
-                    description="Ask the league a question and show live results on every member's dashboard."
-                    tag="League communications"
-                  />
-                )}
-              </div>
-              <div className="break-inside-avoid mb-5">
-                {huddle ? (
                   <CountdownConfigPanel huddleId={huddle.id} />
                 ) : (
                   <StubSection
                     icon={Timer}
                     title="Countdown"
                     description="Show a countdown to a date/time — draft night, trade deadline, playoffs — on every member's dashboard."
+                    tag="League communications"
+                  />
+                )}
+              </div>
+              <div className="break-inside-avoid mb-5">
+                {huddle ? (
+                  <DashboardPollPanel huddleId={huddle.id} />
+                ) : (
+                  <StubSection
+                    icon={BarChart3}
+                    title="Homepage Poll"
+                    description="Ask the league a question and show live results on every member's dashboard."
                     tag="League communications"
                   />
                 )}
