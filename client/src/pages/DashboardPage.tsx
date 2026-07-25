@@ -226,7 +226,7 @@ export function DashboardPage() {
   //   ├─────────────────────────────────────────┤
   //   │ <MyTeamSection>  hero, claimed team     │
   //   │ <Announcements>  <CountdownWidget>      │ ← 2-col on lg+
-  //   │ <PollWidget>  commissioner poll         │
+  //   │                  <PollWidget>           │   right column stacks
   //   │ <TopPerformers>  5-up player grid       │
   //   │ <LeagueTable>  <Scoreboard>  <PowerRk>  │ ← 3-col on lg+
   //   └─────────────────────────────────────────┘
@@ -269,12 +269,11 @@ export function DashboardPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-6 items-start">
               <Announcements />
-              <CountdownWidget isCurrentSeason={isCurrentSeason} />
+              <div className="flex flex-col gap-6">
+                <CountdownWidget isCurrentSeason={isCurrentSeason} />
+                <PollWidget isCurrentSeason={isCurrentSeason} />
+              </div>
             </div>
-
-            <div className="h-4" />
-
-            <PollWidget isCurrentSeason={isCurrentSeason} />
 
             <div className="h-4" />
 

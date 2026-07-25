@@ -5,6 +5,9 @@
  * poll has been set, or the user is viewing a past season (mirrors
  * CountdownWidget's season gating — a poll is a "right now" thing, not
  * something relevant to an archived season).
+ *
+ * Placement: right column of the dashboard, stacked directly under
+ * CountdownWidget (see DashboardPage.tsx).
  */
 import { useState } from "react";
 import { useSelectedLeagueHuddle, useHuddleDetail } from "../../hooks/useHuddles";
