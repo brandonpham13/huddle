@@ -1,10 +1,11 @@
 /**
  * ScheduleOptionsPanel — the knobs that feed `generateSchedule()`: season
- * length, how many times the rotation is allowed to repeat
- * (matches-per-opponent), and whether rivalry weeks are in play at all. The
- * rivalry toggle lives here rather than on `LockedMatchupsPanel` itself so
- * the page can decide whether to render that panel at all — flip it off and
- * the whole rivalry section disappears rather than just going inert.
+ * length, how many times the auto-fill is allowed to repeat an opponent
+ * (matches-per-opponent — locked/rivalry matchups are exempt from this cap),
+ * and whether rivalry weeks are in play at all. The rivalry toggle lives
+ * here rather than on `LockedMatchupsPanel` itself so the page can decide
+ * whether to render that panel at all — flip it off and the whole rivalry
+ * section disappears rather than just going inert.
  */
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Panel, PanelHeader } from "./_shared";
@@ -84,8 +85,9 @@ export function ScheduleOptionsPanel({
             <option value={2}>Twice each (leave extra weeks open)</option>
           </select>
           <p className="text-[11px] text-muted leading-relaxed">
-            "Auto" repeats the rotation (reshuffled) to fill every week. Capping it
-            leaves later weeks empty so you can fill them manually.
+            "Auto" fills every week, repeating opponents as needed. Capping it
+            leaves a team unscheduled once it's used up its matches, so later
+            weeks may end up partly or fully open for manual fill-in.
           </p>
         </div>
 

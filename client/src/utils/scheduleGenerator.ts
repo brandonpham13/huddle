@@ -10,10 +10,17 @@
  * refined (e.g. once real ffschedulemaker.com behavior is confirmed) without
  * touching any component.
  *
- * Algorithm: standard "circle method" round robin for the base rotation,
- * repeated/truncated to fit the requested week count, then a best-effort
- * swap pass to honor locked matchups without breaking the one-game-per-team
- * constraint. This is NOT guaranteed optimal — see `warnings` in the result.
+ * Algorithm: locked/rivalry matchups are placed first, week by week; the
+ * remaining teams each week are paired off by a greedy minimum-repeat
+ * matching — among all still-available pairs, always take the pair that
+ * has faced off the fewest times so far, tie-broken randomly — which keeps
+ * every week's fill globally aware of the whole season instead of only
+ * that week. The whole build is retried many times with different random
+ * orderings and the best-scoring attempt (fewest 3+ meetings, fewest pairs
+ * that never meet) is kept. This is NOT guaranteed optimal, but it reliably
+ * finds an even once/twice split when one exists — see `warnings` for any
+ * locked matchup that genuinely couldn't be honored (week out of range, or
+ * a team pinned to two rivals in the same week).
  */
 
 /** Hard cap on team count this tool supports. */
@@ -25,6 +32,9 @@ export const MAX_SEASON_WEEKS = 18;
 
 /** Max number of shared weeks a pinned rivalry pair can be assigned to. */
 export const MAX_RIVALRY_WEEKS = 2;
+
+/** How many full-season attempts to try before keeping the best-scoring one. */
+const ATTEMPTS = 300;
 
 export interface GeneratorTeam {
   /** Stable id for this generator run — the roster's id as a string, or a
@@ -47,10 +57,11 @@ export type MatchesPerOpponent = "auto" | 1 | 2;
 export interface ScheduleOptions {
   /** Regular-season length in weeks. */
   weeks: number;
-  /** "auto" fills every week from the round-robin rotation, repeating it
-   *  (reshuffled) once the full rotation has been used. `1` or `2` caps
-   *  the rotation to that many passes and leaves remaining weeks empty
-   *  for locked/manual matchups only. */
+  /** "auto" lets the auto-fill portion repeat an opponent as many times as
+   *  needed to fill every week. `1` or `2` caps how many times the *auto*
+   *  fill can pair the same two teams — once that cap is hit for a team,
+   *  it's simply left unscheduled that week rather than forcing a repeat.
+   *  Locked/rivalry matchups are exempt from this cap. */
   matchesPerOpponent: MatchesPerOpponent;
 }
 
@@ -105,31 +116,131 @@ function shuffle<T>(arr: T[]): T[] {
   return copy;
 }
 
-/**
- * Circle method: fixes the first team and rotates the rest around it.
- * For N teams (N even after padding with a bye), produces N-1 rounds, each
- * with N/2 pairings, such that every team plays every other team exactly
- * once across the full set of rounds.
- */
-function circleMethodRounds(teamIds: string[]): { a: string; b: string }[][] {
-  const ids = teamIds.length % 2 === 0 ? [...teamIds] : [...teamIds, BYE_ID];
-  const n = ids.length;
-  const rounds: { a: string; b: string }[][] = [];
-  const fixed = ids[0]!;
-  let rotating = ids.slice(1);
+/** Canonical key for an unordered team pair, used to tally head-to-head counts. */
+function pairKey(a: string, b: string): string {
+  return a < b ? `${a}|${b}` : `${b}|${a}`;
+}
 
-  for (let r = 0; r < n - 1; r++) {
-    const round: { a: string; b: string }[] = [];
-    const left = [fixed, ...rotating.slice(0, n / 2 - 1)];
-    const right = [...rotating.slice(n / 2 - 1)].reverse();
-    for (let i = 0; i < n / 2; i++) {
-      round.push({ a: left[i]!, b: right[i]! });
+/**
+ * Greedily pairs off `ids` (assumed even length) minimizing repeats: builds
+ * every candidate pair, sorts by how many times that pair has already met
+ * (ties broken by the pre-shuffled order), then walks the sorted list
+ * taking each pair whose teams are both still free. `cap` excludes any
+ * candidate that's already met `cap` times or more (used for the "1" / "2"
+ * matchesPerOpponent modes) — teams that end up with no valid candidate
+ * under the cap are simply left out of the returned pairs.
+ */
+function buildWeekMatching(
+  ids: string[],
+  counts: Map<string, number>,
+  cap: number,
+): { a: string; b: string }[] {
+  const pool = shuffle(ids);
+  const candidates: { a: string; b: string; cost: number }[] = [];
+  for (let i = 0; i < pool.length; i++) {
+    for (let j = i + 1; j < pool.length; j++) {
+      const cost = counts.get(pairKey(pool[i]!, pool[j]!)) ?? 0;
+      if (cost < cap) candidates.push({ a: pool[i]!, b: pool[j]!, cost });
     }
-    rounds.push(round);
-    // rotate: last element moves to front of the rotating list
-    rotating = [rotating[rotating.length - 1]!, ...rotating.slice(0, -1)];
   }
-  return rounds;
+  candidates.sort((x, y) => x.cost - y.cost);
+
+  const used = new Set<string>();
+  const result: { a: string; b: string }[] = [];
+  for (const c of candidates) {
+    if (used.has(c.a) || used.has(c.b)) continue;
+    used.add(c.a);
+    used.add(c.b);
+    result.push({ a: c.a, b: c.b });
+  }
+  return result;
+}
+
+/** Groups locked matchups by week, dropping (with a warning) any that are
+ * out of range or pin a team to two different rivals in the same week. */
+function groupLocksByWeek(
+  locked: LockedMatchup[],
+  totalWeeks: number,
+  warnings: string[],
+): Map<number, LockedMatchup[]> {
+  const byWeek = new Map<number, LockedMatchup[]>();
+  for (const lock of locked) {
+    if (lock.week < 1 || lock.week > totalWeeks) {
+      warnings.push(`Week ${lock.week} is outside the schedule — skipped a locked matchup.`);
+      continue;
+    }
+    const existing = byWeek.get(lock.week) ?? [];
+    const usedTeams = new Set(existing.flatMap((l) => [l.teamAId, l.teamBId]));
+    if (usedTeams.has(lock.teamAId) || usedTeams.has(lock.teamBId)) {
+      warnings.push(
+        `Week ${lock.week}: a team is pinned to more than one rivalry matchup — kept the first, skipped the rest.`,
+      );
+      continue;
+    }
+    existing.push(lock);
+    byWeek.set(lock.week, existing);
+  }
+  return byWeek;
+}
+
+/** Builds one full-season attempt. Returns null only if locks conflict with
+ * the one-game-per-team constraint in a way that can't be resolved. */
+function attemptSchedule(
+  allIds: string[],
+  options: ScheduleOptions,
+  locksByWeek: Map<number, LockedMatchup[]>,
+): { weeks: GeneratedWeek[]; counts: Map<string, number> } {
+  const cap = options.matchesPerOpponent === "auto" ? Infinity : options.matchesPerOpponent;
+  const counts = new Map<string, number>();
+  const bump = (a: string, b: string) => counts.set(pairKey(a, b), (counts.get(pairKey(a, b)) ?? 0) + 1);
+
+  const weeks: GeneratedWeek[] = [];
+  for (let w = 1; w <= options.weeks; w++) {
+    const locks = locksByWeek.get(w) ?? [];
+    const lockedTeamIds = new Set(locks.flatMap((l) => [l.teamAId, l.teamBId]));
+    const remaining = allIds.filter((id) => !lockedTeamIds.has(id));
+
+    const matchups: ScheduledMatchup[] = locks.map((l) => ({
+      teamAId: l.teamAId,
+      teamBId: l.teamBId,
+      locked: true,
+    }));
+    for (const l of locks) bump(l.teamAId, l.teamBId);
+
+    for (const { a, b } of buildWeekMatching(remaining, counts, cap)) {
+      matchups.push({
+        teamAId: a === BYE_ID ? b : a,
+        teamBId: a === BYE_ID || b === BYE_ID ? null : b,
+        locked: false,
+      });
+      bump(a, b);
+    }
+
+    weeks.push({ week: w, matchups });
+  }
+
+  return { weeks, counts };
+}
+
+/** Higher is better. Heavily penalizes 3+ meetings (what we're actually
+ * trying to eliminate), then pairs that never meet, then unevenness. */
+function scoreAttempt(
+  counts: Map<string, number>,
+  totalPairs: number,
+): { score: number; clean: boolean } {
+  let tripleOrMore = 0;
+  let sumSquares = 0;
+  let seen = 0;
+  for (const c of counts.values()) {
+    if (c >= 3) tripleOrMore++;
+    sumSquares += c * c;
+    seen++;
+  }
+  const never = totalPairs - seen;
+  return {
+    score: -1000 * tripleOrMore - 100 * never - sumSquares,
+    clean: tripleOrMore === 0 && never === 0,
+  };
 }
 
 /**
@@ -150,96 +261,28 @@ export function generateSchedule(
     return { weeks: [], warnings: ["Need at least two teams to generate a schedule."] };
   }
 
-  const teamIds = shuffle(teams.map((t) => t.id));
-  const baseRounds = shuffle(circleMethodRounds(teamIds));
-  const maxPasses =
-    options.matchesPerOpponent === "auto" ? Infinity : options.matchesPerOpponent;
+  const realIds = teams.map((t) => t.id);
+  const allIds = realIds.length % 2 === 0 ? realIds : [...realIds, BYE_ID];
+  const totalPairs = (allIds.length * (allIds.length - 1)) / 2;
 
-  const weeks: GeneratedWeek[] = [];
-  for (let w = 1; w <= options.weeks; w++) {
-    const pass = Math.floor((w - 1) / baseRounds.length);
-    if (pass >= maxPasses) {
-      // Ran out of allotted rotations — leave the week empty for manual /
-      // locked-only assignment rather than repeating opponents further.
-      weeks.push({ week: w, matchups: [] });
-      continue;
+  const locksByWeek = groupLocksByWeek(locked, options.weeks, warnings);
+
+  let best: { weeks: GeneratedWeek[]; counts: Map<string, number> } | null = null;
+  let bestScore = -Infinity;
+  for (let i = 0; i < ATTEMPTS; i++) {
+    const attempt = attemptSchedule(allIds, options, locksByWeek);
+    const { score, clean } = scoreAttempt(attempt.counts, totalPairs);
+    if (score > bestScore) {
+      best = attempt;
+      bestScore = score;
+      // No pair meets 3+ times and every pair meets at least once — the two
+      // things we're actually optimizing for are both satisfied, so further
+      // attempts can only improve evenness, not correctness. Stop early.
+      if (clean) break;
     }
-    const round = baseRounds[(w - 1) % baseRounds.length]!;
-    const matchups: ScheduledMatchup[] = round.map(({ a, b }) => ({
-      teamAId: a === BYE_ID ? b : a,
-      teamBId: a === BYE_ID || b === BYE_ID ? null : b,
-      locked: false,
-    }));
-    weeks.push({ week: w, matchups });
   }
 
-  applyLockedMatchups(weeks, locked, warnings);
-
-  return { weeks, warnings };
-}
-
-/**
- * Best-effort swap pass: for each locked matchup, find team A and team B's
- * current opponents that week and swap so A faces B directly. If either
- * team already has a bye or the swap would double-book a team, the locked
- * matchup is skipped with a warning instead of corrupting the schedule.
- */
-function applyLockedMatchups(
-  weeks: GeneratedWeek[],
-  locked: LockedMatchup[],
-  warnings: string[],
-): void {
-  for (const lock of locked) {
-    const week = weeks.find((w) => w.week === lock.week);
-    if (!week) {
-      warnings.push(`Week ${lock.week} is outside the schedule — skipped a locked matchup.`);
-      continue;
-    }
-
-    const alreadyMatched = week.matchups.some(
-      (m) =>
-        (m.teamAId === lock.teamAId && m.teamBId === lock.teamBId) ||
-        (m.teamAId === lock.teamBId && m.teamBId === lock.teamAId),
-    );
-    if (alreadyMatched) {
-      week.matchups = week.matchups.map((m) =>
-        (m.teamAId === lock.teamAId || m.teamBId === lock.teamAId) &&
-        (m.teamAId === lock.teamBId || m.teamBId === lock.teamBId)
-          ? { ...m, locked: true }
-          : m,
-      );
-      continue;
-    }
-
-    const findSlot = (teamId: string) =>
-      week.matchups.find((m) => m.teamAId === teamId || m.teamBId === teamId);
-
-    const slotA = findSlot(lock.teamAId);
-    const slotB = findSlot(lock.teamBId);
-
-    if (!slotA || !slotB || slotA.locked || slotB.locked) {
-      warnings.push(
-        `Could not pin the rivalry matchup for week ${lock.week} — one of the teams already has a locked game that week.`,
-      );
-      continue;
-    }
-    if (slotA.teamBId === null || slotB.teamBId === null) {
-      warnings.push(
-        `Could not pin the rivalry matchup for week ${lock.week} — one of the teams has a bye that week.`,
-      );
-      continue;
-    }
-
-    // slotA = A vs C, slotB = B vs D → swap to A vs B, C vs D
-    const otherOfA = slotA.teamAId === lock.teamAId ? slotA.teamBId! : slotA.teamAId;
-    const otherOfB = slotB.teamAId === lock.teamBId ? slotB.teamBId! : slotB.teamAId;
-
-    slotA.teamAId = lock.teamAId;
-    slotA.teamBId = lock.teamBId;
-    slotA.locked = true;
-    slotB.teamAId = otherOfA;
-    slotB.teamBId = otherOfB;
-  }
+  return { weeks: best!.weeks, warnings };
 }
 
 export interface MatchupFrequencyBucket {
@@ -266,8 +309,6 @@ export function summarizeMatchupFrequency(
   schedule: GeneratedSchedule,
   teamIds: string[],
 ): MatchupFrequencySummary {
-  const pairKey = (a: string, b: string) => [a, b].sort().join("|");
-
   const timesPlayed = new Map<string, number>();
   for (const week of schedule.weeks) {
     for (const m of week.matchups) {
@@ -314,9 +355,9 @@ export function computeMeetingNumbers(schedule: GeneratedSchedule): Map<string, 
   for (const week of orderedWeeks) {
     week.matchups.forEach((m, i) => {
       if (!m.teamBId) return;
-      const pairKey = [m.teamAId, m.teamBId].sort().join("|");
-      const meetingNumber = (seenCounts.get(pairKey) ?? 0) + 1;
-      seenCounts.set(pairKey, meetingNumber);
+      const key = pairKey(m.teamAId, m.teamBId);
+      const meetingNumber = (seenCounts.get(key) ?? 0) + 1;
+      seenCounts.set(key, meetingNumber);
       meetingNumberByCell.set(`${week.week}-${i}`, meetingNumber);
     });
   }
