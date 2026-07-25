@@ -11,6 +11,33 @@ import {
   deleteTopic,
   deleteReply,
 } from "../services/forumService.js";
+import {
+  getPollForTopic,
+  getPollIdForTopic,
+  castVote,
+  type NewPollInput,
+} from "../services/pollService.js";
+
+function parsePollInput(body: Record<string, unknown>): NewPollInput | undefined {
+  const { poll } = body as { poll?: unknown };
+  if (poll === undefined || poll === null) return undefined;
+  if (typeof poll !== "object") return undefined;
+
+  const p = poll as Record<string, unknown>;
+  const question = typeof p["question"] === "string" ? p["question"] : "";
+  const options = Array.isArray(p["options"])
+    ? p["options"].filter((o): o is string => typeof o === "string")
+    : [];
+  const allowMultiple = p["allowMultiple"] === true;
+  const allowVoteChanges = p["allowVoteChanges"] !== false;
+  const resultsVisibility =
+    p["resultsVisibility"] === "after_vote" || p["resultsVisibility"] === "after_close"
+      ? p["resultsVisibility"]
+      : "always";
+  const closesAt = typeof p["closesAt"] === "string" ? p["closesAt"] : null;
+
+  return { question, options, allowMultiple, allowVoteChanges, resultsVisibility, closesAt };
+}
 
 function handleError(err: unknown, res: Response): void {
   if (err instanceof HuddlesServiceError) {
@@ -57,7 +84,14 @@ export function initForumRoutes(app: Express) {
           res.status(400).json({ error: "title and body (strings) required" });
           return;
         }
-        const topic = await createTopic({ huddleId: req.params.id!, userId: userId!, title, body });
+        const poll = parsePollInput(req.body as Record<string, unknown>);
+        const topic = await createTopic({
+          huddleId: req.params.id!,
+          userId: userId!,
+          title,
+          body,
+          poll,
+        });
         res.status(201).json({ topic });
       } catch (err) {
         handleError(err, res);
@@ -71,12 +105,44 @@ export function initForumRoutes(app: Express) {
     requireAuth,
     async (req: Request, res: Response) => {
       try {
+        const { userId } = getAuth(req);
         const topic = await getTopic(req.params.id!, req.params.topicId!);
         if (!topic) {
           res.status(404).json({ error: "Topic not found" });
           return;
         }
-        res.json({ topic });
+        const poll = await getPollForTopic(req.params.id!, req.params.topicId!, userId!);
+        res.json({ topic, poll });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // POST /api/huddles/:id/forum/topics/:topicId/poll/vote — approved members only
+  app.post(
+    "/api/huddles/:id/forum/topics/:topicId/poll/vote",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        const { optionIds } = req.body as { optionIds?: unknown };
+        if (!Array.isArray(optionIds) || !optionIds.every((id) => typeof id === "string")) {
+          res.status(400).json({ error: "optionIds (string[]) required" });
+          return;
+        }
+        const pollId = await getPollIdForTopic(req.params.id!, req.params.topicId!);
+        if (!pollId) {
+          res.status(404).json({ error: "Poll not found" });
+          return;
+        }
+        const poll = await castVote({
+          huddleId: req.params.id!,
+          pollId,
+          userId: userId!,
+          optionIds,
+        });
+        res.json({ poll });
       } catch (err) {
         handleError(err, res);
       }

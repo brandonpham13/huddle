@@ -20,8 +20,10 @@ import {
   useCreateReply,
   useDeleteTopic,
   useDeleteReply,
+  useVoteOnTopicPoll,
 } from "../hooks/useForum";
 import { Panel, Btn, formatDateTime } from "./ForumPage";
+import { PollCard } from "../components/PollCard";
 import type { ForumReply } from "../types/huddle";
 
 // ── Reply composer ────────────────────────────────────────────────────────────
@@ -112,11 +114,15 @@ export function ForumTopicPage() {
   const { data: huddleDetail } = useHuddleDetail(huddleId);
   const { data: rosters } = useLeagueRosters(selectedLeagueId);
   const { data: leagueUsers } = useLeagueUsers(selectedLeagueId);
-  const { data: topic, isLoading: topicLoading } = useForumTopic(huddleId, topicId ?? null);
+  const { data: topicData, isLoading: topicLoading } = useForumTopic(huddleId, topicId ?? null);
+  const topic = topicData?.topic;
+  const poll = topicData?.poll ?? null;
   const { data: replies = [] } = useForumReplies(huddleId, topicId ?? null);
 
   const deleteTopic = useDeleteTopic();
   const deleteReply = useDeleteReply();
+  const voteOnPoll = useVoteOnTopicPoll();
+  const [voteError, setVoteError] = useState<string | null>(null);
 
   const canPost = huddleDetail?.myClaim?.status === "approved";
   const isCommissioner = huddleDetail?.huddle?.isCommissioner ?? false;
@@ -160,6 +166,16 @@ export function ForumTopicPage() {
   async function handleDeleteReply(replyId: string) {
     if (!topicId) return;
     await deleteReply.mutateAsync({ huddleId: huddleId!, topicId, replyId });
+  }
+
+  async function handleVote(optionIds: string[]) {
+    if (!topicId) return;
+    setVoteError(null);
+    try {
+      await voteOnPoll.mutateAsync({ huddleId: huddleId!, topicId, optionIds });
+    } catch (err) {
+      setVoteError(err instanceof Error ? err.message : "Failed to vote.");
+    }
   }
 
   const canDeleteTopic =
@@ -206,6 +222,12 @@ export function ForumTopicPage() {
             </div>
             <p className="text-[13px] text-ink font-sans leading-relaxed whitespace-pre-wrap">{topic.body}</p>
           </Panel>
+
+          {poll && (
+            <Panel>
+              <PollCard poll={poll} onVote={handleVote} voting={voteOnPoll.isPending} error={voteError} />
+            </Panel>
+          )}
 
           {replies.length > 0 && (
             <Panel>

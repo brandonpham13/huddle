@@ -376,3 +376,86 @@ export const huddleForumReplies = pgTable(
 
 export type HuddleForumTopic = typeof huddleForumTopics.$inferSelect;
 export type HuddleForumReply = typeof huddleForumReplies.$inferSelect;
+
+// ── Polls ─────────────────────────────────────────────────────────────────────
+// Two contexts share the same tables: a poll attached to a forum topic
+// (topicId set) started by any approved member, or a commissioner-controlled
+// poll shown on the dashboard (isDashboardPoll true, topicId null). At most
+// one dashboard poll is active per huddle at a time — creating a new one
+// demotes the previous one (see pollService.setDashboardPoll); demoted polls
+// keep their rows/votes, they just stop showing on the dashboard.
+
+export const pollResultsVisibility = pgEnum("poll_results_visibility", [
+  "always", // results visible to everyone, even before voting
+  "after_vote", // results hidden until you cast a vote
+  "after_close", // results hidden until the poll's closesAt has passed
+]);
+
+export const huddlePolls = pgTable(
+  "huddle_polls",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    huddleId: uuid("huddle_id")
+      .notNull()
+      .references(() => huddles.id, { onDelete: "cascade" }),
+    authorId: text("author_id").notNull(),
+    topicId: uuid("topic_id").references(() => huddleForumTopics.id, { onDelete: "cascade" }),
+    isDashboardPoll: boolean("is_dashboard_poll").notNull().default(false),
+    question: text("question").notNull(),
+    allowMultiple: boolean("allow_multiple").notNull().default(false),
+    allowVoteChanges: boolean("allow_vote_changes").notNull().default(true),
+    resultsVisibility: pollResultsVisibility("results_visibility").notNull().default("always"),
+    /** Voting closes once this passes. Null means the poll never auto-closes. */
+    closesAt: timestamp("closes_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    byTopic: index("huddle_polls_topic_idx").on(t.topicId),
+    // Enforces "at most one active dashboard poll per huddle" at the DB level.
+    uniqActiveDashboardPoll: uniqueIndex("huddle_polls_dashboard_active_uniq")
+      .on(t.huddleId)
+      .where(sql`${t.isDashboardPoll} = true`),
+  }),
+);
+
+export const huddlePollOptions = pgTable(
+  "huddle_poll_options",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    pollId: uuid("poll_id")
+      .notNull()
+      .references(() => huddlePolls.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => ({
+    byPoll: index("huddle_poll_options_poll_idx").on(t.pollId),
+  }),
+);
+
+export const huddlePollVotes = pgTable(
+  "huddle_poll_votes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    pollId: uuid("poll_id")
+      .notNull()
+      .references(() => huddlePolls.id, { onDelete: "cascade" }),
+    optionId: uuid("option_id")
+      .notNull()
+      .references(() => huddlePollOptions.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    byPollUser: index("huddle_poll_votes_poll_user_idx").on(t.pollId, t.userId),
+    uniqOptionVote: uniqueIndex("huddle_poll_votes_option_user_uniq").on(t.optionId, t.userId),
+  }),
+);
+
+export type HuddlePoll = typeof huddlePolls.$inferSelect;
+export type HuddlePollOption = typeof huddlePollOptions.$inferSelect;
+export type HuddlePollVote = typeof huddlePollVotes.$inferSelect;

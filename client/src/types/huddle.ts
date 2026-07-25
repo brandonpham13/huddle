@@ -126,6 +126,50 @@ export interface ForumReply {
   createdAt: string;
 }
 
+// ── Polls ──────────────────────────────────────────────────────────────────────
+
+export type PollResultsVisibility = "always" | "after_vote" | "after_close";
+
+export interface PollOption {
+  id: string;
+  label: string;
+  /** Vote count, or null when results are hidden from the viewer. */
+  votes: number | null;
+}
+
+export interface Poll {
+  id: string;
+  huddleId: string;
+  topicId: string | null;
+  isDashboardPoll: boolean;
+  authorId: string;
+  question: string;
+  allowMultiple: boolean;
+  allowVoteChanges: boolean;
+  resultsVisibility: PollResultsVisibility;
+  /** ISO 8601 timestamp, or null for a poll that never auto-closes. */
+  closesAt: string | null;
+  /** True once closesAt has passed. Voting is locked once closed. */
+  isClosed: boolean;
+  createdAt: string;
+  options: PollOption[];
+  /** Distinct voters, or null when results are hidden from the viewer. */
+  totalVoters: number | null;
+  /** Option IDs the current user has voted for. */
+  myOptionIds: string[];
+  hasVoted: boolean;
+}
+
+export interface NewPollInput {
+  question: string;
+  options: string[];
+  allowMultiple: boolean;
+  allowVoteChanges: boolean;
+  resultsVisibility: PollResultsVisibility;
+  /** ISO 8601 timestamp, or null for a poll that never auto-closes. */
+  closesAt: string | null;
+}
+
 export interface HuddleAward {
   id: string;
   huddleId: string;

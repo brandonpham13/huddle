@@ -93,6 +93,23 @@ export async function isCommissioner(
   return rows.length > 0;
 }
 
+/** True if the user has an approved team claim in this huddle. Shared gate for
+ * posting/voting-type actions (forum, polls) across services. */
+export async function hasApprovedClaim(huddleId: string, userId: string): Promise<boolean> {
+  const rows = await db
+    .select()
+    .from(teamClaims)
+    .where(
+      and(
+        eq(teamClaims.huddleId, huddleId),
+        eq(teamClaims.userId, userId),
+        eq(teamClaims.status, "approved"),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
 async function commissionerCount(huddleId: string): Promise<number> {
   const rows = await db
     .select({ n: count() })

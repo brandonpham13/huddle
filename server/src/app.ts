@@ -8,6 +8,7 @@ import { initUserRoutes } from "./routes/userRoutes.js";
 import { initHuddleRoutes } from "./routes/huddleRoutes.js";
 import { initSideBetRoutes } from "./routes/sideBetRoutes.js";
 import { initForumRoutes } from "./routes/forumRoutes.js";
+import { initPollRoutes } from "./routes/pollRoutes.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const ICONS_DIR = join(__dirname, "assets", "award-icons");
@@ -22,6 +23,7 @@ initUserRoutes(app);
 initHuddleRoutes(app);
 initSideBetRoutes(app);
 initForumRoutes(app);
+initPollRoutes(app);
 
 /**
  * GET /api/award-icons

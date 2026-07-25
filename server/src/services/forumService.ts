@@ -12,11 +12,11 @@ import { db } from "../db/client.js";
 import {
   huddleForumTopics,
   huddleForumReplies,
-  teamClaims,
   type HuddleForumTopic,
   type HuddleForumReply,
 } from "../db/schema.js";
-import { HuddlesServiceError, isCommissioner } from "./huddlesService.js";
+import { HuddlesServiceError, isCommissioner, hasApprovedClaim } from "./huddlesService.js";
+import { createPoll, type NewPollInput } from "./pollService.js";
 
 const fail = (status: number, message: string): never => {
   throw new HuddlesServiceError(status, message);
@@ -26,21 +26,6 @@ const MAX_TITLE_LEN = 120;
 const MAX_BODY_LEN = 4000;
 const DEFAULT_PAGE_SIZE = 30;
 const MAX_PAGE_SIZE = 50;
-
-async function hasApprovedClaim(huddleId: string, userId: string): Promise<boolean> {
-  const rows = await db
-    .select()
-    .from(teamClaims)
-    .where(
-      and(
-        eq(teamClaims.huddleId, huddleId),
-        eq(teamClaims.userId, userId),
-        eq(teamClaims.status, "approved"),
-      ),
-    )
-    .limit(1);
-  return rows.length > 0;
-}
 
 // ── Queries ────────────────────────────────────────────────────────────────────
 
@@ -109,6 +94,7 @@ export async function createTopic(opts: {
   userId: string;
   title: string;
   body: string;
+  poll?: NewPollInput;
 }): Promise<HuddleForumTopic> {
   if (!(await hasApprovedClaim(opts.huddleId, opts.userId)))
     fail(403, "Only approved members can post to the forum");
@@ -132,6 +118,17 @@ export async function createTopic(opts: {
     .returning();
 
   if (!row) fail(500, "Failed to create topic");
+
+  if (opts.poll) {
+    await createPoll({
+      huddleId: opts.huddleId,
+      authorId: opts.userId,
+      topicId: row!.id,
+      isDashboardPoll: false,
+      ...opts.poll,
+    });
+  }
+
   return row!;
 }
 
