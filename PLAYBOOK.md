@@ -290,9 +290,7 @@ const TABS = [
 </Route>
 ```
 3. **Add a `subItems` array to the item's entry** in `Sidebar.tsx`'s
-   `TOP_NAV_ITEMS`, and set the parent item's own `end: true` (its NavLink
-   now only highlights on the exact index route — the sub-items carry their
-   own highlight state instead):
+   `TOP_NAV_ITEMS`:
 ```tsx
 {
   label: "Schedule",
@@ -305,10 +303,15 @@ const TABS = [
   ],
 },
 ```
-   The rendering, expand/collapse state (`expandedGroups`), and
-   auto-expand-on-matching-route behavior are already generic over
-   `TOP_NAV_ITEMS` — no other `Sidebar.tsx` changes are needed. A group with
-   no `subItems` (e.g. Draft) renders exactly as before.
+   An item with `subItems` renders as a plain toggle `<button>` (no
+   navigation of its own — matching the existing "Teams" disclosure
+   pattern), since its index sub-item already covers that route. `end`
+   on the parent entry is unused in that case but still required by the
+   shared item type; leave it `true`. The rendering, expand/collapse
+   state (`expandedGroups`), and auto-expand-on-matching-route behavior
+   are already generic over `TOP_NAV_ITEMS` — no other `Sidebar.tsx`
+   changes are needed. A group with no `subItems` (e.g. Draft) still
+   renders as a normal `NavLink`.
 
 Reuse this shape rather than inventing a new one when the next section needs
 more than one page.
