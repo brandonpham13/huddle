@@ -16,19 +16,21 @@
  * state (see `renderCollapsed`) — there's plenty of horizontal room in the
  * 16rem drawer.
  *
- * The "Teams" disclosure is a per-league list of every roster, with the
- * user's claimed team pinned to the top. The list is keyed off the
- * currently-selected league (from Redux) and shares its data with the
- * dashboard via TanStack Query's cache.
+ * The "Teams" disclosure (nested under the League item) is a per-league
+ * list of every roster, with the user's claimed team pinned to the top.
+ * The list is keyed off the currently-selected league (from Redux) and
+ * shares its data with the dashboard via TanStack Query's cache.
  *
  * `TOP_NAV_ITEMS` entries can carry an optional `subItems` array (see
- * League, Schedule) to render an expandable group mirroring that section's
- * in-page tab strip (e.g. `ScheduleLayout.tsx`, `LeagueLayout.tsx`) — the two
- * lists aren't derived from one another and must be kept in sync by hand,
- * see PLAYBOOK.md. `expandedGroups` tracks open/closed state per group and
- * auto-expands a group when the current route falls under it.
+ * League, Schedule) to render as an expandable toggle button — no NavLink
+ * of its own, since the group's index sub-item already covers that route
+ * — mirroring that section's in-page tab strip (e.g. `ScheduleLayout.tsx`,
+ * `LeagueLayout.tsx`). The two lists aren't derived from one another and
+ * must be kept in sync by hand, see PLAYBOOK.md. `expandedGroups` tracks
+ * open/closed state per group and auto-expands a group when the current
+ * route falls under it. An item with no `subItems` (e.g. Home, Draft)
+ * renders as a normal `NavLink`.
  *
-
  * The mobile-only footer at the bottom mirrors the items hidden from
  * AppShell's top nav at `<sm` (Leagues link, Account button), so the user
  * still has reach to them when those labels are clipped from the top bar.
@@ -237,12 +239,24 @@ export function Sidebar({
             const isExpanded = expandedGroups.has(label);
             return (
               <div key={to}>
-                <div className="flex items-center gap-0.5">
+                {subItems ? (
+                  <button
+                    onClick={() => !renderCollapsed && toggleGroup(label)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-muted hover:bg-highlight hover:text-ink transition-colors ${renderCollapsed ? "justify-center" : "justify-between"}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon size={16} className="shrink-0" />
+                      {!renderCollapsed && <span>{label}</span>}
+                    </div>
+                    {!renderCollapsed &&
+                      (isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
+                  </button>
+                ) : (
                   <NavLink
                     to={to}
                     end={end}
                     className={({ isActive }) =>
-                      `flex-1 flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
+                      `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
                     ${
                       isActive
                         ? "bg-highlight text-ink"
@@ -255,16 +269,7 @@ export function Sidebar({
                     <Icon size={16} className="shrink-0" />
                     {!renderCollapsed && <span>{label}</span>}
                   </NavLink>
-                  {subItems && !renderCollapsed && (
-                    <button
-                      onClick={() => toggleGroup(label)}
-                      className="px-3 py-2 rounded-md text-muted hover:bg-highlight hover:text-ink transition-colors"
-                      aria-label={isExpanded ? `Collapse ${label}` : `Expand ${label}`}
-                    >
-                      {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                    </button>
-                  )}
-                </div>
+                )}
 
                 {subItems && !renderCollapsed && isExpanded && (
                   <div className="mt-0.5 ml-2 flex flex-col gap-0.5">
