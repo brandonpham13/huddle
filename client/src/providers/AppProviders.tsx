@@ -60,7 +60,7 @@ export function AppProviders({ children }: AppProvidersProps) {
         <Provider store={store}>
           <QueryClientProvider client={queryClient}>
             <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
-            <ReactQueryDevtools initialIsOpen={false} />
+            <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
           </QueryClientProvider>
         </Provider>
       </ClerkProvider>
