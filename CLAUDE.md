@@ -17,14 +17,18 @@ npm run dev --prefix client          # client only
 npm run build --prefix server        # tsc -> server/bin/
 npm run build --prefix client        # tsc + vite -> client/bin/
 
-npm run db:push --prefix server      # push Drizzle schema to Neon
+npm run db:push --prefix server      # push Drizzle schema to Neon (scratch DBs only, never prod/dev)
 npm run db:generate --prefix server  # generate a migration into server/drizzle/
 npm run db:studio --prefix server    # Drizzle Studio
+npm run db:migrate --prefix server       # apply pending migrations to the dev DB (local .env)
+npm run db:migrate:prod --prefix server  # apply pending migrations to prod (server/.env.production, gitignored)
 ```
 
 There is no test runner configured (`client/src/setupTests.ts` is a leftover). Verify changes by running the app.
 
-Env vars live in a **single root `.env`** — not in `client/` or `server/`. Vite reads it via `envDir: '../'`; the server via `node --env-file=../.env`; Drizzle via `dotenv-cli`. Required: `VITE_CLERK_PUBLISHABLE_KEY`, `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `DATABASE_URL`.
+Env vars live in a **single root `.env`** for local dev — not in `client/` or `server/`. Vite reads it via `envDir: '../'`; the server via `node --env-file=../.env`; Drizzle via `dotenv-cli`. Required: `VITE_CLERK_PUBLISHABLE_KEY`, `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `DATABASE_URL`.
+
+**`.env` is gitignored and never reaches Vercel** — `api/index.ts` (the Vercel serverless function) reads `process.env` directly with no dotenv loading, so production gets its env vars entirely from Vercel's own Project Settings → Environment Variables (scoped per environment: Production / Preview / Development). As of 2026-08, local `.env` points at a dev/test Neon database (safe to fill with dummy records); Vercel's **Production** environment points at a separate Neon database (a schema-only branch of the dev one) reserved for real user data — see PLAYBOOK's "Database changes" section for the two-database workflow this implies. Clerk is still on one shared instance for both; splitting it into a separate production instance is a planned follow-up, not yet done.
 
 ## Architecture
 

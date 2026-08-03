@@ -473,21 +473,27 @@ User metadata flows: **Clerk `unsafeMetadata` → `AuthGuard` → Redux `auth` s
 
 `schema.ts` is the source of truth. The running app reads it directly — Drizzle's query builder never looks at `drizzle/`. Migrations exist only to move an *existing* database from one state to the next.
 
-> **The prod database is the one in your root `.env`.** There is no staging. Applying a migration locally *is* a production schema change — land schema changes before the code that depends on them.
+> **Two databases as of 2026-08.** Local `.env`'s `DATABASE_URL` points at a dev/test Neon database — free to fill with dummy records. Vercel's **Production** environment variable (set in Vercel's dashboard, not in `.env` — see CLAUDE.md) points at a separate Neon database (a schema-only branch of the dev one) that holds real user data. `.env` never reaches Vercel, so these two are only ever kept in sync by deliberately applying the same migration to both — there's no automatic replication between them (schema-only branches are independent root branches in Neon, with no parent/child "reset" relationship). Every schema change below needs to be applied against **both** connection strings.
 
 ### The loop
 
 1. Edit `server/src/db/schema.ts`.
 2. `npm run db:generate --prefix server` — writes a new `.sql` **and** updates `drizzle/meta/`.
 3. **Read the generated SQL.** Drizzle guesses, and its guesses can be destructive (see below). This review is the whole point of the generate workflow.
-4. Apply it: `psql "$DATABASE_URL" -f server/drizzle/<file>.sql`
-5. Commit the `.sql` and `meta/` **together, in the same commit.** They are one unit.
+4. Apply it to the dev DB: `npm run db:migrate --prefix server`.
+5. Apply the same migration to the production DB: `npm run db:migrate:prod --prefix server`. Do this deliberately, ideally right after step 4 while the change is fresh — a schema drifting out of sync between the two is the main risk this workflow introduces.
+6. Commit the `.sql` and `meta/` **together, in the same commit.** They are one unit.
+
+Both `db:migrate` commands are thin wrappers around Drizzle's own migration runner (`server/scripts/migrate.mjs`), which tracks what's already been applied *per database* in a `drizzle.__drizzle_migrations` table — so each command only runs whatever's new since the last time you ran it against that particular database, and is safe to re-run (a no-op if nothing's pending). `db:migrate` uses local `.env` (dev DB); `db:migrate:prod` uses `server/.env.production` — a gitignored, local-only file holding the prod connection string, never committed and never touching Vercel. If that file doesn't exist on your machine, create it with a single `DATABASE_URL=...` line (the prod connection string, from Vercel's dashboard).
+
+This replaces the old `psql -f ...` workflow — no `psql` install required, and no manual bookkeeping of which files have already been run against which database.
 
 ### Rules
 
 - **Never hand-write a migration.** A hand-written file doesn't update the snapshot, so the next `db:generate` diffs against a lie. This is exactly how the meta went stale before the 2026-07-21 re-baseline. If you dislike the generated SQL, edit the generated file — the snapshot still gets written correctly.
 - **Never `db:push` against prod.** Push skips migrations and doesn't update the snapshot, reintroducing drift. It's fine against a scratch database; just don't mix push and generate on the same one.
 - **Never run `0000_baseline.sql` against prod.** It describes the full current schema for provisioning empty databases only. Pre-baseline migrations are in `drizzle/archive/` for history.
+- **`db:migrate`/`db:migrate:prod` decide what's "new" by comparing migration timestamps to the latest row in `drizzle.__drizzle_migrations`** — if that table's history ever looks wrong (e.g. a migration applied out of band, bypassing the script), fix the table directly rather than letting the next run guess. Both the dev and prod databases were "baselined" (given a row per pre-existing migration, without re-running the SQL) when this tooling was introduced in 2026-08 — see git history on `server/scripts/migrate.mjs` if you need to do that again for a fresh database.
 
 ### Sharp edges
 

@@ -8,7 +8,9 @@
     "dev": "tsc -p . && node --env-file=../.env ./bin/server.js",
     "db:generate": "dotenv -e ../.env -- drizzle-kit generate",
     "db:push": "dotenv -e ../.env -- drizzle-kit push",
-    "db:studio": "dotenv -e ../.env -- drizzle-kit studio"
+    "db:studio": "dotenv -e ../.env -- drizzle-kit studio",
+    "db:migrate": "dotenv -e ../.env -- node scripts/migrate.mjs",
+    "db:migrate:prod": "dotenv -e .env.production -- node scripts/migrate.mjs"
   },
   "dependencies": {
     "@clerk/express": "^1.7.0",
