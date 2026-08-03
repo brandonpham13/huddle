@@ -28,6 +28,8 @@ import {
   useHuddlePendingClaims,
   useDecideClaim,
   useRotateInviteCode,
+  useGenerateInviteLink,
+  useRevokeInviteLink,
   useAddCommissioner,
   useRemoveCommissioner,
   useDeleteHuddle,
@@ -368,6 +370,120 @@ function InviteCodePanel({
       {rotate.isError && (
         <p className="text-[11.5px] text-red-600 font-sans">
           {(rotate.error as Error).message}
+        </p>
+      )}
+    </Panel>
+  );
+}
+
+function InviteLinkPanel({
+  huddleId,
+  inviteLinkToken,
+  inviteLinkExpiresAt,
+}: {
+  huddleId: string;
+  inviteLinkToken?: string | null;
+  inviteLinkExpiresAt?: string | null;
+}) {
+  const generate = useGenerateInviteLink();
+  const revoke = useRevokeInviteLink();
+  const [copied, setCopied] = useState(false);
+  const [confirmingRegenerate, setConfirmingRegenerate] = useState(false);
+  const [confirmingRevoke, setConfirmingRevoke] = useState(false);
+
+  const token = generate.data?.inviteLinkToken ?? inviteLinkToken;
+  const expiresAt = generate.data?.inviteLinkExpiresAt ?? inviteLinkExpiresAt;
+  const hasActiveLink = !!token && !!expiresAt && new Date(expiresAt).getTime() > Date.now();
+  const link = token ? `${window.location.origin}/invite/${token}` : null;
+
+  const handleCopy = () => {
+    if (link) {
+      navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <Panel>
+      <PanelHeader
+        title="Invite link"
+        description="A temporary, shareable link that walks new members through sign-up and straight to claiming their team. Expires automatically after 7 days."
+      />
+      {hasActiveLink && link ? (
+        <>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 truncate bg-highlight border border-line rounded-md py-2.5 px-3 font-mono text-[12px] text-ink">
+              {link}
+            </div>
+            <Btn onClick={handleCopy} className="px-4 py-2.5">
+              {copied ? "Copied!" : "Copy"}
+            </Btn>
+          </div>
+          <p className="text-[11px] text-muted font-sans">
+            Expires {new Date(expiresAt!).toLocaleString()}
+          </p>
+        </>
+      ) : (
+        <p className="text-[12px] text-muted font-sans">No active invite link.</p>
+      )}
+
+      {!confirmingRegenerate && !confirmingRevoke && (
+        <div className="flex gap-2">
+          <Btn onClick={() => setConfirmingRegenerate(true)}>
+            {hasActiveLink ? "Regenerate…" : "Generate link"}
+          </Btn>
+          {hasActiveLink && <Btn onClick={() => setConfirmingRevoke(true)}>Revoke</Btn>}
+        </div>
+      )}
+
+      {confirmingRegenerate && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-3 flex flex-col gap-2">
+          <p className="text-[12px] text-amber-800 dark:text-amber-300 font-sans">
+            {hasActiveLink
+              ? "The old link stops working immediately. Continue?"
+              : "Generate a new invite link?"}
+          </p>
+          <div className="flex gap-2">
+            <Btn onClick={() => setConfirmingRegenerate(false)} disabled={generate.isPending}>
+              Cancel
+            </Btn>
+            <BtnPrimary
+              onClick={() =>
+                generate.mutate({ huddleId }, { onSuccess: () => setConfirmingRegenerate(false) })
+              }
+              disabled={generate.isPending}
+            >
+              {generate.isPending ? "Generating…" : "Yes, generate"}
+            </BtnPrimary>
+          </div>
+        </div>
+      )}
+
+      {confirmingRevoke && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-3 flex flex-col gap-2">
+          <p className="text-[12px] text-amber-800 dark:text-amber-300 font-sans">
+            This link stops working immediately. Continue?
+          </p>
+          <div className="flex gap-2">
+            <Btn onClick={() => setConfirmingRevoke(false)} disabled={revoke.isPending}>
+              Cancel
+            </Btn>
+            <BtnPrimary
+              onClick={() =>
+                revoke.mutate({ huddleId }, { onSuccess: () => setConfirmingRevoke(false) })
+              }
+              disabled={revoke.isPending}
+            >
+              {revoke.isPending ? "Revoking…" : "Yes, revoke"}
+            </BtnPrimary>
+          </div>
+        </div>
+      )}
+
+      {(generate.isError || revoke.isError) && (
+        <p className="text-[11.5px] text-red-600 font-sans">
+          {((generate.error ?? revoke.error) as Error).message}
         </p>
       )}
     </Panel>
@@ -1906,6 +2022,13 @@ export function CommissionerPage() {
                   <InviteCodePanel
                     huddleId={huddle.id}
                     inviteCode={detail.huddle.inviteCode}
+                  />
+                </div>
+                <div className="break-inside-avoid mb-5">
+                  <InviteLinkPanel
+                    huddleId={huddle.id}
+                    inviteLinkToken={detail.huddle.inviteLinkToken}
+                    inviteLinkExpiresAt={detail.huddle.inviteLinkExpiresAt}
                   />
                 </div>
                 <div className="break-inside-avoid mb-5">

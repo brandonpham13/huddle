@@ -18,6 +18,7 @@ import type {
   DuesPayment,
   DuesResponse,
   CountdownConfig,
+  InviteLinkHuddle,
 } from "../types/huddle";
 
 function authHeader(token: string | null): Record<string, string> {
@@ -242,6 +243,66 @@ export function useRotateInviteCode() {
       queryClient.invalidateQueries({ queryKey: ["huddle", huddle.id] });
       queryClient.invalidateQueries({ queryKey: ["huddles"] });
     },
+  });
+}
+
+export function useGenerateInviteLink() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { huddleId: string }) => {
+      const token = await getToken();
+      try {
+        const res = await axios.post<{ huddle: Huddle }>(
+          `/api/huddles/${input.huddleId}/invite-link`,
+          {},
+          { headers: authHeader(token) },
+        );
+        return res.data.huddle;
+      } catch (err) {
+        throw new Error(errorMessage(err, "Failed to generate invite link"));
+      }
+    },
+    onSuccess: (huddle) => {
+      queryClient.invalidateQueries({ queryKey: ["huddle", huddle.id] });
+      queryClient.invalidateQueries({ queryKey: ["huddles"] });
+    },
+  });
+}
+
+export function useRevokeInviteLink() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { huddleId: string }) => {
+      const token = await getToken();
+      try {
+        const res = await axios.delete<{ huddle: Huddle }>(
+          `/api/huddles/${input.huddleId}/invite-link`,
+          { headers: authHeader(token) },
+        );
+        return res.data.huddle;
+      } catch (err) {
+        throw new Error(errorMessage(err, "Failed to revoke invite link"));
+      }
+    },
+    onSuccess: (huddle) => {
+      queryClient.invalidateQueries({ queryKey: ["huddle", huddle.id] });
+      queryClient.invalidateQueries({ queryKey: ["huddles"] });
+    },
+  });
+}
+
+/** Public lookup for the /invite/:token landing page — no auth required. */
+export function useInviteLinkLookup(token: string | null) {
+  return useQuery({
+    queryKey: ["invite-link", token],
+    queryFn: async () => {
+      const res = await axios.get<{ huddle: InviteLinkHuddle }>(`/api/invite-links/${token}`);
+      return res.data.huddle;
+    },
+    enabled: !!token,
+    retry: false,
   });
 }
 

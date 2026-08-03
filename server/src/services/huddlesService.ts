@@ -510,6 +510,58 @@ export async function rotateInviteCode(opts: {
   return updated!;
 }
 
+// ---- Invite link ----
+
+const INVITE_LINK_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function generateInviteLinkToken(): string {
+  return randomBytes(24).toString("base64url");
+}
+
+export async function generateInviteLink(opts: {
+  huddleId: string;
+  userId: string;
+}): Promise<Huddle> {
+  if (!(await isCommissioner(opts.huddleId, opts.userId)))
+    fail(403, "Only a commissioner can generate an invite link");
+
+  const token = generateInviteLinkToken();
+  const [updated] = await db
+    .update(huddles)
+    .set({
+      inviteLinkToken: token,
+      inviteLinkExpiresAt: new Date(Date.now() + INVITE_LINK_TTL_MS),
+      updatedAt: new Date(),
+    })
+    .where(eq(huddles.id, opts.huddleId))
+    .returning();
+  if (!updated) fail(500, "Failed to generate invite link");
+  return updated!;
+}
+
+export async function revokeInviteLink(opts: { huddleId: string; userId: string }): Promise<Huddle> {
+  if (!(await isCommissioner(opts.huddleId, opts.userId)))
+    fail(403, "Only a commissioner can revoke the invite link");
+
+  const [updated] = await db
+    .update(huddles)
+    .set({ inviteLinkToken: null, inviteLinkExpiresAt: null, updatedAt: new Date() })
+    .where(eq(huddles.id, opts.huddleId))
+    .returning();
+  if (!updated) fail(500, "Failed to revoke invite link");
+  return updated!;
+}
+
+/** Resolves a token to its huddle, or null if missing/expired — expired is
+ * treated the same as not-found, no reason to distinguish for the caller. */
+export async function getHuddleByInviteLinkToken(token: string): Promise<Huddle | null> {
+  const rows = await db.select().from(huddles).where(eq(huddles.inviteLinkToken, token)).limit(1);
+  const huddle = rows[0];
+  if (!huddle) return null;
+  if (!huddle.inviteLinkExpiresAt || huddle.inviteLinkExpiresAt.getTime() <= Date.now()) return null;
+  return huddle;
+}
+
 export async function deleteHuddle(opts: {
   huddleId: string;
   userId: string;

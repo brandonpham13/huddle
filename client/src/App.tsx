@@ -9,6 +9,7 @@
  *
  * Public routes (no auth required):
  *   - `/sign-in/*`, `/sign-up/*` — Clerk's hosted auth pages
+ *   - `/invite/:token` — shareable, temporary invite link landing page
  *
  * `RootRoute` (mounted at `/`) decides where to send a signed-in user:
  * usually `DashboardPage` inside AppShell, but it can also bounce to
@@ -30,6 +31,7 @@ import { AppShell } from "./components/AppShell";
 import { AccountModalProvider } from "./components/AccountModal";
 import { SignInPage } from "./pages/SignInPage";
 import { SignUpPage } from "./pages/SignUpPage";
+import { InviteLinkPage } from "./pages/InviteLinkPage";
 import { LeaguesPage } from "./pages/LeaguesPage";
 import { TeamPage } from "./pages/TeamPage";
 import { LeaguePage } from "./pages/LeaguePage";
@@ -54,6 +56,7 @@ export default function App() {
         <Routes>
           <Route path="/sign-in/*" element={<SignInPage />} />
           <Route path="/sign-up/*" element={<SignUpPage />} />
+          <Route path="/invite/:token" element={<InviteLinkPage />} />
           <Route path="/" element={<RootRoute />} />
           {/* Account/settings are surfaced via the AccountModal now;
               redirect any lingering deep links back to the dashboard. */}
