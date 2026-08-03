@@ -32,6 +32,7 @@ import { AccountModalProvider } from "./components/AccountModal";
 import { SignInPage } from "./pages/SignInPage";
 import { SignUpPage } from "./pages/SignUpPage";
 import { InviteLinkPage } from "./pages/InviteLinkPage";
+import { AlphaBadge } from "./components/AlphaBadge";
 import { LeaguesPage } from "./pages/LeaguesPage";
 import { TeamPage } from "./pages/TeamPage";
 import { LeaguePage } from "./pages/LeaguePage";
@@ -94,6 +95,7 @@ export default function App() {
             <Route path="/side-bets" element={<SideBetsPage />} />
           </Route>
         </Routes>
+        <AlphaBadge />
       </AccountModalProvider>
     </BrowserRouter>
   );
