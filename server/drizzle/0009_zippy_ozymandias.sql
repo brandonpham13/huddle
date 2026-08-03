@@ -1,0 +1,1 @@
+ALTER TABLE "huddle_surveys" ADD COLUMN "auto_publish_on_close" boolean DEFAULT false NOT NULL;

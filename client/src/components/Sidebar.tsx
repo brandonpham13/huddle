@@ -70,6 +70,7 @@ const TOP_NAV_ITEMS = [
     subItems: [
       { label: "Overview", to: "/league", end: true },
       { label: "Forum", to: "/league/forum", end: false },
+      { label: "Surveys", to: "/league/surveys", end: false },
     ],
   },
   {

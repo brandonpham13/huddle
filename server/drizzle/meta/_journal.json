@@ -50,6 +50,27 @@
       "when": 1784937060136,
       "tag": "0006_previous_nicolaos",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785778312765,
+      "tag": "0007_wooden_wrecker",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785781177585,
+      "tag": "0008_black_hitman",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785782904747,
+      "tag": "0009_zippy_ozymandias",
+      "breakpoints": true
     }
   ]
 }

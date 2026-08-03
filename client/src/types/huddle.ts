@@ -170,6 +170,115 @@ export interface NewPollInput {
   closesAt: string | null;
 }
 
+// ── Surveys ──────────────────────────────────────────────────────────────────
+
+export type SurveyQuestionType = "short_text" | "paragraph" | "multiple_choice" | "checkboxes";
+
+export interface SurveyOption {
+  id: string;
+  label: string;
+}
+
+export interface SurveyQuestion {
+  id: string;
+  type: SurveyQuestionType;
+  prompt: string;
+  required: boolean;
+  /** Empty for short_text / paragraph questions. */
+  options: SurveyOption[];
+}
+
+/**
+ * Whether a text answer's respondent is shown alongside their answer:
+ *   - "none": always shown.
+ *   - "anonymous_to_league": shown to the commissioner, hidden from everyone
+ *     else (i.e. once results are published).
+ *   - "anonymous_to_all": always hidden, even from the commissioner.
+ */
+export type SurveyAnonymity = "none" | "anonymous_to_league" | "anonymous_to_all";
+
+export interface SurveySummary {
+  id: string;
+  huddleId: string;
+  authorId: string;
+  title: string;
+  description: string | null;
+  closesAt: string;
+  isClosed: boolean;
+  resultsPublished: boolean;
+  anonymity: SurveyAnonymity;
+  autoPublishOnClose: boolean;
+  responseCount: number;
+  hasResponded: boolean;
+  createdAt: string;
+}
+
+export interface SurveyAnswer {
+  questionId: string;
+  textValue: string | null;
+  optionIds: string[];
+}
+
+export interface SurveyDetail {
+  id: string;
+  huddleId: string;
+  authorId: string;
+  title: string;
+  description: string | null;
+  closesAt: string;
+  isClosed: boolean;
+  resultsPublished: boolean;
+  anonymity: SurveyAnonymity;
+  autoPublishOnClose: boolean;
+  createdAt: string;
+  questions: SurveyQuestion[];
+  /** The caller's own answers, or null if they haven't responded yet. */
+  myAnswers: SurveyAnswer[] | null;
+}
+
+export interface SurveyResultsQuestion {
+  questionId: string;
+  prompt: string;
+  type: SurveyQuestionType;
+  optionCounts: { optionId: string; label: string; count: number }[];
+  /** userId is null when anonymity hides the respondent from the viewer. */
+  textAnswers: { userId: string | null; textValue: string }[];
+}
+
+export interface SurveyResults {
+  surveyId: string;
+  totalResponses: number;
+  questions: SurveyResultsQuestion[];
+}
+
+export interface NewSurveyQuestionInput {
+  /** Set when editing an existing question, so the server can preserve its
+   * already-collected answers instead of treating it as a new question. */
+  id?: string;
+  type: SurveyQuestionType;
+  prompt: string;
+  required: boolean;
+  /** Choice labels — only used for multiple_choice / checkboxes. */
+  options: string[];
+}
+
+export interface NewSurveyInput {
+  title: string;
+  description: string | null;
+  /** ISO 8601 timestamp. Must be in the future. */
+  closesAt: string;
+  anonymity: SurveyAnonymity;
+  /** If true, resultsPublished auto-flips to true once the survey closes. */
+  autoPublishOnClose: boolean;
+  questions: NewSurveyQuestionInput[];
+}
+
+export interface SurveyAnswerInput {
+  questionId: string;
+  textValue?: string;
+  optionIds?: string[];
+}
+
 export interface HuddleAward {
   id: string;
   huddleId: string;

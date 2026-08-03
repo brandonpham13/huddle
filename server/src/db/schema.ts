@@ -459,3 +459,168 @@ export const huddlePollVotes = pgTable(
 export type HuddlePoll = typeof huddlePolls.$inferSelect;
 export type HuddlePollOption = typeof huddlePollOptions.$inferSelect;
 export type HuddlePollVote = typeof huddlePollVotes.$inferSelect;
+
+// ── Surveys ───────────────────────────────────────────────────────────────────
+// A commissioner-authored, multi-question form (short/long text or
+// single/multi-select), scoped to a huddle. Modeled as "a poll with several
+// questions": huddleSurveyOptions plays the role of huddlePollOptions, and
+// huddleSurveyAnswerOptions plays the role of huddlePollVotes (one row per
+// selected option). Text-type answers live in the separate huddleSurveyAnswers
+// table since they don't reference an option row.
+//
+// Each member gets at most one huddleSurveyResponses row per survey; editing
+// a response deletes and reinserts its answers (see surveyService.submitResponse),
+// mirroring pollService.castVote. Editing is only allowed before closesAt.
+
+export const surveyQuestionType = pgEnum("survey_question_type", [
+  "short_text",
+  "paragraph",
+  "multiple_choice",
+  "checkboxes",
+]);
+
+/**
+ * Controls whether a text answer's respondent is attached when results are
+ * read — see surveyService.getResults for where this is enforced:
+ *   - "none": always attributed.
+ *   - "anonymous_to_league": attributed for the commissioner, stripped for
+ *     everyone else (i.e. once results are published).
+ *   - "anonymous_to_all": always stripped, even for the commissioner.
+ */
+export const surveyAnonymity = pgEnum("survey_anonymity", [
+  "none",
+  "anonymous_to_league",
+  "anonymous_to_all",
+]);
+
+export const huddleSurveys = pgTable(
+  "huddle_surveys",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    huddleId: uuid("huddle_id")
+      .notNull()
+      .references(() => huddles.id, { onDelete: "cascade" }),
+    authorId: text("author_id").notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    /** Responses can no longer be submitted or edited once this passes. */
+    closesAt: timestamp("closes_at", { withTimezone: true }).notNull(),
+    /** Commissioner-controlled: whether members can see aggregated results. */
+    resultsPublished: boolean("results_published").notNull().default(false),
+    /** If true, resultsPublished is flipped to true the first time the survey is read after closesAt passes. */
+    autoPublishOnClose: boolean("auto_publish_on_close").notNull().default(false),
+    anonymity: surveyAnonymity("anonymity").notNull().default("none"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    byHuddleActivity: index("huddle_surveys_huddle_created_idx").on(t.huddleId, t.createdAt),
+  }),
+);
+
+export const huddleSurveyQuestions = pgTable(
+  "huddle_survey_questions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    surveyId: uuid("survey_id")
+      .notNull()
+      .references(() => huddleSurveys.id, { onDelete: "cascade" }),
+    type: surveyQuestionType("type").notNull(),
+    prompt: text("prompt").notNull(),
+    required: boolean("required").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => ({
+    bySurvey: index("huddle_survey_questions_survey_idx").on(t.surveyId, t.sortOrder),
+  }),
+);
+
+/** Choices for multiple_choice / checkboxes questions. */
+export const huddleSurveyOptions = pgTable(
+  "huddle_survey_options",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    questionId: uuid("question_id")
+      .notNull()
+      .references(() => huddleSurveyQuestions.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => ({
+    byQuestion: index("huddle_survey_options_question_idx").on(t.questionId),
+  }),
+);
+
+export const huddleSurveyResponses = pgTable(
+  "huddle_survey_responses",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    surveyId: uuid("survey_id")
+      .notNull()
+      .references(() => huddleSurveys.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    uniqSurveyUser: uniqueIndex("huddle_survey_responses_survey_user_uniq").on(
+      t.surveyId,
+      t.userId,
+    ),
+  }),
+);
+
+/** short_text / paragraph answers — one row per question per response. */
+export const huddleSurveyAnswers = pgTable(
+  "huddle_survey_answers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    responseId: uuid("response_id")
+      .notNull()
+      .references(() => huddleSurveyResponses.id, { onDelete: "cascade" }),
+    questionId: uuid("question_id")
+      .notNull()
+      .references(() => huddleSurveyQuestions.id, { onDelete: "cascade" }),
+    textValue: text("text_value").notNull(),
+  },
+  (t) => ({
+    byResponse: index("huddle_survey_answers_response_idx").on(t.responseId),
+    byQuestion: index("huddle_survey_answers_question_idx").on(t.questionId),
+  }),
+);
+
+/** multiple_choice / checkboxes answers — one row per selected option. */
+export const huddleSurveyAnswerOptions = pgTable(
+  "huddle_survey_answer_options",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    responseId: uuid("response_id")
+      .notNull()
+      .references(() => huddleSurveyResponses.id, { onDelete: "cascade" }),
+    questionId: uuid("question_id")
+      .notNull()
+      .references(() => huddleSurveyQuestions.id, { onDelete: "cascade" }),
+    optionId: uuid("option_id")
+      .notNull()
+      .references(() => huddleSurveyOptions.id, { onDelete: "cascade" }),
+  },
+  (t) => ({
+    byQuestion: index("huddle_survey_answer_options_question_idx").on(t.questionId),
+    uniqResponseOption: uniqueIndex("huddle_survey_answer_options_response_option_uniq").on(
+      t.responseId,
+      t.optionId,
+    ),
+  }),
+);
+
+export type HuddleSurvey = typeof huddleSurveys.$inferSelect;
+export type HuddleSurveyQuestion = typeof huddleSurveyQuestions.$inferSelect;
+export type HuddleSurveyOption = typeof huddleSurveyOptions.$inferSelect;
+export type HuddleSurveyResponse = typeof huddleSurveyResponses.$inferSelect;
+export type HuddleSurveyAnswer = typeof huddleSurveyAnswers.$inferSelect;
+export type HuddleSurveyAnswerOption = typeof huddleSurveyAnswerOptions.$inferSelect;
