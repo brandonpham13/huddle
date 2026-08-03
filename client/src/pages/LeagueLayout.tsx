@@ -9,6 +9,7 @@ import { NavLink, Outlet } from "react-router-dom";
 const TABS = [
   { to: "/league", label: "Overview", end: true },
   { to: "/league/forum", label: "Forum", end: false },
+  { to: "/league/surveys", label: "Surveys", end: false },
 ];
 
 export function LeagueLayout() {

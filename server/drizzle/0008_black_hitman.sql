@@ -1,0 +1,2 @@
+CREATE TYPE "public"."survey_anonymity" AS ENUM('none', 'anonymous_to_league', 'anonymous_to_all');--> statement-breakpoint
+ALTER TABLE "huddle_surveys" ADD COLUMN "anonymity" "survey_anonymity" DEFAULT 'none' NOT NULL;

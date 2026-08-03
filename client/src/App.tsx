@@ -36,6 +36,9 @@ import { LeaguePage } from "./pages/LeaguePage";
 import { LeagueLayout } from "./pages/LeagueLayout";
 import { ForumPage } from "./pages/ForumPage";
 import { ForumTopicPage } from "./pages/ForumTopicPage";
+import { SurveysPage } from "./pages/SurveysPage";
+import { SurveyBuilderPage } from "./pages/SurveyBuilderPage";
+import { SurveyDetailPage } from "./pages/SurveyDetailPage";
 import { SchedulePage } from "./pages/SchedulePage";
 import { ScheduleLayout } from "./pages/ScheduleLayout";
 import { ScheduleGeneratorPage } from "./pages/ScheduleGeneratorPage";
@@ -71,6 +74,10 @@ export default function App() {
               <Route index element={<LeaguePage />} />
               <Route path="forum" element={<ForumPage />} />
               <Route path="forum/:topicId" element={<ForumTopicPage />} />
+              <Route path="surveys" element={<SurveysPage />} />
+              <Route path="surveys/new" element={<SurveyBuilderPage />} />
+              <Route path="surveys/:surveyId" element={<SurveyDetailPage />} />
+              <Route path="surveys/:surveyId/edit" element={<SurveyBuilderPage />} />
             </Route>
             <Route path="/schedule" element={<ScheduleLayout />}>
               <Route index element={<SchedulePage />} />
