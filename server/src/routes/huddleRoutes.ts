@@ -10,8 +10,10 @@ import {
   deleteAnnouncement,
   deleteHuddle,
   forceRemoveClaim,
+  generateInviteLink,
   getHuddle,
   getHuddleByInviteCode,
+  getHuddleByInviteLinkToken,
   isCommissioner,
   listAnnouncements,
   listClaimsForHuddle,
@@ -19,6 +21,7 @@ import {
   listHuddlesForUser,
   linkLeague,
   removeCommissioner,
+  revokeInviteLink,
   rotateInviteCode,
   submitClaim,
   unclaimTeam,
@@ -94,6 +97,8 @@ function serializeHuddle(
     name: string;
     inviteCode: string;
     inviteCodeUpdatedAt: Date;
+    inviteLinkToken: string | null;
+    inviteLinkExpiresAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
   },
@@ -105,7 +110,12 @@ function serializeHuddle(
     leagueId: h.leagueId,
     name: h.name,
     ...(includeCode
-      ? { inviteCode: h.inviteCode, inviteCodeUpdatedAt: h.inviteCodeUpdatedAt }
+      ? {
+          inviteCode: h.inviteCode,
+          inviteCodeUpdatedAt: h.inviteCodeUpdatedAt,
+          inviteLinkToken: h.inviteLinkToken,
+          inviteLinkExpiresAt: h.inviteLinkExpiresAt,
+        }
       : {}),
     createdAt: h.createdAt,
     updatedAt: h.updatedAt,
@@ -526,6 +536,61 @@ export function initHuddleRoutes(app: Express) {
           userId: userId!,
         });
         res.json({ huddle: serializeHuddle(huddle, true) });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // POST /api/huddles/:id/invite-link — commissioner only, generates/replaces the active link
+  app.post(
+    "/api/huddles/:id/invite-link",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        const huddle = await generateInviteLink({
+          huddleId: req.params.id!,
+          userId: userId!,
+        });
+        res.json({ huddle: serializeHuddle(huddle, true) });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // DELETE /api/huddles/:id/invite-link — commissioner only
+  app.delete(
+    "/api/huddles/:id/invite-link",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      try {
+        const { userId } = getAuth(req);
+        const huddle = await revokeInviteLink({
+          huddleId: req.params.id!,
+          userId: userId!,
+        });
+        res.json({ huddle: serializeHuddle(huddle, true) });
+      } catch (err) {
+        handleError(err, res);
+      }
+    },
+  );
+
+  // GET /api/invite-links/:token — public, no auth. Resolves a shareable
+  // invite link to the huddle it points at, for the /invite/:token landing
+  // page. Deliberately minimal: just enough to select the league client-side.
+  app.get(
+    "/api/invite-links/:token",
+    async (req: Request, res: Response) => {
+      try {
+        const huddle = await getHuddleByInviteLinkToken(req.params.token!);
+        if (!huddle) {
+          res.status(404).json({ error: "This invite link is invalid or has expired" });
+          return;
+        }
+        res.json({ huddle: { id: huddle.id, name: huddle.name, leagueId: huddle.leagueId } });
       } catch (err) {
         handleError(err, res);
       }

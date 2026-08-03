@@ -8,9 +8,19 @@ export interface Huddle {
   name: string;
   inviteCode?: string;
   inviteCodeUpdatedAt?: string;
+  /** Present only for commissioners; null when no invite link is active. */
+  inviteLinkToken?: string | null;
+  inviteLinkExpiresAt?: string | null;
   createdAt: string;
   updatedAt: string;
   myStatus?: HuddleMemberStatus;
+}
+
+/** Minimal public shape returned by GET /api/invite-links/:token. */
+export interface InviteLinkHuddle {
+  id: string;
+  name: string;
+  leagueId: string | null;
 }
 
 export interface UserSummary {

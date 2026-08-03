@@ -31,6 +31,10 @@ export const huddles = pgTable(
     })
       .defaultNow()
       .notNull(),
+    /** Null when no invite link is active. Regenerating overwrites both
+     * columns (implicitly revoking the previous link), mirroring inviteCode. */
+    inviteLinkToken: text("invite_link_token"),
+    inviteLinkExpiresAt: timestamp("invite_link_expires_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -40,6 +44,7 @@ export const huddles = pgTable(
   },
   (t) => ({
     uniqInviteCode: uniqueIndex("huddles_invite_code_uniq").on(t.inviteCode),
+    uniqInviteLinkToken: uniqueIndex("huddles_invite_link_token_uniq").on(t.inviteLinkToken),
   }),
 );
 
